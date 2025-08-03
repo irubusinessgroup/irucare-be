@@ -1,0 +1,480 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  password           String
+  firstName          String
+  lastName           String
+  phoneNumber        String         @default("0781234568")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  otp                String?
+  otpExpiresAt       DateTime? 
+  photo              String         @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
+  userRoles          UserRole[]
+  likes              Likes[]  
+  testimonials       Testimony[]
+  agents              Agents[]
+  company            CompanyUser?
+
+
+}
+
+
+
+enum RoleType {
+  ADMIN
+  AGENT
+  COMPANY_ADMIN
+  COMPANY_USER
+  DEVELOPER
+  ADMINISTRATOR
+  MANAGER
+  STAFF
+  CLIENT
+}
+
+model UserRole {
+  id          String  @id @default(uuid())
+  userId      String
+  name        RoleType
+  user        User    @relation(fields: [userId], references: [id])
+}
+
+model Services {
+  id                      String           @id @default(uuid())
+  title                   String
+  description             String
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+}
+
+model Testimony {
+  id                      String           @id @default(uuid())
+  name                    String
+  message                 String
+  photo                   String?
+  rating                  Int?
+  reviewsId               String?
+  agentReviewId           String?
+  userId                  String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  reviews                 Reviews?       @relation(fields: [reviewsId], references: [id])
+  agentReviews            AgentReview?   @relation(fields: [agentReviewId], references: [id])
+  user                    User? @relation(fields: [userId], references: [id])
+}
+
+model Reviews {
+  id                      String           @id @default(uuid())
+  productId              String           @unique
+  count                   Int           @default(0)       
+  rating                  Float            
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  product                Product         @relation(fields: [productId], references: [id])
+  testimonials            Testimony[]
+}
+
+model Contact {
+  id                      String           @id @default(uuid())
+  name                    String
+  message                 String
+  photo                   String        @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
+  email                   String
+  location                String?
+  phoneNumber             String?
+  enquiryPropertyId       String?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  enquiryProperty         EnquiryProperty?   @relation(fields: [enquiryPropertyId], references: [id])
+}
+
+enum ProductCategory {
+  WOMENS_FASHION
+  MENS_FASHION
+  FASHION
+  ELECTRONICS
+  FURNITURES
+  MADE_IN_RWANDA
+  HOME_AND_LIVING
+  SUPERMARKETING
+  MOBILES_AND_TABLETS
+  COMPUTERS_AND_GAMING
+  HEALTH_AND_BEAUTY
+  SPORTS_EQUIPMENT
+  ART_AND_ENTERTAINMENT
+  RESTAURANTS
+  JEWELRY_AND_WATCHES
+  KIDS_AND_BABIES
+  AUTO_SPARE_PARTS
+  VEHICLES_SHOPPING
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+  SUCCEEDED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH_ON_DELIVERY
+  MOBILE_MONEY
+  AIRTEL_MONEY
+  BANK_TRANSFER
+  MTN_MOBILE_MONEY
+}
+
+enum DeliveryStatus {
+  PENDING
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
+
+
+model Faq {
+  id                      String           @id @default(uuid())
+  question                String
+  solution                String
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+}
+
+model Blog {
+  id                      String           @id @default(uuid())
+  title                   String
+  thumbnail               String
+  teaser                  String
+  description             String
+  category                String
+  likes                   Int           @default(0)
+  views                   Int           @default(0)
+  featured                Boolean
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt      
+  likesModel              Likes[]            
+}
+
+model Likes {
+  id                      String           @id  @default(uuid())
+  userId                  String
+  blogId                  String
+  blog                    Blog @relation(fields: [blogId], references: [id])  
+  user                    User @relation(fields: [userId], references: [id])  
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt    
+
+  @@unique([blogId, userId])
+}
+
+model Ads {
+  id                      String           @id @default(uuid())
+  thumbnail               String
+  title                   String
+  location                String
+  description             String
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+}
+
+model Agents {
+  id                      String           @id @default(uuid())
+  userId                  String
+  description             String  
+  experience              String
+  speciality              String[]
+  whatsapp                String
+  joined                  String
+  languages               String
+  about                   String
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt  
+  user                    User @relation(fields: [userId], references: [id])
+  agentReviews            AgentReview? 
+  enquiryProperty         EnquiryProperty[]               
+}
+
+model AgentReview {
+  id                      String           @id @default(uuid())
+  agentId                 String           @unique
+  count                   Int           @default(0)       
+  rating                  Float         @default(0.0) 
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  agent                   Agents         @relation(fields: [agentId], references: [id])
+  testimonials            Testimony[]
+}
+
+
+model Product {
+  id                      String           @id @default(uuid())
+  name                    String
+  isFeatured                Boolean  @default(true)
+  description             String
+  teaser                  String
+  model                   String?
+  warranty                   String?
+  brand                   String?
+  category                ProductCategory
+  price                   Float  
+  featuresOne            String?
+  featuresTwo            String?
+  featuresThree          String?
+  featuresFour           String?
+  featuresFive           String?
+  featuresFix            String?
+  featuresSeven          String?
+  featuresEight          String?
+  featuresNine           String?
+  featuresTen            String?
+  discountPercentage      Float? 
+  stockQuantity           Int      @default(0)
+  isActive                Boolean  @default(true)
+  thumbnail               String
+  galleryImages           String[] @default([])
+  rating                  Float?   @default(4.5)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  reviews                 Reviews?
+  orderItem               OrderItem[]
+}
+
+
+model EnquiryProperty {
+  id                      String           @id @default(uuid())
+  agentId                 String           @unique
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  agent                   Agents         @relation(fields: [agentId], references: [id])
+  contact                 Contact[]
+}
+
+model Order {
+  id             String       @id @default(uuid())
+  orderNumber    String
+  status         OrderStatus  @default(PENDING)
+  totalAmount    Float
+  subTotal       Float
+  deliveryFee    Float? 
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  orderItems     OrderItem[]
+  payment        Payment?
+  delivery       Delivery?
+}
+
+
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  productId  String
+  discount       Float? 
+  quantity   Int      @default(1)
+  unitPrice  Float    
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  orderId      String        @unique
+  amount       Float
+  kind         String
+  method       PaymentMethod
+  status       PaymentStatus @default(PENDING)
+  paidAt       DateTime?
+  accountNumber String
+  accountProvider String?
+  refId        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Delivery {
+  id             String         @id @default(uuid())
+  orderId        String         @unique
+  address        String
+  city           String
+  province       String
+  country        String
+  postalCode     String
+  customerFirstName   String
+  customerLastName   String
+  customerEmail  String
+  customerPhone  String
+  customerNote   String?
+  deliveryStatus DeliveryStatus @default(PENDING)
+  estimatedDate  DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+
+model Company {
+  id             String          @id @default(uuid())
+  name           String
+  email          String        @unique
+  phoneNumber    String        @unique
+  industry       String?
+  website        String?       
+  TIN            String        @unique
+  type           String
+  certificate    String
+  logo           String?
+  country        String
+  province       String
+  district       String
+  sector         String
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  CompanyUser    CompanyUser[]
+  drugs        Drugs[]
+  drugsCategories DrugsCategories[]
+  insurance      Insurance[]
+}
+
+model CompanyUser {
+  id           String      @id @default(uuid())
+  companyId    String
+  userId       String      @unique
+  title        String?
+  idNumber     String?
+  idAttachment String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  company      Company  @relation(fields: [companyId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model DrugsCategories {
+  id           String      @id @default(uuid())
+  companyId    String
+  name         String 
+  company      Company  @relation(fields: [companyId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  drugs        Drugs[]
+}
+
+model Drugs {
+  id           String      @id @default(uuid())
+  companyId    String
+  drugCategoryId String?
+  drugCode       String
+  description    String
+  designation    String
+  instruction    String
+
+  company      Company  @relation(fields: [companyId], references: [id])
+  drugCategory  DrugsCategories? @relation(fields: [drugCategoryId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Patient {
+  id                 String          @id @default(uuid())
+  name               String
+  identificationType String
+  phone              String
+  gender             String
+  birthDate          DateTime
+  patientNO          String          @unique
+  NID                String
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  companyId          String
+  address            PatientAddress[]
+  insuranceCards     InsuranceCard[]
+}
+
+model PatientAddress {
+  id          String   @id @default(uuid())
+  patientId   String
+  city        String
+  street      String
+  country     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  patient     Patient  @relation(fields: [patientId], references: [id])
+}
+
+model InsuranceCard {
+  id            String   @id @default(uuid())
+  companyId     String
+  patientId     String
+  insuranceId     String
+  cardNumber    String   @unique
+  expireDate    DateTime
+  beneficiary   String
+  isOwner       Boolean
+  expired       Boolean  @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  insurance     Insurance  @relation(fields: [insuranceId], references: [id])
+  insuranceDetails InsuranceDetail[]
+}
+
+model InsuranceDetail {
+  id              String   @id @default(uuid())
+  insuranceCardId String
+  key             String
+  value           String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  insuranceCard   InsuranceCard @relation(fields: [insuranceCardId], references: [id])
+}
+
+model Supplier {
+  id            String   @id @default(uuid())
+  full_names    String
+  phone_number  String
+  location      String
+  companyId     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now())
+  deletedAt     DateTime?
+}
+
+model Insurance {
+  id           String      @id @default(uuid())
+  companyId    String
+  name         String
+  percentage   Float        @default(0.0)
+  company      Company      @relation(fields: [companyId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  insuranceCard InsuranceCard[]
+}
