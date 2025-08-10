@@ -60,6 +60,19 @@ export interface IUserResponse {
   photo: string;
 }
 
+export interface UserResponse
+  extends Omit<
+    IUserResponse,
+    | "createdAt"
+    | "updatedAt"
+    | "userRoles"
+    | "password"
+    | "phoneNumber"
+    | "otp"
+    | "otpExpiresAt"
+    | "photo"
+  > {}
+
 export interface CreateUserDto {
   firstName: string;
   lastName: string;
@@ -127,31 +140,86 @@ export interface CreateTestimonyDto {
   photo?: Express.Multer.File | string | null;
 }
 
-export type TContact = {
-  id: string;
-  userId?: string | null;
-  enquiryPropertyId?: string | null;
-  name: string;
+export interface ReplyToContactDto {
   message: string;
-  photo?: string | null;
-  location?: string | null;
-  phoneNumber?: string | null;
+  adminName?: string | null;
+}
+
+export interface TConversation {
+  id: string;
   email: string;
+  customerName: string;
+  company?: string | null;
+  status: "PENDING" | "RESOLVED";
+  lastMessageAt: Date;
+  totalMessages: number;
+  totalReplies: number;
+  contacts: TContact[];
+  replies: TContactReply[];
   createdAt: Date;
   updatedAt: Date;
-};
+}
+
+export interface TConversationMessage {
+  id: string;
+  message: string;
+  senderType: "customer" | "admin";
+  senderName: string;
+  senderEmail?: string | null;
+  adminName?: string | null;
+  createdAt: Date;
+  contactId?: string | null;
+}
+
+export interface TContact {
+  id: string;
+  name: string;
+  email: string;
+  company?: string | null;
+  message: string;
+  status: "PENDING" | "RESOLVED";
+  conversationId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  replies?: TContactReply[] | null;
+}
+
+export interface TContactReply {
+  id: string;
+  contactId: string;
+  message: string;
+  adminName?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  contact?: TContact | null;
+}
 
 export interface CreateContactDto {
-  enquiryPropertyId?: string | null;
-  userId?: string | null;
-  agentId?: string | null;
   name: string;
-  message: string;
-  photo?: Express.Multer.File | string | null;
-  location?: string | null;
-  phoneNumber?: string | null;
   email: string;
+  company?: string | null;
+  message: string;
 }
+
+export interface UpdateConversationStatusDto {
+  status: "PENDING" | "RESOLVED";
+}
+
+export interface TNotification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: "info" | "success" | "warning" | "error";
+  isRead: boolean;
+  actionUrl?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  entityType?: string | null;
+  entityId?: string | null;
+  metadata?: any;
+}
+
 export interface IResponse<T> {
   statusCode: number;
   message: string;
@@ -579,3 +647,208 @@ export interface CreateInsuranceDto {
 }
 
 export interface UpdateInsuranceDto extends Partial<CreateInsuranceDto> {}
+
+export interface CreateItemRequest {
+  item_full_name: string;
+  category_id: string;
+  description?: string;
+  brand_manufacturer?: string;
+  barcode_qr_code: string;
+  pack_size?: number;
+  uom_id: string;
+  temp_req_id: string;
+}
+
+export interface UpdateItemRequest {
+  item_full_name?: string;
+  category_id?: string;
+  description?: string;
+  brand_manufacturer?: string;
+  barcode_qr_code?: string;
+  pack_size?: number;
+  uom_id?: string;
+  temp_req_id?: string;
+  is_active?: boolean;
+}
+
+export interface ItemResponse {
+  id: string;
+  item_code_sku: string;
+  item_full_name: string;
+  category: {
+    id: string;
+    category_name: string;
+    description?: string;
+  };
+  description?: string;
+  brand_manufacturer?: string;
+  barcode_qr_code: string;
+  pack_size?: number;
+  uom: {
+    id: string;
+    uom_name: string;
+    abbreviation?: string;
+  };
+  temp: {
+    id: string;
+    temp_req_name: string;
+    min_temp_celsius?: number;
+    max_temp_celsius?: number;
+  };
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  current_stock?: number;
+}
+
+export interface CreateStockEntryRequest {
+  item_id: string;
+  supplier_id: string;
+  po_id?: string;
+  invoice_id?: string;
+  quantity_received: number;
+  unit_cost: number;
+  currency_id: string;
+  condition_id: string;
+  storage_location_id: string;
+  batch_lot_number?: string;
+  expiry_date?: Date;
+  serial_numbers?: string[];
+  special_handling_notes?: string;
+  remarks_notes?: string;
+}
+
+export interface StockEntryResponse {
+  id: string;
+  form_code?: string;
+  item: ItemResponse;
+  supplier: SupplierResponse;
+  date_received: Date;
+  quantity_received: number;
+  unit_cost: number;
+  total_cost: number;
+  currency: CurrencyResponse;
+  condition: ConditionResponse;
+  storage_location: StorageLocationResponse;
+  batch_info?: BatchInfo[];
+  serial_numbers?: string[];
+  special_handling_notes?: string;
+  remarks_notes?: string;
+  registered_by_user: UserResponse;
+  received_by_user: UserResponse;
+  created_at: Date;
+  updatedAt: Date;
+}
+
+export interface BatchInfo {
+  id: string;
+  batch_lot_number: string;
+  expiry_date?: Date | null;
+  quantity_in_batch: number;
+  current_stock_quantity: number;
+}
+
+export interface InventoryItem {
+  id: string;
+  item_code_sku: string;
+  item_full_name: string;
+  category_name: string;
+  current_stock: number;
+  uom_abbreviation: string;
+  total_value: number;
+  currency_code: string;
+  batches: BatchInfo[];
+  last_received: Date;
+  expiry_alert: boolean;
+}
+
+export interface ExpiringItem {
+  id: string;
+  item_code_sku: string;
+  item_full_name: string;
+  batch_lot_number: string;
+  expiry_date: Date;
+  current_stock_quantity: number;
+  days_to_expiry: number;
+  alert_level: "critical" | "warning" | "info";
+}
+
+export interface CreateSupplierRequest {
+  supplier_name: string;
+  contact_person: string;
+  phone_number: string;
+  email: string;
+  address?: string;
+}
+
+export interface UpdateSupplierRequest {
+  supplier_name?: string;
+  contact_person?: string;
+  phone_number?: string;
+  email?: string;
+  address?: string;
+  is_active?: boolean;
+}
+
+export interface SupplierResponse {
+  id: string;
+  supplier_name: string;
+  contact_person: string;
+  phone_number: string;
+  email: string;
+  address?: string;
+  is_active: boolean;
+  created_at: Date;
+}
+
+export interface CategoryResponse {
+  id: string;
+  category_name: string;
+  description?: string | null;
+}
+
+export interface UomResponse {
+  id: string;
+  uom_name: string;
+  abbreviation?: string | null;
+}
+
+export interface CurrencyResponse {
+  id: string;
+  currency_code: string;
+}
+
+export interface ConditionResponse {
+  id: string;
+  condition_name: string;
+  description?: string | null;
+}
+
+export interface TemperatureRequirementResponse {
+  id: string;
+  temp_req_name: string;
+  min_temp_celsius?: number;
+  max_temp_celsius?: number;
+}
+
+export interface StorageLocationResponse {
+  id: string;
+  location_name: string;
+  location_type?: string | null;
+  description?: string | null;
+}
+
+export interface ItemFilters {
+  category_id?: string;
+  is_active?: boolean;
+  search?: string;
+  barcode?: string;
+}
+
+export interface StockEntryFilters {
+  item_id?: string;
+  supplier_id?: string;
+  date_from?: Date;
+  date_to?: Date;
+  condition_id?: string;
+}

@@ -24,8 +24,19 @@ model User {
   testimonials       Testimony[]
   agents              Agents[]
   company            CompanyUser?
+  notification       Notification[]
 
+  suppliers          Suppliers[]
+  purchaseOrders     PurchaseOrders[]
+  invoices           Invoices[]
+  registeredBy       StockReceipts[]    @relation("RegisteredBy")
+  receivedBy         StockReceipts[]    @relation("ReceivedBy")
+  stockBatches       StockBatches[]
+  stockSerials        StockSerials[]
+  approvals           Approvals[]
 
+  createdSuppliers Items[] @relation("CreatedSuppliers")
+  updatedSuppliers Items[] @relation("UpdatedSuppliers")
 }
 
 
@@ -48,6 +59,250 @@ model UserRole {
   name        RoleType
   user        User    @relation(fields: [userId], references: [id])
 }
+
+model ItemCategories {
+  id                 String         @id @default(uuid())
+  category_name      String         @unique
+  description        String?
+  items              Items[]
+}
+
+model UnitsOfMeasure {
+  id                 String         @id @default(uuid())
+  uom_name           String         @unique
+  abbreviation       String?        @unique
+  items              Items[]
+}
+
+model Currencies {
+  id                 String         @id @default(uuid())
+  currency_code      String         @unique
+
+  invoices           Invoices[]
+
+  StockReceipts StockReceipts[]
+
+  PurchaseOrders PurchaseOrders[]
+}
+
+model ConditionTypes {
+  id                 String         @id @default(uuid())
+  condition_name     String         @unique
+  description        String?
+  stockReciepts      StockReceipts[]
+ 
+}
+
+model TemperatureRequirements {
+  id                 String         @id @default(uuid())
+  temp_req_name      String         @unique
+  min_temp_celsius   Decimal? 	    @db.Decimal(5, 2)  
+  max_temp_celsius   Decimal? 	    @db.Decimal(5, 2) 
+  items              Items[]       
+}
+
+model Suppliers {
+  id                 String         @id @default(uuid())
+  supplier_name      String         
+  contact_person     String
+  phone_number       String 
+  email              String         @unique 
+  address            String? 
+  is_active          Boolean        @default(true) 
+  created_at         DateTime       @default(now()) 
+  created_by_user_id String 
+  created_by_user    User           @relation(fields: [created_by_user_id], references: [id])
+  purchaseOrders     PurchaseOrders[]
+  stockReciepts      StockReceipts[]
+
+  Invoices Invoices[]
+}
+
+model Items {
+  id                 String         @id @default(uuid())
+  item_code_sku      String         @unique        
+  item_full_name     String
+  category_id        String 
+  category           ItemCategories @relation(fields: [category_id], references: [id]) 
+  description        String?          
+  brand_manufacturer String? 
+  barcode_qr_code    String 
+  pack_size          Decimal? 	    @db.Decimal(10, 2) 
+  uom_id             String 
+  uom                UnitsOfMeasure @relation(fields: [uom_id], references: [id])
+  temp_req_id        String 
+  temp               TemperatureRequirements @relation(fields: [temp_req_id], references: [id])
+  is_active          Boolean        @default(true) 
+  created_at         DateTime       @default(now()) 
+  created_by_user_id String 
+  created_by_user    User           @relation("CreatedSuppliers",fields: [created_by_user_id], references: [id])
+  updated_at         DateTime       @updatedAt
+  updated_by_user_id String? 
+  updated_by_user    User?          @relation("UpdatedSuppliers",fields: [updated_by_user_id], references: [id])
+  stockReciepts      StockReceipts[]
+}
+
+model StorageLocations {
+  id                 String         @id @default(uuid())
+  location_name      String         
+  location_type      String? 	      
+  description        String? 
+  stockReciepts      StockReceipts[]	    
+ 
+}
+
+model PurchaseOrders {
+  id                 String         @id @default(uuid())
+  po_number          String         @unique         
+  location_type      String 	      
+  supplier_id        String 
+  supplier           Suppliers      @relation(fields: [supplier_id], references: [id])
+  order_date         DateTime       @default(now())
+  expected_delivery_date DateTime?  
+  total_amount       Decimal?       @db.Decimal(18, 2)
+  currency_id        String
+  currency           Currencies     @relation(fields: [currency_id], references: [id])
+  status             String
+  created_at         DateTime       @default(now()) 
+  created_by_user_id String
+  created_by_user    User           @relation(fields: [created_by_user_id], references: [id])
+  invoices           Invoices[]	
+  stockReciepts      StockReceipts[]
+}
+
+model Invoices {
+  id                 String         @id @default(uuid())
+  invoice_number     String         @unique 
+  po_id              String?           
+  purchaseOrder      PurchaseOrders? @relation(fields: [po_id], references: [id]) 
+  supplier_id        String           
+  supplier           Suppliers?      @relation(fields: [supplier_id], references: [id])        
+  invoice_date       DateTime 
+  total_amount       Decimal         @db.Decimal(18, 2)	      
+  description        String 
+  currency_id        String
+  currency           Currencies      @relation(fields: [currency_id], references: [id])
+  created_at         DateTime        @default(now()) 
+  created_by_user_id String
+  created_by_user    User            @relation(fields: [created_by_user_id], references: [id])
+  stockReciepts      StockReceipts[]
+}
+
+model StockReceipts {
+  id                 String          @id @default(uuid())
+  form_code          String? 
+  item_id            String           
+  item               Items           @relation(fields: [item_id], references: [id])     
+  po_id              String?           
+  purchaseOrder      PurchaseOrders? @relation(fields: [po_id], references: [id])   
+  invoice_id         String?           
+  invoice            Invoices?       @relation(fields: [invoice_id], references: [id])   
+  supplier_id        String           
+  supplier           Suppliers       @relation(fields: [supplier_id], references: [id])  
+  date_received      DateTime 
+  quantity_received  Decimal         @db.Decimal(10, 2)  
+  unit_cost          Decimal         @db.Decimal(18, 4)  
+  total_cost         Decimal         @db.Decimal(18, 2)
+  currency_id        String
+  currency           Currencies      @relation(fields: [currency_id], references: [id])
+  condition_id       String
+  condition          ConditionTypes  @relation(fields: [condition_id], references: [id])
+  storage_location_id String
+  storage_location   StorageLocations @relation(fields: [storage_location_id], references: [id])    
+  special_handling_notes      String? 	      
+  remarks_notes       String?
+  registered_by_user_id String 
+  registered_by_user_by_user    User  @relation("RegisteredBy",fields: [registered_by_user_id], references: [id])
+  received_by_user_id String 
+  received_by_user    User            @relation("ReceivedBy",fields: [received_by_user_id], references: [id])
+  created_at          DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  stockBatches        StockBatches[]
+  stockSerials        StockSerials[]
+  approvals           Approvals[]	    
+}
+
+model StockBatches {
+  id                 String         @id @default(uuid())
+  receipt_id         String
+  stock_receipts     StockReceipts  @relation(fields: [receipt_id], references: [id])
+  batch_lot_number   String
+  expiry_date        DateTime?
+  quantity_in_batch  Decimal         @db.Decimal(10, 2) 
+  current_stock_quantity Decimal     @db.Decimal(10, 2) @default(0.00)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt        
+  updated_by_user_id String? 
+  updated_by_user    User?           @relation(fields: [updated_by_user_id], references: [id])
+
+  @@unique([receipt_id, batch_lot_number])
+}
+
+model StockSerials {
+  id                 String         @id @default(uuid())
+  receipt_id         String
+  stock_receipts     StockReceipts  @relation(fields: [receipt_id], references: [id])
+  serial_number      String         @unique
+  current_status     SerialsStatus        @default(IN_STOCK)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt        
+  updated_by_user_id String? 
+  updated_by_user    User?          @relation(fields: [updated_by_user_id], references: [id])
+
+}
+
+enum SerialsStatus {
+  IN_STOCK
+  ISSUED
+  DAMAGED
+}
+
+model Approvals {
+  id                 String         @id @default(uuid())
+  receipt_id         String
+  stock_receipts     StockReceipts  @relation(fields: [receipt_id], references: [id])
+  approved_by_user_id String 
+  approved_by_user    User          @relation(fields: [approved_by_user_id], references: [id])
+  date_approved      DateTime         
+  approval_status    String        
+  comments           String?       
+  createdAt          DateTime       @default(now())     
+}
+
+
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  type        NotificationType @default(info)
+  isRead      Boolean  @default(false)
+  actionUrl   String?  @db.VarChar(500)
+
+  entityType  String?  @db.VarChar(50)
+  entityId    String?
+  metadata    Json?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([isRead])
+  @@index([userId, isRead], name: "idx_user_unread")
+  @@index([entityType, entityId], name: "idx_entity")
+  @@index([userId, entityType, entityId], name: "idx_user_entity")
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+  error
+}
+
 
 model Services {
   id                      String           @id @default(uuid())
@@ -85,17 +340,34 @@ model Reviews {
 }
 
 model Contact {
-  id                      String           @id @default(uuid())
-  name                    String
-  message                 String
-  photo                   String        @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
-  email                   String
-  location                String?
-  phoneNumber             String?
-  enquiryPropertyId       String?
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  enquiryProperty         EnquiryProperty?   @relation(fields: [enquiryPropertyId], references: [id])
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  message   String
+  status           ContactStatus @default(PENDING)  
+  conversationId   String?  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  replies   ContactReply[]
+
+  @@index([email])
+  @@index([conversationId])
+}
+
+model ContactReply {
+  id         String   @id @default(cuid())
+  contact    Contact  @relation(fields: [contactId], references: [id])
+  contactId  String
+  message    String
+  adminName  String? 
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum ContactStatus {
+  PENDING
+  RESOLVED
 }
 
 enum ProductCategory {
@@ -269,7 +541,6 @@ model EnquiryProperty {
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
   agent                   Agents         @relation(fields: [agentId], references: [id])
-  contact                 Contact[]
 }
 
 model Order {

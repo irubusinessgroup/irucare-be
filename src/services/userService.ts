@@ -24,12 +24,12 @@ export class UserService extends BaseService {
   public static async getUsers(
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ): Promise<IPaged<IUserResponse[]>> {
     try {
       const queryOptions = QueryOptions(
         ["firstName", "lastName", "email"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -76,9 +76,20 @@ export class UserService extends BaseService {
 
       const isPasswordSimilar = await compare(user.password, userData.password);
       if (isPasswordSimilar) {
-        const token = jwt.sign(user.email, process.env.JWT_SECRET!);
+        // const token = jwt.sign(user.email, process.env.JWT_SECRET!);
+        const token = jwt.sign(
+          {
+            id: userData.id,
+            email: userData.email,
+            userRoles: userData.userRoles
+              .map((role) => role.name)
+              .filter((r) => !!r),
+          },
+          process.env.JWT_SECRET!
+        );
+        console.log(userData.userRoles);
         const userRoles = userData.userRoles.map(
-          (roleRecord) => roleRecord.name,
+          (roleRecord) => roleRecord.name
         );
         return {
           message: "login successfull",
@@ -238,7 +249,7 @@ export class UserService extends BaseService {
   public static async updatePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string,
+    newPassword: string
   ) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -292,7 +303,7 @@ export class UserService extends BaseService {
     This OTP is valid for a limited time. If you did not request a password reset, please disregard this email.
 
     Best regards,
-    HealthLinker Support Team
+    IRUCARE Support Team
   `,
     });
 
@@ -303,7 +314,7 @@ export class UserService extends BaseService {
   public static async resetPassword(
     email: string,
     otp: string,
-    newPassword: string,
+    newPassword: string
   ) {
     const user = await prisma.user.findFirst({ where: { email } });
 
@@ -428,5 +439,22 @@ export class UserService extends BaseService {
     } catch (error) {
       throw new AppError(error, 500);
     }
+  }
+
+  static async getUserIdsByRole(roleName: RoleType): Promise<string[]> {
+    const users = await prisma.user.findMany({
+      where: {
+        userRoles: {
+          some: {
+            name: roleName,
+          },
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return users.map((user) => user.id);
   }
 }
