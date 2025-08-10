@@ -7,8 +7,8 @@ async function main() {
     console.log("SEEDING");
     const developer = await prisma.user.create({
       data: {
-        email: "developer@gmail.com",
-        firstName: "AKILI ",
+        email: "gdushimimana6@gmail.com",
+        firstName: "D.Gilbert ",
         lastName: "Developer",
         password: hashSync("Password123!", 10),
       },
@@ -21,8 +21,8 @@ async function main() {
     });
     const admin = await prisma.user.create({
       data: {
-        email: "admin@gmail.com",
-        firstName: "AKILI ",
+        email: "irubusinessgroup@gmail.com",
+        firstName: "IRU Business Group ",
         lastName: "Admin",
         password: hashSync("Password123!", 10),
       },

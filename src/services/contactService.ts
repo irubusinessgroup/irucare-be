@@ -2,131 +2,48 @@ import { BaseService } from "./Service";
 import { prisma } from "../utils/client";
 import {
   CreateContactDto,
+  IPaged,
   IResponse,
   TContact,
+  TContactReply,
+  TConversation,
+  TConversationMessage,
 } from "../utils/interfaces/common";
 import AppError from "../utils/error";
 import { sendEmail } from "../utils/email";
+import { Paginations, QueryOptions } from "../utils/DBHelpers";
+import { time } from "console";
 
 export class ContactService extends BaseService {
-  public async createContact(
-    contactData: CreateContactDto,
-  ): Promise<IResponse<TContact>> {
+  public async createContact(data: CreateContactDto) {
     try {
-      let newContact;
-      if (contactData.agentId) {
-        const user = await prisma.agents.findUnique({
-          where: { id: contactData.agentId },
-          select: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                email: true,
-              },
-            },
-          },
-        });
-        const enquiryProperty = await prisma.enquiryProperty.create({
-          data: {
-            agentId: contactData.agentId!,
-          },
-        });
-        newContact = await prisma.contact.create({
-          data: {
-            enquiryPropertyId: enquiryProperty.id ?? undefined,
-            email: contactData.email,
-            message: contactData.message,
-            name: contactData.name,
-            location: contactData.location || undefined,
-            phoneNumber: contactData.phoneNumber || undefined,
-            photo:
-              typeof contactData.photo === "string"
-                ? contactData.photo
-                : undefined,
-          },
-        });
-        await sendEmail({
-          to: user!.user.email,
-          subject: "New Enquiry Property Notification",
-          body: `
-            Dear ${user?.user.firstName} ${user?.user.lastName || "Agent"},
+      const existingContact = await prisma.contact.findFirst({
+        where: { email: data.email },
+        orderBy: { createdAt: "desc" },
+      });
 
-            You have a new enquiry property from ${contactData.name}.
-            
-            Details:
-            - Email: ${contactData.email}
-            - Phone Number: ${contactData.phoneNumber || "N/A"}
-            - Location: ${contactData.location || "N/A"}
-            - Message: ${contactData.message}
+      let conversationId = existingContact?.conversationId;
 
-            Please follow up with the client as soon as possible.
-
-            Best regards,
-            KIGALI HOT MARKET Support Team
-          `,
-        });
-      } else if (contactData.userId) {
-        const user = await prisma.user.findUnique({
-          where: { id: contactData.userId },
-        });
-        newContact = await prisma.contact.create({
-          data: {
-            email: user!.email,
-            message: contactData.message,
-            name: user!.firstName + "" + user!.lastName,
-            location: contactData.location || undefined,
-            phoneNumber: contactData.phoneNumber || undefined,
-            photo:
-              typeof contactData.photo === "string"
-                ? contactData.photo
-                : undefined,
-          },
-        });
-      } else {
-        newContact = await prisma.contact.create({
-          data: {
-            email: contactData.email,
-            message: contactData.message,
-            name: contactData.name,
-            location: contactData.location || undefined,
-            phoneNumber: contactData.phoneNumber || undefined,
-            photo:
-              typeof contactData.photo === "string"
-                ? contactData.photo
-                : undefined,
-          },
-        });
+      if (!conversationId) {
+        conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
-      return {
-        statusCode: 201,
-        message: "newContact created successfully",
-        data: newContact,
-      };
-    } catch (error) {
-      throw new AppError(error, 500);
-    }
-  }
 
-  public static async getContact(
-    contactId: string,
-  ): Promise<IResponse<TContact>> {
-    try {
-      const contact = await prisma.contact.findUnique({
-        where: {
-          id: contactId,
-        },
-        include: {
-          enquiryProperty: true,
+      const contact = await prisma.contact.create({
+        data: {
+          ...data,
+          conversationId,
+          status: "PENDING",
         },
       });
 
-      if (!contact) {
-        throw new AppError("contact post not found", 404);
-      }
+      await sendEmail({
+        to: contact.email,
+        subject: "Thank you for contacting IRUCARE",
+        body: `Dear ${contact.name},\n\nWe’ve received your message and will get back to you shortly.\n\nThanks,\n\nBest regards,\nThe IRUCARE Team`,
+      });
       return {
-        statusCode: 200,
-        message: "contact post fetched successfully",
+        statusCode: 201,
+        message: "Contact created successfully",
         data: contact,
       };
     } catch (error) {
@@ -134,14 +51,285 @@ export class ContactService extends BaseService {
     }
   }
 
-  public static async getAllContact(): Promise<IResponse<TContact[]>> {
+  public static async replyToContact(
+    contactId: string,
+    message: string,
+    adminName: string
+  ) {
     try {
-      const contact = await prisma.contact.findMany({
-        include: {
-          enquiryProperty: true,
+      const contact = await prisma.contact.findUnique({
+        where: { id: contactId },
+      });
+
+      if (!contact) {
+        throw new AppError("Contact not found", 404);
+      }
+
+      const reply = await prisma.contactReply.create({
+        data: {
+          contactId,
+          message,
+          adminName,
         },
       });
 
+      try {
+        await sendEmail({
+          to: contact.email,
+          subject: `Re: Your inquiry to IRUCARE`,
+          body:
+            `Dear ${contact.name},\n\n` +
+            `Thank you for contacting us. Here's our reply to your inquiry:\n\n` +
+            `---\n${message}\n---\n\n` +
+            `If you have any further questions, please don't hesitate to contact us.\n\n` +
+            `Best regards,\n${adminName}\nIRUCARE Team`,
+        });
+      } catch (emailError) {
+        console.error("Failed to send email reply:", emailError);
+      }
+
+      return {
+        statusCode: 201,
+        message: "Reply sent successfully",
+        data: reply,
+      };
+    } catch (error) {
+      throw new AppError("Failed to send reply", 500);
+    }
+  }
+
+  public static async getReplies(contactId: string) {
+    const replies = await prisma.contactReply.findMany({
+      where: { contactId },
+      orderBy: { createdAt: "asc" },
+    });
+    return {
+      statusCode: 200,
+      message: "Replies fetched successfully",
+      data: replies,
+    };
+  }
+
+  public static async getConversationMessages(
+    email: string
+  ): Promise<IResponse<TConversationMessage[]>> {
+    try {
+      const contacts = await prisma.contact.findMany({
+        where: { email },
+        include: { replies: { orderBy: { createdAt: "asc" } } },
+      });
+
+      if (contacts.length === 0) {
+        throw new AppError("Conversation not found", 404);
+      }
+
+      const messages: TConversationMessage[] = [];
+
+      contacts.forEach((contact) => {
+        messages.push({
+          id: contact.id,
+          message: contact.message,
+          senderType: "customer",
+          senderName: contact.name,
+          senderEmail: contact.email,
+          createdAt: contact.createdAt,
+          contactId: contact.id,
+        });
+
+        contact.replies.forEach((reply) => {
+          messages.push({
+            id: reply.id,
+            message: reply.message,
+            senderType: "admin",
+            senderName: reply.adminName || "Admin",
+            adminName: reply.adminName,
+            createdAt: reply.createdAt,
+            contactId: contact.id,
+          });
+        });
+      });
+
+      messages.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      return {
+        statusCode: 200,
+        message: "Conversation messages fetched successfully",
+        data: messages,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  public static async getConversationByEmail(
+    email: string
+  ): Promise<IResponse<TConversation>> {
+    try {
+      const contacts = await prisma.contact.findMany({
+        where: { email },
+        include: { replies: { orderBy: { createdAt: "asc" } } },
+      });
+
+      if (contacts.length === 0) {
+        throw new AppError("Conversation not found", 404);
+      }
+
+      const latestContact = contacts[0];
+      const totalReplies = contacts.reduce(
+        (sum, contact) => sum + contact.replies.length,
+        0
+      );
+
+      let lastMessageAt = latestContact.createdAt;
+      contacts.forEach((contact) => {
+        if (contact.replies.length > 0) {
+          const lastReply = contact.replies[contact.replies.length - 1];
+          if (lastReply.createdAt > lastMessageAt) {
+            lastMessageAt = lastReply.createdAt;
+          }
+        }
+      });
+
+      const allReplies = contacts.flatMap((contact) => contact.replies);
+
+      const conversation: TConversation = {
+        id: latestContact.conversationId || latestContact.id,
+        email: latestContact.email,
+        customerName: latestContact.name,
+        company: latestContact.company,
+        status: latestContact.status,
+        lastMessageAt,
+        totalMessages: contacts.length,
+        totalReplies,
+        contacts,
+        replies: allReplies,
+        createdAt: contacts[contacts.length - 1].createdAt,
+        updatedAt: lastMessageAt,
+      };
+
+      return {
+        statusCode: 200,
+        message: "Conversation fetched successfully",
+        data: conversation,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  public static async getAllConversations(
+    searchq?: string,
+    limit?: number,
+    currentPage?: number
+  ): Promise<IPaged<TConversation[]>> {
+    try {
+      const uniqueEmails = await prisma.contact.groupBy({
+        by: ["email"],
+        _max: { createdAt: true },
+        orderBy: { _max: { createdAt: "desc" } },
+      });
+
+      const pagination = Paginations(currentPage, limit);
+      const skip = pagination.skip || 0;
+      const take = pagination.take || 15;
+
+      let filteredEmails = uniqueEmails;
+      if (searchq) {
+        const searchTerms = await prisma.contact.findMany({
+          where: {
+            OR: [
+              { name: { contains: searchq, mode: "insensitive" } },
+              { email: { contains: searchq, mode: "insensitive" } },
+              { company: { contains: searchq, mode: "insensitive" } },
+            ],
+          },
+          select: { email: true },
+          distinct: ["email"],
+        });
+
+        const searchEmails = searchTerms.map((c) => c.email);
+        filteredEmails = uniqueEmails.filter((item) =>
+          searchEmails.includes(item.email)
+        );
+      }
+
+      const paginatedEmails = filteredEmails.slice(skip, skip + take);
+
+      const conversations: TConversation[] = [];
+
+      for (const emailGroup of paginatedEmails) {
+        const conversationResult = await this.getConversationByEmail(
+          emailGroup.email
+        );
+        if (conversationResult.data) {
+          conversations.push(conversationResult.data);
+        }
+      }
+
+      return {
+        statusCode: 200,
+        message: "Conversations fetched successfully",
+        data: conversations,
+        totalItems: filteredEmails.length,
+        currentPage: currentPage || 1,
+        itemsPerPage: limit || 15,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  public static async replyToConversation(
+    email: string,
+    message: string,
+    adminName: string
+  ): Promise<IResponse<TContactReply>> {
+    try {
+      const latestContact = await prisma.contact.findFirst({
+        where: { email },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!latestContact) {
+        throw new AppError("Contact not found for this email", 404);
+      }
+
+      return await this.replyToContact(latestContact.id, message, adminName);
+    } catch (error) {
+      throw new AppError("Failed to reply to conversation", 500);
+    }
+  }
+
+  public static async updateConversationStatus(
+    email: string,
+    status: "PENDING" | "RESOLVED"
+  ) {
+    try {
+      await prisma.contact.updateMany({
+        where: { email },
+        data: { status },
+      });
+
+      return await this.getConversationByEmail(email);
+    } catch (error) {
+      throw new AppError("Failed to update conversation status", 500);
+    }
+  }
+
+  public static async getContact(id: string): Promise<IResponse<TContact>> {
+    try {
+      const contact = await prisma.contact.findUnique({
+        where: { id },
+        include: {
+          replies: {
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      });
+      if (!contact) throw new AppError("Contact not found", 404);
       return {
         statusCode: 200,
         message: "contact fetched successfully",
@@ -152,24 +340,55 @@ export class ContactService extends BaseService {
     }
   }
 
+  public static async getAllContact(
+    searchq?: string,
+    limit?: number,
+    currentPage?: number
+  ): Promise<IPaged<TContact[]>> {
+    try {
+      const queryOptions = QueryOptions(["name", "email", "company"], searchq);
+
+      const pagination = Paginations(currentPage, limit);
+      const contacts = await prisma.contact.findMany({
+        where: queryOptions,
+        ...pagination,
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: { replies: { orderBy: { createdAt: "asc" } } },
+      });
+
+      const totalItems = await prisma.contact.count({
+        where: queryOptions,
+      });
+
+      return {
+        statusCode: 200,
+        message: "contact fetched successfully",
+        data: contacts,
+        totalItems,
+        currentPage: currentPage || 1,
+        itemsPerPage: limit || 15,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
   public static async updateContact(
     contactId: string,
-    contactData: Partial<CreateContactDto>,
+    contactData: CreateContactDto
   ): Promise<IResponse<TContact>> {
     try {
       const updatedContact = await prisma.contact.update({
         where: { id: contactId },
         data: {
           ...contactData,
-          photo:
-            typeof contactData.photo === "string"
-              ? contactData.photo
-              : undefined,
         },
       });
       return {
         statusCode: 200,
-        message: "contact post updated successfully",
+        message: "contact updated successfully",
         data: updatedContact,
       };
     } catch (error) {
@@ -178,13 +397,13 @@ export class ContactService extends BaseService {
   }
 
   public static async deleteContact(
-    contactId: string,
+    contactId: string
   ): Promise<IResponse<null>> {
     try {
       await prisma.contact.delete({ where: { id: contactId } });
       return {
         statusCode: 200,
-        message: "contact post deleted successfully",
+        message: "contact  deleted successfully",
         data: null,
       };
     } catch (error) {
