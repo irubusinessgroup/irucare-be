@@ -13,7 +13,7 @@ export class NotificationHelper {
     actionUrl?: string,
     entityType?: string,
     entityId?: string,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<TNotification> {
     try {
       const notification = await NotificationService.createNotification(
@@ -32,7 +32,6 @@ export class NotificationHelper {
       const unreadCount = await NotificationService.getUnreadCount(userId);
       io.to(userId).emit("unread_count_updated", { unreadCount });
 
-      console.log(`📨 Notification sent to user ${userId}: ${title}`);
       return notification;
     } catch (error) {
       console.error("❌ Error sending notification:", error);
@@ -49,7 +48,7 @@ export class NotificationHelper {
     actionUrl?: string,
     entityType?: string,
     entityId?: string,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<TNotification[]> {
     const notifications: TNotification[] = [];
 
@@ -80,7 +79,7 @@ export class NotificationHelper {
     actionUrl?: string,
     entityType?: string,
     entityId?: string,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const userIds = await UserService.getUserIdsByRole(roleName as RoleType);
     for (const userId of userIds) {
@@ -102,8 +101,6 @@ export class NotificationHelper {
       const unreadCount = await NotificationService.getUnreadCount(userId);
       io.to(userId).emit("unread_count_updated", { unreadCount });
     }
-
-    console.log(`📨 Notification broadcast to role ${roleName}: ${title}`);
   }
 
   static async broadcast(
@@ -121,7 +118,5 @@ export class NotificationHelper {
       createdAt: new Date(),
       isRead: false,
     });
-
-    console.log(`📢 Notification broadcast to all users: ${title}`);
   }
 }

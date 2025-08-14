@@ -3,18 +3,38 @@ export class StockCalculations {
     return Math.round(quantity * unitCost * 100) / 100;
   }
 
-  static calculateDaysToExpiry(expiryDate: Date): number {
+  static calculateDaysToExpiry(expiryDate?: Date) {
+    if (!expiryDate) {
+      return {
+        isExpiringSoon: false,
+        daysUntilExpiry: null,
+        expiryStatus: "NO_EXPIRY" as const,
+      };
+    }
+
     const today = new Date();
     const expiry = new Date(expiryDate);
     const diffTime = expiry.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  static getExpiryAlertLevel(
-    daysToExpiry: number
-  ): "critical" | "warning" | "info" {
-    if (daysToExpiry <= 7) return "critical";
-    if (daysToExpiry <= 30) return "warning";
-    return "info";
+    if (diffDays < 0) {
+      return {
+        isExpiringSoon: true,
+        daysUntilExpiry: diffDays,
+        expiryStatus: "EXPIRED" as const,
+      };
+    } else if (diffDays <= 30) {
+      return {
+        isExpiringSoon: true,
+        daysUntilExpiry: diffDays,
+        expiryStatus: "EXPIRING_SOON" as const,
+      };
+    } else {
+      return {
+        isExpiringSoon: false,
+        daysUntilExpiry: diffDays,
+        expiryStatus: "GOOD" as const,
+      };
+    }
   }
 }

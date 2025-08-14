@@ -120,44 +120,58 @@ export const appendAttachments = async (
   next: NextFunction,
 ) => {
   try {
+    // Initialize nested objects if they don't exist
+    if (!req.body.company) req.body.company = {};
+    if (!req.body.contactPerson) req.body.contactPerson = {};
+
+    // Handle file uploads
     if (req.files) {
       const files = req.files as Express.Multer.File[];
 
-      // Ensure the certificate field is correctly extracted
+      // Handle company logo
+      const logoFile = files.find((file) => file.fieldname === "company[logo]");
+      if (logoFile) {
+        req.body.company.logo = logoFile.path;
+      }
+
+      // Handle company certificate
       const certificateFile = files.find(
         (file) => file.fieldname === "company[certificate]",
       );
-      req.body.company.certificate = certificateFile
-        ? certificateFile.path
-        : req.body.company.certificate;
+      if (certificateFile) {
+        req.body.company.certificate = certificateFile.path;
+      }
 
-      // Ensure the logo field is correctly extracted
-      const logoFile = files.find((file) => file.fieldname === "company[logo]");
-      req.body.company.logo = logoFile ? logoFile.path : req.body.company.logo;
-
-      // Ensure the idAttachment field is correctly extracted
+      // Handle contact person ID attachment
       const idAttachmentFile = files.find(
         (file) => file.fieldname === "contactPerson[idAttachment]",
       );
-      req.body.contactPerson.idAttachment = idAttachmentFile
-        ? idAttachmentFile.path
-        : req.body.contactPerson.idAttachment;
+      if (idAttachmentFile) {
+        req.body.contactPerson.idAttachment = idAttachmentFile.path;
+      }
     }
 
-    // Convert fields to strings if they are objects
-    if (typeof req.body.company.certificate === "object") {
-      req.body.company.certificate =
-        req.body.company.certificate[0]?.path || "";
-    }
-    if (typeof req.body.company.logo === "object") {
-      req.body.company.logo = req.body.company.logo[0]?.path || "";
-    }
-    if (typeof req.body.contactPerson.idAttachment === "object") {
-      req.body.contactPerson.idAttachment =
-        req.body.contactPerson.idAttachment[0]?.path || "";
-    }
+    // Restructure flat form data into nested objects
+    const originalBody = { ...req.body };
 
-    // Ensure the role field is present
+    // Reset the body to contain only the nested structure
+    req.body = {
+      company: req.body.company || {},
+      contactPerson: req.body.contactPerson || {},
+    };
+
+    // Process company fields
+    Object.keys(originalBody).forEach((key) => {
+      if (key.startsWith("company[") && key.endsWith("]")) {
+        const fieldName = key.slice(8, -1); // Remove 'company[' and ']'
+        req.body.company[fieldName] = originalBody[key];
+      } else if (key.startsWith("contactPerson[") && key.endsWith("]")) {
+        const fieldName = key.slice(14, -1); // Remove 'contactPerson[' and ']'
+        req.body.contactPerson[fieldName] = originalBody[key];
+      }
+    });
+
+    // Set default role for contact person if not provided
     if (!req.body.contactPerson.role) {
       req.body.contactPerson.role = "COMPANY_ADMIN";
     }

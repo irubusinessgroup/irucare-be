@@ -7,9 +7,6 @@ import {
   ReplyToContactDto,
   TContact,
   TContactReply,
-  TConversation,
-  TConversationMessage,
-  UpdateConversationStatusDto,
 } from "../utils/interfaces/common";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Request as ExpressRequest } from "express";
@@ -102,58 +99,5 @@ export class ContactController {
   @Delete("/{id}")
   public async deleteContact(@Path() id: string): Promise<IResponse<null>> {
     return ContactService.deleteContact(id);
-  }
-
-  @Get("/conversations")
-  public async getConversations(
-    @Request() req: ExpressRequest,
-  ): Promise<IPaged<TConversation[]>> {
-    const { searchq, limit, page } = req.query;
-    const currentPage = page ? parseInt(page as string) : undefined;
-    return ContactService.getAllConversations(
-      searchq as string | undefined,
-      limit ? parseInt(limit as string) : undefined,
-      currentPage,
-    );
-  }
-
-  @Get("/conversation/{email}")
-  public async getConversationByEmail(
-    @Path() email: string,
-  ): Promise<IResponse<TConversation>> {
-    return await ContactService.getConversationByEmail(email);
-  }
-
-  @Get("/conversation/{email}/messages")
-  public async getConversationMessages(
-    @Path() email: string,
-  ): Promise<IResponse<TConversationMessage[]>> {
-    return await ContactService.getConversationMessages(email);
-  }
-
-  @Post("/conversation/{email}/reply")
-  public async replyToConversation(
-    @Path() email: string,
-    @Body() data: ReplyToContactDto,
-    @Request() request: Req,
-  ): Promise<IResponse<TContactReply>> {
-    const adminName =
-      data.adminName ||
-      `${request.user?.firstName} ${request.user?.lastName}`.trim() ||
-      "Admin";
-
-    return await ContactService.replyToConversation(
-      email,
-      data.message,
-      adminName,
-    );
-  }
-
-  @Put("/conversation/{email}/status")
-  public async updateConversationStatus(
-    @Path() email: string,
-    @Body() data: UpdateConversationStatusDto,
-  ): Promise<IResponse<TConversation>> {
-    return await ContactService.updateConversationStatus(email, data.status);
   }
 }

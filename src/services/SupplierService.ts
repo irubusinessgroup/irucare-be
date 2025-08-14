@@ -10,77 +10,9 @@ import {
 } from "../utils/interfaces/common";
 
 export class SupplierService {
-  // public static async getAllSuppliers(
-  //   req: Request,
-  //   searchq?: string,
-  //   limit?: number,
-  //   page?: number,
-  // ) {
-  //   const companyId = req.user?.company?.companyId;
-  //   if (!companyId) {
-  //     throw new AppError("Company ID is missing", 400);
-  //   }
-  //   const queryOptions = searchq
-  //     ? {
-  //         companyId,
-  //         OR: [
-  //           { full_names: { contains: searchq } },
-  //           { phone_number: { contains: searchq } },
-  //         ],
-  //       }
-  //     : { companyId };
-  //   const skip = page && limit ? (page - 1) * limit : undefined;
-  //   const take = limit;
-  //   const suppliers = await prisma.supplier.findMany({
-  //     where: queryOptions,
-  //     skip,
-  //     take,
-  //     orderBy: { createdAt: "desc" },
-  //   });
-  //   const totalItems = await prisma.supplier.count({ where: queryOptions });
-  //   return {
-  //     data: suppliers,
-  //     totalItems,
-  //     currentPage: page || 1,
-  //     itemsPerPage: limit || suppliers.length,
-  //     message: "Suppliers retrieved successfully",
-  //   };
-  // }
-  // public static async createSupplier(
-  //   data: CreateSupplierDto,
-  //   companyId: string,
-  // ) {
-  //   const supplier = await prisma.supplier.create({
-  //     data: {
-  //       full_names: data.full_names,
-  //       phone_number: data.phone_number,
-  //       location: data.location,
-  //       companyId,
-  //     },
-  //   });
-  //   return { message: "Supplier created successfully", data: supplier };
-  // }
-  // public static async updateSupplier(id: string, data: UpdateSupplierDto) {
-  //   const supplier = await prisma.supplier.update({
-  //     where: { id },
-  //     data: {
-  //       full_names: data.full_names,
-  //       phone_number: data.phone_number,
-  //       location: data.location,
-  //     },
-  //   });
-  //   return { message: "Supplier updated successfully", data: supplier };
-  // }
-  // public static async deleteSupplier(id: string) {
-  //   const supplier = await prisma.supplier.findUnique({ where: { id } });
-  //   if (!supplier) throw new AppError("Supplier not found", 404);
-  //   await prisma.supplier.delete({ where: { id } });
-  //   return { message: "Supplier deleted successfully" };
-  // }
-
   static async createSupplier(
     data: CreateSupplierRequest,
-    userId: string,
+    companyId: string,
   ): Promise<IResponse<SupplierResponse>> {
     const existingSupplier = await prisma.suppliers.findUnique({
       where: { email: data.email },
@@ -90,23 +22,36 @@ export class SupplierService {
       throw new AppError("Supplier with this email already exists", 404);
     }
 
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+
+    if (!company) {
+      throw new AppError("Company not found", 404);
+    }
+
     const supplier = await prisma.suppliers.create({
       data: {
         ...data,
-        created_by_user_id: userId,
+        companyId: companyId,
       },
+      include: { company: true },
     });
 
     return {
       statusCode: 200,
       message: "Supplier Created successfully",
-      data: this.mapToSupplierResponse(supplier),
+      data: supplier,
     };
   }
 
-  static async getSupplier(id: string): Promise<IResponse<SupplierResponse>> {
+  static async getSupplier(
+    id: string,
+    companyId: string,
+  ): Promise<IResponse<SupplierResponse>> {
     const supplier = await prisma.suppliers.findUnique({
-      where: { id },
+      where: { id, companyId: companyId },
+      include: { company: true },
     });
 
     if (!supplier) {
@@ -116,7 +61,7 @@ export class SupplierService {
     return {
       statusCode: 200,
       message: "Supplier fetched successfully",
-      data: this.mapToSupplierResponse(supplier),
+      data: supplier,
     };
   }
 
@@ -126,6 +71,7 @@ export class SupplierService {
   ): Promise<IResponse<SupplierResponse>> {
     const existingSupplier = await prisma.suppliers.findUnique({
       where: { id },
+      include: { company: true },
     });
 
     if (!existingSupplier) {
@@ -144,12 +90,13 @@ export class SupplierService {
     const updatedSupplier = await prisma.suppliers.update({
       where: { id },
       data,
+      include: { company: true },
     });
 
     return {
       statusCode: 200,
       message: "Supplier updated successfully",
-      data: this.mapToSupplierResponse(updatedSupplier),
+      data: updatedSupplier,
     };
   }
 
@@ -157,9 +104,7 @@ export class SupplierService {
     const supplier = await prisma.suppliers.findUnique({
       where: { id },
       include: {
-        stockReciepts: true,
-        purchaseOrders: true,
-        Invoices: true,
+        stock: true,
       },
     });
 
@@ -167,11 +112,7 @@ export class SupplierService {
       throw new AppError("Supplier is not found", 404);
     }
 
-    if (
-      supplier.stockReciepts.length > 0 ||
-      supplier.purchaseOrders.length > 0 ||
-      supplier.Invoices.length > 0
-    ) {
+    if (supplier.stock.length > 0) {
       throw new AppError(
         "Cannot delete supplier with existing transactions",
         404,
@@ -184,8 +125,8 @@ export class SupplierService {
   }
 
   static async getSuppliers(
+    companyId: string,
     searchq?: string,
-    is_active?: boolean,
     limit?: number,
     currentPage?: number,
   ): Promise<IPaged<SupplierResponse[]>> {
@@ -195,32 +136,26 @@ export class SupplierService {
         searchq,
       );
 
-      const where: any = {
-        ...searchOptions,
-      };
-
-      if (is_active !== undefined) {
-        where.is_active = is_active;
-      }
-
       const pagination = Paginations(currentPage, limit);
 
       const suppliers = await prisma.suppliers.findMany({
-        where,
+        where: {
+          ...searchOptions,
+          companyId: companyId,
+        },
         ...pagination,
-        orderBy: { created_at: "desc" },
+        orderBy: { createdAt: "desc" },
+        include: { company: true },
       });
 
-      const totalItems = await prisma.suppliers.count({ where });
-
-      const data = suppliers.map((supplier) =>
-        this.mapToSupplierResponse(supplier),
-      );
+      const totalItems = await prisma.suppliers.count({
+        where: { companyId: companyId, ...searchOptions },
+      });
 
       return {
         statusCode: 200,
         message: "Suppliers fetched successfully",
-        data,
+        data: suppliers,
         totalItems,
         currentPage: currentPage || 1,
         itemsPerPage: limit || 15,
@@ -228,18 +163,5 @@ export class SupplierService {
     } catch (error) {
       throw new AppError(error, 500);
     }
-  }
-
-  private static mapToSupplierResponse(supplier: any): SupplierResponse {
-    return {
-      id: supplier.id,
-      supplier_name: supplier.supplier_name,
-      contact_person: supplier.contact_person,
-      phone_number: supplier.phone_number,
-      email: supplier.email,
-      address: supplier.address,
-      is_active: supplier.is_active,
-      created_at: supplier.created_at,
-    };
   }
 }
