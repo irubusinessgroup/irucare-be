@@ -7,14 +7,12 @@ export const checkRole =
   (...permissions: Role[]) =>
   (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log("User roles:", req.user?.userRoles);
-
       if (!req.user?.userRoles) {
         return next(new AppError("Access denied", 403));
       }
 
       const isAllowed = req.user.userRoles.some((permission) =>
-        permissions.includes(permission.name as Role)
+        permissions.includes(permission.name as Role),
       );
 
       if (!isAllowed) {

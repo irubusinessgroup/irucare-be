@@ -3,18 +3,18 @@ import AppError from "../utils/error";
 
 export class ItemCodeGenerator {
   private static async generateSequentialNumber(
-    categoryPrefix: string
+    categoryPrefix: string,
   ): Promise<string> {
     try {
       const lastItem = await prisma.items.findFirst({
-        where: { item_code_sku: { startsWith: categoryPrefix } },
-        orderBy: { item_code_sku: "desc" },
+        where: { itemCodeSku: { startsWith: categoryPrefix } },
+        orderBy: { itemCodeSku: "desc" },
       });
 
       let nextNumber = 1;
       if (lastItem) {
         const lastNumber = parseInt(
-          lastItem.item_code_sku.substring(categoryPrefix.length)
+          lastItem.itemCodeSku.substring(categoryPrefix.length),
         );
         if (!isNaN(lastNumber)) {
           nextNumber = lastNumber + 1;
@@ -37,7 +37,7 @@ export class ItemCodeGenerator {
         throw new AppError("Category not found", 404);
       }
 
-      const categoryPrefix = category.category_name
+      const categoryPrefix = category.categoryName
         .substring(0, 3)
         .toUpperCase();
       const year = new Date().getFullYear().toString().substring(2);

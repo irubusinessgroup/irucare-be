@@ -145,32 +145,6 @@ export interface ReplyToContactDto {
   adminName?: string | null;
 }
 
-export interface TConversation {
-  id: string;
-  email: string;
-  customerName: string;
-  company?: string | null;
-  status: "PENDING" | "RESOLVED";
-  lastMessageAt: Date;
-  totalMessages: number;
-  totalReplies: number;
-  contacts: TContact[];
-  replies: TContactReply[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface TConversationMessage {
-  id: string;
-  message: string;
-  senderType: "customer" | "admin";
-  senderName: string;
-  senderEmail?: string | null;
-  adminName?: string | null;
-  createdAt: Date;
-  contactId?: string | null;
-}
-
 export interface TContact {
   id: string;
   name: string;
@@ -201,10 +175,6 @@ export interface CreateContactDto {
   message: string;
 }
 
-export interface UpdateConversationStatusDto {
-  status: "PENDING" | "RESOLVED";
-}
-
 export interface TNotification {
   id: string;
   userId: string;
@@ -217,7 +187,7 @@ export interface TNotification {
   updatedAt: Date;
   entityType?: string | null;
   entityId?: string | null;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface IResponse<T> {
@@ -580,30 +550,6 @@ export interface CreateCompanyStaffDto {
   idAttachment?: Express.Multer.File | string;
 }
 
-export interface CreateDrugsCategoryDto {
-  name: string;
-}
-
-export interface UpdateDrugsCategoryDto {
-  name: string;
-}
-
-export interface CreateDrugDto {
-  drugCategoryId: string;
-  drugCode: string;
-  description: string;
-  designation: string;
-  instruction: string;
-}
-
-export interface UpdateDrugDto {
-  drugCategoryId?: string;
-  drugCode?: string;
-  description?: string;
-  designation?: string;
-  instruction?: string;
-}
-
 export interface CreatePatientDto {
   name: string;
   identificationType: string;
@@ -648,207 +594,114 @@ export interface CreateInsuranceDto {
 
 export interface UpdateInsuranceDto extends Partial<CreateInsuranceDto> {}
 
-export interface CreateItemRequest {
-  item_full_name: string;
-  category_id: string;
+export interface CreateItemDto {
+  itemFullName: string;
+  categoryId: string;
   description?: string;
-  brand_manufacturer?: string;
-  barcode_qr_code: string;
-  pack_size?: number;
-  uom_id: string;
-  temp_req_id: string;
+  brandManufacturer?: string;
+  batchLotNumber?: string;
+  serialNumber?: string;
+  barcodeQrCode?: Express.Multer.File | string;
 }
 
-export interface UpdateItemRequest {
-  item_full_name?: string;
-  category_id?: string;
+export interface UpdateItemDto {
+  itemFullName?: string;
+  categoryId: string;
   description?: string;
-  brand_manufacturer?: string;
-  barcode_qr_code?: string;
-  pack_size?: number;
-  uom_id?: string;
-  temp_req_id?: string;
-  is_active?: boolean;
+  brandManufacturer?: string;
+  batchLotNumber?: string;
+  serialNumber?: string;
+  barcodeQrCode?: Express.Multer.File | string;
 }
 
-export interface ItemResponse {
-  id: string;
-  item_code_sku: string;
-  item_full_name: string;
-  category: {
-    id: string;
-    category_name: string;
-    description?: string;
-  };
-  description?: string;
-  brand_manufacturer?: string;
-  barcode_qr_code: string;
-  pack_size?: number;
-  uom: {
-    id: string;
-    uom_name: string;
-    abbreviation?: string;
-  };
-  temp: {
-    id: string;
-    temp_req_name: string;
-    min_temp_celsius?: number;
-    max_temp_celsius?: number;
-  };
-  is_active: boolean;
-  created_at: Date;
-  updated_at: Date;
-  current_stock?: number;
+export interface CreateStockDto {
+  itemId: string;
+  purchaseOrderNo?: string;
+  invoiceNo?: string;
+  supplierId: string;
+  dateReceived: Date;
+  quantityReceived: number;
+  expiryDate?: Date;
+  unitCost: number;
+  packSize?: number;
+  uom: string;
+  tempReq: string;
+  currency: string;
+  condition: string;
+  storageLocation: string;
+  specialHandlingNotes?: string;
+  remarksNotes?: string;
 }
 
-export interface CreateStockEntryRequest {
-  item_id: string;
-  supplier_id: string;
-  po_id?: string;
-  invoice_id?: string;
-  quantity_received: number;
-  unit_cost: number;
-  currency_id: string;
-  condition_id: string;
-  storage_location_id: string;
-  batch_lot_number?: string;
-  expiry_date?: Date;
-  serial_numbers?: string[];
-  special_handling_notes?: string;
-  remarks_notes?: string;
-}
-
-export interface StockEntryResponse {
-  id: string;
-  form_code?: string;
-  item: ItemResponse;
-  supplier: SupplierResponse;
-  date_received: Date;
-  quantity_received: number;
-  unit_cost: number;
-  total_cost: number;
-  currency: CurrencyResponse;
-  condition: ConditionResponse;
-  storage_location: StorageLocationResponse;
-  batch_info?: BatchInfo[];
-  serial_numbers?: string[];
-  special_handling_notes?: string;
-  remarks_notes?: string;
-  registered_by_user: UserResponse;
-  received_by_user: UserResponse;
-  created_at: Date;
-  updatedAt: Date;
-}
-
-export interface BatchInfo {
-  id: string;
-  batch_lot_number: string;
-  expiry_date?: Date | null;
-  quantity_in_batch: number;
-  current_stock_quantity: number;
-}
-
-export interface InventoryItem {
-  id: string;
-  item_code_sku: string;
-  item_full_name: string;
-  category_name: string;
-  current_stock: number;
-  uom_abbreviation: string;
-  total_value: number;
-  currency_code: string;
-  batches: BatchInfo[];
-  last_received: Date;
-  expiry_alert: boolean;
+export interface UpdateStockDto {
+  itemId?: string;
+  purchaseOrderNo?: string;
+  invoiceNo?: string;
+  supplierId?: string;
+  dateReceived?: Date;
+  quantityReceived?: number;
+  expiryDate?: Date;
+  unitCost?: number;
+  totalCost?: number;
+  packSize?: number;
+  uom?: string;
+  tempReq?: string;
+  currency?: string;
+  condition?: string;
+  storageLocation?: string;
+  specialHandlingNotes?: string;
+  remarksNotes?: string;
 }
 
 export interface ExpiringItem {
   id: string;
-  item_code_sku: string;
-  item_full_name: string;
-  batch_lot_number: string;
-  expiry_date: Date;
-  current_stock_quantity: number;
-  days_to_expiry: number;
-  alert_level: "critical" | "warning" | "info";
+  itemCodeSku: string;
+  itemFullName: string;
+  batchLotNumber: string;
+  expiryDate: Date;
+  currentStockQuantity: number;
+  daysToExpiry: number;
+  alertLevel: "critical" | "warning" | "info";
 }
 
 export interface CreateSupplierRequest {
-  supplier_name: string;
-  contact_person: string;
-  phone_number: string;
+  supplierName: string;
+  contactPerson: string;
+  phoneNumber: string;
   email: string;
   address?: string;
 }
 
 export interface UpdateSupplierRequest {
-  supplier_name?: string;
-  contact_person?: string;
-  phone_number?: string;
+  supplierName?: string;
+  contactPerson?: string;
+  phoneNumber?: string;
   email?: string;
   address?: string;
-  is_active?: boolean;
 }
 
 export interface SupplierResponse {
   id: string;
-  supplier_name: string;
-  contact_person: string;
-  phone_number: string;
+  supplierName: string;
+  contactPerson: string;
+  phoneNumber: string;
   email: string;
-  address?: string;
-  is_active: boolean;
-  created_at: Date;
+  address?: string | null;
+  createdAt: Date;
 }
 
 export interface CategoryResponse {
   id: string;
-  category_name: string;
+  categoryName: string;
   description?: string | null;
 }
 
-export interface UomResponse {
-  id: string;
-  uom_name: string;
-  abbreviation?: string | null;
-}
-
-export interface CurrencyResponse {
-  id: string;
-  currency_code: string;
-}
-
-export interface ConditionResponse {
-  id: string;
-  condition_name: string;
+export interface CreateCategoryRequest {
+  categoryName: string;
   description?: string | null;
 }
 
-export interface TemperatureRequirementResponse {
-  id: string;
-  temp_req_name: string;
-  min_temp_celsius?: number;
-  max_temp_celsius?: number;
-}
-
-export interface StorageLocationResponse {
-  id: string;
-  location_name: string;
-  location_type?: string | null;
+export interface UpdateCategoryRequest {
+  categoryName: string;
   description?: string | null;
-}
-
-export interface ItemFilters {
-  category_id?: string;
-  is_active?: boolean;
-  search?: string;
-  barcode?: string;
-}
-
-export interface StockEntryFilters {
-  item_id?: string;
-  supplier_id?: string;
-  date_from?: Date;
-  date_to?: Date;
-  condition_id?: string;
 }

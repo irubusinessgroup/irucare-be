@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 9000;
 app.use(
   urlencoded({
     extended: true,
-  })
+  }),
 );
 
 app.use(json());
@@ -38,14 +38,14 @@ app.use(cors());
 app.use("/docs", swaggerUi.serve, async (_req: ExRequest, res: ExResponse) => {
   return res.send(
     //@ts-ignore
-    swaggerUi.generateHTML(await import("../build/swagger.json"))
+    swaggerUi.generateHTML(await import("../build/swagger.json")),
   );
 });
 
 const server = createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
-    origin: "http://localhost:4173",
+    origin: ["http://localhost:4173", "https://irucare.com"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -54,11 +54,8 @@ app.set("io", io);
 
 io.on("connection", async (socket) => {
   try {
-    console.log(`New socket connection attempt: ${socket.id}`);
-
     const token = socket.handshake.query.token as string;
     if (!token) {
-      console.log("No token provided, disconnecting");
       socket.disconnect();
       return;
     }
@@ -67,15 +64,10 @@ io.on("connection", async (socket) => {
 
     const roles = Array.isArray(decoded.userRoles) ? decoded.userRoles : [];
 
-    console.log(`Decoded user roles:`, roles);
-
     if (!decoded || roles.length === 0) {
-      console.log("Invalid token or no user roles, disconnecting");
       socket.disconnect();
       return;
     }
-
-    console.log(`User ${decoded.id} connected successfully`);
 
     socket.join(decoded.id);
 
@@ -83,7 +75,6 @@ io.on("connection", async (socket) => {
       const roomName = typeof role === "string" ? role : role.name;
       if (roomName) {
         socket.join(roomName);
-        console.log(`User ${decoded.id} joined room: ${roomName}`);
       }
     });
 
@@ -100,7 +91,7 @@ io.on("connection", async (socket) => {
 
     try {
       const notifications = await NotificationService.getUserNotifications(
-        decoded.id
+        decoded.id,
       );
       socket.emit("notifications", notifications);
     } catch (error) {
@@ -111,15 +102,12 @@ io.on("connection", async (socket) => {
     socket.on("mark_as_read", async (data) => {
       try {
         const { notificationId } = data;
-        console.log(
-          `Marking notification ${notificationId} as read for user ${decoded.id}`
-        );
 
         await NotificationService.markAsRead(notificationId, decoded.id);
         socket.emit("notification_marked_read", { notificationId });
 
         const unreadCount = await NotificationService.getUnreadCount(
-          decoded.id
+          decoded.id,
         );
         socket.emit("unread_count_updated", { unreadCount });
       } catch (error) {
@@ -133,10 +121,6 @@ io.on("connection", async (socket) => {
     // Mark all notifications as read
     socket.on("mark_all_as_read", async () => {
       try {
-        console.log(
-          ` Marking all notifications as read for user ${decoded.id}`
-        );
-
         await NotificationService.markAllAsRead(decoded.id);
         socket.emit("all_notifications_marked_read");
         socket.emit("unread_count_updated", { unreadCount: 0 });
@@ -152,23 +136,19 @@ io.on("connection", async (socket) => {
     socket.on("delete_notification", async (data) => {
       try {
         const { notificationId } = data;
-        console.log(
-          `Deleting notification ${notificationId} for user ${decoded.id}`
-        );
 
         const deleted = await NotificationService.deleteNotification(
           notificationId,
-          decoded.id
+          decoded.id,
         );
         if (deleted) {
           socket.emit("notification_deleted", { notificationId });
           const unreadCount = await NotificationService.getUnreadCount(
-            decoded.id
+            decoded.id,
           );
           socket.emit("unread_count_updated", { unreadCount });
         }
       } catch (error) {
-        console.error("Error deleting notification:", error);
         socket.emit("error", { message: "Failed to delete notification" });
       }
     });
@@ -176,8 +156,6 @@ io.on("connection", async (socket) => {
     // Clear all notifications
     socket.on("clear_all_notifications", async () => {
       try {
-        console.log(`Clearing all notifications for user ${decoded.id}`);
-
         await NotificationService.clearAllNotifications(decoded.id);
         socket.emit("all_notifications_cleared");
         socket.emit("unread_count_updated", { unreadCount: 0 });
@@ -216,7 +194,7 @@ app.use(function errorHandler(
   err: unknown,
   req: ExRequest,
   res: ExResponse,
-  next: NextFunction
+  next: NextFunction,
 ): ExResponse | void {
   console.log(err);
   if (err instanceof AppError) {
@@ -241,5 +219,5 @@ app.use(function errorHandler(
 });
 
 server.listen(PORT, () =>
-  console.log(`API running on PORT http://localhost:${PORT} wow!s`)
+  console.log(`API running on PORT http://localhost:${PORT} wow!s`),
 );

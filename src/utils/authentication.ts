@@ -1,5 +1,4 @@
 /* eslint-disable no-async-promise-executor */
-
 import type * as express from "express";
 import { prisma } from "./client";
 import AppError from "./error";
@@ -8,10 +7,11 @@ import { verifyToken } from "./jwt";
 
 export const expressAuthentication = (
   request: express.Request,
-  securityName: string
+  securityName: string,
 ) => {
   if (securityName === "jwt") {
     const token = request.headers["authorization"] as string;
+
     return new Promise(async (resolve, reject) => {
       try {
         if (!token) {
@@ -19,29 +19,13 @@ export const expressAuthentication = (
           return;
         }
 
-        const decoded = (await verifyToken(token)) as any;
+        const decoded = (await verifyToken(token)) as
+          | string
+          | { email: string; id?: string };
 
-        // Check if token contains user data (new format) or just email (old format)
-        if (decoded.email && decoded.id) {
-          // New format - token contains user data
-          const user = await prisma.user.findFirst({
-            where: { id: decoded.id },
-            include: {
-              userRoles: true,
-              company: true,
-            },
-          });
-
-          if (!user) {
-            reject(new AppError("User not found", 404));
-            return;
-          }
-
-          request.user = user as unknown as TUser;
-          resolve(user);
-        } else {
-          // Old format - token contains just email
-          const email = decoded as string;
+        if (typeof decoded === "string") {
+          // Old format - token is just the email string
+          const email = decoded;
           const user = await prisma.user.findFirst({
             where: { email },
             include: {
@@ -57,6 +41,44 @@ export const expressAuthentication = (
 
           request.user = user as unknown as TUser;
           resolve(user);
+        } else {
+          // New format - token is an object
+          if (decoded.email && decoded.id) {
+            // New format - token contains user data
+            const user = await prisma.user.findFirst({
+              where: { id: decoded.id },
+              include: {
+                userRoles: true,
+                company: true,
+              },
+            });
+
+            if (!user) {
+              reject(new AppError("User not found", 404));
+              return;
+            }
+
+            request.user = user as unknown as TUser;
+            resolve(user);
+          } else {
+            // Old format - token contains just email in object form
+            const email = decoded.email;
+            const user = await prisma.user.findFirst({
+              where: { email },
+              include: {
+                userRoles: true,
+                company: true,
+              },
+            });
+
+            if (!user) {
+              reject(new AppError("User not found", 404));
+              return;
+            }
+
+            request.user = user as unknown as TUser;
+            resolve(user);
+          }
         }
       } catch (error) {
         reject(new AppError("Not Authorized", 403));

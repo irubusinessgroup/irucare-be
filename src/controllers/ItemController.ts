@@ -1,70 +1,75 @@
-import { Body, Delete, Get, Path, Post, Put, Request, Route, Tags } from "tsoa";
+import {
+  Body,
+  Delete,
+  Get,
+  Middlewares,
+  Path,
+  Post,
+  Put,
+  Query,
+  Request,
+  Route,
+  Security,
+  Tags,
+} from "tsoa";
 import { Request as ExpressRequest } from "express";
 import { ItemService } from "../services/ItemService";
-import {
-  CreateItemRequest,
-  IPaged,
-  IResponse,
-  ItemFilters,
-  ItemResponse,
-  UpdateItemRequest,
-} from "../utils/interfaces/common";
+import { CreateItemDto, UpdateItemDto } from "../utils/interfaces/common";
+import { checkRole } from "../middlewares";
+import { roles } from "../utils/roles";
+import upload from "../utils/cloudinary";
+import { appendBarcodeQrCode } from "../middlewares/appendBarcodeQrCode";
 
-@Tags("Items")
+@Security("jwt")
 @Route("/api/items")
+@Tags("Items")
 export class ItemController {
   @Post("/")
+  @Middlewares(
+    checkRole(roles.COMPANY_ADMIN),
+    upload.any(),
+    appendBarcodeQrCode,
+  )
   public async createItem(
-    @Body() data: CreateItemRequest,
-    @Request() req: ExpressRequest
-  ): Promise<IResponse<ItemResponse>> {
-    const userId = req.user?.id as string;
-    return ItemService.createItem(data, userId);
+    @Body() data: CreateItemDto,
+    @Request() req: ExpressRequest,
+  ) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.createItem(data, companyId);
   }
 
-  @Get("/{itemCode}")
-  public async getItemByCode(
-    @Path() itemCode: string
-  ): Promise<IResponse<ItemResponse>> {
-    return ItemService.getItemByCode(itemCode);
+  @Get("/{id}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getItem(@Path() id: string) {
+    return ItemService.getItem(id);
   }
 
-  @Put("/{itemCode}")
-  public async updateItem(
-    @Path() itemCode: string,
-    @Body() data: UpdateItemRequest,
-    @Request() req: ExpressRequest
-  ): Promise<IResponse<ItemResponse>> {
-    const userId = req.user?.id as string;
-    return ItemService.updateItem(itemCode, data, userId);
+  @Put("/{id}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN), upload.any())
+  public updateItem(
+    @Path() id: string,
+    @Body() body: UpdateItemDto,
+    @Request() req: ExpressRequest,
+  ) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.updateItem(id, body, companyId);
   }
 
-  @Delete("/{itemCode}")
-  public async deleteItem(@Path() itemCode: string): Promise<IResponse<null>> {
-    return ItemService.deleteItem(itemCode);
+  @Delete("/{id}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public deleteItem(@Path() id: string, @Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.deleteItem(id, companyId);
   }
 
   @Get("/")
-  public async getItems(
-    @Request() req: ExpressRequest
-  ): Promise<IPaged<ItemResponse[]>> {
-    const { searchq, limit, page, category_id, is_active, barcode } =
-      req.query as Record<string, string>;
-    const currentPage = page ? parseInt(page as string, 10) : undefined;
-    const parsedLimit = limit ? parseInt(limit as string, 10) : undefined;
-
-    const filters: ItemFilters = {
-      category_id: category_id as string | undefined,
-      is_active:
-        typeof is_active !== "undefined" ? is_active === "true" : undefined,
-      barcode: barcode as string | undefined,
-    };
-
-    return ItemService.getItems(
-      (searchq as string) || undefined,
-      parsedLimit,
-      currentPage,
-      filters
-    );
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getAllItems(
+    @Request() req: ExpressRequest,
+    @Query() searchq?: string,
+    @Query() limit?: number,
+    @Query() page?: number,
+  ) {
+    return ItemService.getItems(req, searchq, limit, page);
   }
 }
