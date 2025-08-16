@@ -13,9 +13,19 @@ export class StockService {
       data.unitCost,
     );
 
-    const stock = await prisma.stock.create({
+    const stock = await prisma.stockReceipts.create({
       data: { ...data, totalCost, companyId },
       include: { item: true, company: true, supplier: true },
+    });
+
+    const stockToCreate = Array.from({ length: data.quantityReceived }, () => ({
+      stockReceiptId: stock.id,
+      status: "AVAILABLE",
+      sellId: null,
+    }));
+
+    await prisma.stock.createMany({
+      data: stockToCreate,
     });
 
     return {
@@ -29,56 +39,125 @@ export class StockService {
     data: UpdateStockDto,
     companyId: string,
   ) {
-    const existingEntry = await prisma.stock.findUnique({
-      where: { id, companyId: companyId },
-    });
-
-    if (!existingEntry) {
-      throw new AppError("Stock record not found", 404);
-    }
-
-    const totalCost =
-      data.quantityReceived && data.unitCost
-        ? StockCalculations.calculateTotalCost(
-            data.quantityReceived,
-            data.unitCost,
-          )
-        : data.quantityReceived
-          ? StockCalculations.calculateTotalCost(
-              data.quantityReceived,
-              parseFloat(existingEntry.unitCost.toString()),
-            )
-          : data.unitCost
-            ? StockCalculations.calculateTotalCost(
-                parseFloat(existingEntry.quantityReceived.toString()),
-                data.unitCost,
-              )
-            : parseFloat(existingEntry.totalCost.toString());
-
-    const stock = await prisma.stock.update({
-      where: { id },
-      data: {
-        ...data,
-        totalCost: totalCost,
-        updatedAt: new Date(),
-      },
-      include: {
-        item: {
-          include: {
-            category: true,
-            company: true,
+    return await prisma.$transaction(async (tx) => {
+      const existingEntry = await tx.stockReceipts.findUnique({
+        where: { id, companyId },
+        include: {
+          stocks: {
+            where: { status: "AVAILABLE" },
+            select: { id: true },
           },
         },
-        supplier: { include: { company: true } },
-        company: true,
-      },
-    });
+      });
 
-    return { message: "Stock record updated successfully", data: stock };
+      if (!existingEntry) {
+        throw new AppError("Stock record not found", 404);
+      }
+
+      if (data.itemId) {
+        const item = await tx.items.findUnique({
+          where: { id: data.itemId, companyId },
+        });
+        if (!item) {
+          throw new AppError(
+            "Item not found or doesn't belong to your company",
+            404,
+          );
+        }
+      }
+
+      if (data.supplierId) {
+        const supplier = await tx.suppliers.findUnique({
+          where: { id: data.supplierId, companyId },
+        });
+        if (!supplier) {
+          throw new AppError(
+            "Supplier not found or doesn't belong to your company",
+            404,
+          );
+        }
+      }
+
+      const totalCost = StockCalculations.calculateTotalCost(
+        data.quantityReceived ??
+          parseFloat(existingEntry.quantityReceived.toString()),
+        data.unitCost ?? parseFloat(existingEntry.unitCost.toString()),
+      );
+
+      type StockAdjustment = {
+        stockReceiptId: string;
+        status: "AVAILABLE";
+        // companyId: string;
+      };
+
+      let stockAdjustment: StockAdjustment[] = [];
+
+      if (data.quantityReceived !== undefined) {
+        const newQty = data.quantityReceived;
+        const oldQty = parseFloat(existingEntry.quantityReceived.toString());
+        const diff = newQty - oldQty;
+
+        if (diff > 0) {
+          stockAdjustment = Array.from({ length: diff }, () => ({
+            stockReceiptId: id,
+            status: "AVAILABLE",
+            // companyId,
+          }));
+        } else if (diff < 0) {
+          const decreaseBy = -diff;
+          const availableCount = existingEntry.stocks.length;
+
+          if (availableCount < decreaseBy) {
+            throw new AppError(
+              `Cannot reduce quantity by ${decreaseBy}. Only ${availableCount} available units exist.`,
+              400,
+            );
+          }
+
+          const stockIdsToDelete = existingEntry.stocks
+            .slice(0, decreaseBy)
+            .map((stock) => stock.id);
+
+          await tx.stock.deleteMany({
+            where: { id: { in: stockIdsToDelete } },
+          });
+        }
+      }
+
+      const updatedReceipt = await tx.stockReceipts.update({
+        where: { id },
+        data: {
+          ...data,
+          totalCost,
+          updatedAt: new Date(),
+        },
+        include: {
+          item: {
+            include: {
+              category: true,
+              company: true,
+            },
+          },
+          supplier: { include: { company: true } },
+          company: true,
+        },
+      });
+
+      if (stockAdjustment.length > 0) {
+        await tx.stock.createMany({
+          data: stockAdjustment,
+        });
+      }
+
+      return {
+        message: "Stock record updated successfully",
+        data: updatedReceipt,
+      };
+    });
   }
 
   static async deleteStock(id: string, companyId: string) {
-    const stock = await prisma.stock.findUnique({
+    const stock = await prisma.stockReceipts.findUnique({
       where: { id, companyId: companyId },
       include: { approvals: true },
     });
@@ -89,9 +168,9 @@ export class StockService {
 
     await prisma.$transaction(async (tx) => {
       await tx.approvals.deleteMany({
-        where: { stockId: id },
+        where: { stockReceiptId: id },
       });
-      await tx.stock.delete({
+      await tx.stockReceipts.delete({
         where: { id },
       });
     });
@@ -99,7 +178,7 @@ export class StockService {
   }
 
   static async getStock(id: string, companyId: string) {
-    const stock = await prisma.stock.findUnique({
+    const stock = await prisma.stockReceipts.findUnique({
       where: { id, companyId: companyId },
       include: {
         item: {
@@ -137,7 +216,7 @@ export class StockService {
         ? {
             companyId,
             OR: [
-              { purchaseOrderNo: { contains: searchq } },
+              { purchaseOrderId: { contains: searchq } },
               { invoiceNo: { contains: searchq } },
               { item: { itemCodeSku: { contains: searchq } } },
               { item: { itemFullName: { contains: searchq } } },
@@ -148,11 +227,11 @@ export class StockService {
       const skip = page && limit ? (page - 1) * limit : undefined;
       const take = limit;
 
-      const totalItems = await prisma.stock.count({
+      const totalItems = await prisma.stockReceipts.count({
         where: queryOptions,
       });
 
-      const stock = await prisma.stock.findMany({
+      const stock = await prisma.stockReceipts.findMany({
         where: queryOptions,
         skip,
         take,
@@ -217,6 +296,13 @@ export class StockService {
     });
     if (!supplier) {
       throw new AppError("Supplier not found", 404);
+    }
+
+    if (data.purchaseOrderId) {
+      const po = await prisma.purchaseOrder.findUnique({
+        where: { id: data.purchaseOrderId },
+      });
+      if (!po) throw new AppError("Purchase Order not found", 404);
     }
   }
 }

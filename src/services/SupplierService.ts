@@ -104,7 +104,7 @@ export class SupplierService {
     const supplier = await prisma.suppliers.findUnique({
       where: { id },
       include: {
-        stock: true,
+        stockReceipts: true,
       },
     });
 
@@ -112,7 +112,7 @@ export class SupplierService {
       throw new AppError("Supplier is not found", 404);
     }
 
-    if (supplier.stock.length > 0) {
+    if (supplier.stockReceipts.length > 0) {
       throw new AppError(
         "Cannot delete supplier with existing transactions",
         404,

@@ -19,7 +19,7 @@ import { checkRole } from "../middlewares";
 import { roles } from "../utils/roles";
 
 @Security("jwt")
-@Route("/api/stock")
+@Route("/api/stock-receipt")
 @Tags("Stock")
 export class StockController {
   @Get("/")

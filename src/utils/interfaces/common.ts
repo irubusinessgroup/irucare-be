@@ -599,6 +599,8 @@ export interface CreateItemDto {
   categoryId: string;
   description?: string;
   brandManufacturer?: string;
+  minLevel: number;
+  maxLevel: number;
   batchLotNumber?: string;
   serialNumber?: string;
   barcodeQrCode?: Express.Multer.File | string;
@@ -609,6 +611,8 @@ export interface UpdateItemDto {
   categoryId: string;
   description?: string;
   brandManufacturer?: string;
+  minLevel: number;
+  maxLevel: number;
   batchLotNumber?: string;
   serialNumber?: string;
   barcodeQrCode?: Express.Multer.File | string;
@@ -616,7 +620,7 @@ export interface UpdateItemDto {
 
 export interface CreateStockDto {
   itemId: string;
-  purchaseOrderNo?: string;
+  purchaseOrderId: string;
   invoiceNo?: string;
   supplierId: string;
   dateReceived: Date;
@@ -635,7 +639,7 @@ export interface CreateStockDto {
 
 export interface UpdateStockDto {
   itemId?: string;
-  purchaseOrderNo?: string;
+  purchaseOrderId: string;
   invoiceNo?: string;
   supplierId?: string;
   dateReceived?: Date;
@@ -651,17 +655,6 @@ export interface UpdateStockDto {
   storageLocation?: string;
   specialHandlingNotes?: string;
   remarksNotes?: string;
-}
-
-export interface ExpiringItem {
-  id: string;
-  itemCodeSku: string;
-  itemFullName: string;
-  batchLotNumber: string;
-  expiryDate: Date;
-  currentStockQuantity: number;
-  daysToExpiry: number;
-  alertLevel: "critical" | "warning" | "info";
 }
 
 export interface CreateSupplierRequest {
@@ -704,4 +697,67 @@ export interface CreateCategoryRequest {
 export interface UpdateCategoryRequest {
   categoryName: string;
   description?: string | null;
+}
+
+export interface CreatePurchaseOrderDto {
+  poNumber: string;
+  itemId: string;
+  supplierId: string;
+  quantity: number;
+  costPrice: number;
+  notes?: string;
+  expectedDeliveryDate: Date;
+}
+
+export interface UpdatePurchaseOrderDto {
+  poNumber?: string;
+  itemId?: string;
+  supplierId?: string;
+  quantity?: number;
+  costPrice?: number;
+  notes?: string;
+  expectedDeliveryDate?: Date;
+  totalAmount?: number;
+}
+
+export interface CreateClientDto {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
+export interface UpdateClientDto {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}
+
+export interface CreateSellDto {
+  clientId: string;
+  itemId: string;
+  quantity: number;
+  sellPrice: number;
+  notes?: string;
+}
+
+export interface UpdateSellDto {
+  clientId?: string;
+  itemId?: string;
+  quantity?: number;
+  sellPrice?: number;
+  notes?: string;
+  totalAmount?: number;
+}
+
+export interface CreateApprovalDto {
+  stockReceiptId: string;
+  approvalStatus: "APPROVED" | "DISAPPROVED" | "PENDING";
+  comments?: string;
+}
+
+export interface UpdateApprovalDto {
+  approvalStatus?: "APPROVED" | "DISAPPROVED" | "PENDING";
+  comments?: string;
 }

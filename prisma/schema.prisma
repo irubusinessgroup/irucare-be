@@ -69,7 +69,8 @@ model Suppliers {
   createdAt         DateTime       @default(now()) 
   companyId         String
   company           Company      @relation(fields: [companyId], references: [id])
-  stock             Stock[]
+  stockReceipts             StockReceipts[]
+  purchaseOrders     PurchaseOrder[]
 
 }
 
@@ -81,21 +82,26 @@ model Items {
   category           ItemCategories @relation(fields: [categoryId], references: [id])
   companyId        String
   company           Company      @relation(fields: [companyId], references: [id])
-  description        String?          
+  description        String?
+  minLevel           Decimal         @db.Decimal(10, 2)
+  maxLevel           Decimal         @db.Decimal(10, 2)
   brandManufacturer String?
   batchLotNumber String? 
   serialNumber String?
   barcodeQrCode    String? 
   createdAt         DateTime       @default(now()) 
   updatedAt         DateTime       @updatedAt
-  stock      Stock[]
+  stockReceipts      StockReceipts[]
+  purchaseOrders     PurchaseOrder[]
+  sells             Sell[]
 }
 
-model Stock {
+model StockReceipts {
   id                 String          @id @default(uuid())
   itemId            String           
   item               Items           @relation(fields: [itemId], references: [id])               
-  purchaseOrderNo     String?            
+  purchaseOrderId              String
+  purchaseOrderNo     PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id])
   invoiceNo         String?            
   supplierId        String           
   supplier           Suppliers       @relation(fields: [supplierId], references: [id]) 
@@ -116,14 +122,23 @@ model Stock {
   remarksNotes       String?
   createdAt          DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
-  approvals           Approvals[]	    
+  approvals           Approvals[]	
+  stocks              Stock[]
 }
 
+model Stock{
+id                 String         @id @default(uuid())
+stockReceiptId     String
+stockReceipt       StockReceipts  @relation(fields: [stockReceiptId], references: [id])
+status             String
+sellId            String?
+sell              Sell?      @relation(fields: [sellId], references: [id])
+}
 
 model Approvals {
   id                 String         @id @default(uuid())
-  stockId         String
-  stock             Stock          @relation(fields: [stockId], references: [id])
+  stockReceiptId     String
+  stockReceipts             StockReceipts          @relation(fields: [stockReceiptId], references: [id])
   approvedByUserId String 
   approvedByUser    User          @relation(fields: [approvedByUserId], references: [id])
   dateApproved      DateTime         
@@ -132,7 +147,50 @@ model Approvals {
   createdAt          DateTime       @default(now())     
 }
 
+model PurchaseOrder{
+  id                 String         @id @default(uuid())
+  poNumber           String
+  companyId          String
+  itemId             String
+  items              Items @relation(fields: [itemId], references: [id])
+  supplierId         String
+  suppliers          Suppliers @relation(fields: [supplierId], references: [id])
+  quantity           Decimal         @db.Decimal(10, 2)  
+  costPrice          Decimal         @db.Decimal(18, 4)  
+  totalAmount         Decimal         @db.Decimal(18, 2)
+  notes               String?
+  expectedDeliveryDate DateTime
+  createdAt            DateTime    @default(now())
+  stockReceipts        StockReceipts[]
+}
 
+model Client {
+    id                 String         @id @default(uuid())
+    companyId          String
+    name               String
+    email              String
+    phone              String
+    address            String
+    createdAt         DateTime      @default(now())
+    updatedAt         DateTime      @updatedAt
+    sells             Sell[]
+}
+
+model Sell {
+    id                 String         @id @default(uuid())
+    clientId           String
+    companyId          String
+    client             Client         @relation(fields: [clientId], references: [id])
+    itemId             String
+    item               Items          @relation(fields: [itemId], references: [id])
+    quantity           Decimal         @db.Decimal(10, 2)
+    sellPrice          Decimal         @db.Decimal(18, 2)
+    totalAmount        Decimal         @db.Decimal(18, 2)
+    notes              String?
+    createdAt         DateTime      @default(now())
+    updatedAt         DateTime      @updatedAt
+    stocks            Stock[]
+}
 
 model Notification {
   id          String   @id @default(uuid())
@@ -487,7 +545,7 @@ model Company {
   items          Items[]
   itemCategories ItemCategories[]
   suppliers      Suppliers[]
-  stock          Stock[]
+  stockReceipts          StockReceipts[]
 }
 
 model CompanyUser {
