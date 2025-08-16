@@ -45,14 +45,14 @@ export class ItemService {
       include: {
         category: true,
         company: true,
-        stock: { include: { supplier: true } },
+        stockReceipts: { include: { supplier: true } },
       },
     });
     if (!item) {
       throw new AppError("Item not found", 404);
     }
 
-    const totalStockQuantity = item.stock.reduce(
+    const totalStockQuantity = item.stockReceipts.reduce(
       (sum, s) => sum + parseFloat(s.quantityReceived.toString()),
       0,
     );
@@ -76,7 +76,7 @@ export class ItemService {
       include: {
         category: true,
         company: true,
-        stock: { include: { supplier: true } },
+        stockReceipts: { include: { supplier: true } },
       },
     });
 
@@ -106,7 +106,7 @@ export class ItemService {
       include: {
         category: true,
         company: true,
-        stock: { include: { supplier: true } },
+        stockReceipts: { include: { supplier: true } },
       },
     });
 
@@ -119,14 +119,14 @@ export class ItemService {
   public static async deleteItem(id: string, companyId: string) {
     const item = await prisma.items.findUnique({
       where: { id, companyId: companyId },
-      include: { stock: true },
+      include: { stockReceipts: true },
     });
 
     if (!item) {
       throw new AppError("Item not found", 404);
     }
 
-    if (item.stock.length > 0) {
+    if (item.stockReceipts.length > 0) {
       throw new AppError("Item has stock entries and cannot be deleted", 400);
     }
 
@@ -170,7 +170,7 @@ export class ItemService {
       include: {
         category: true,
         company: true,
-        stock: { include: { supplier: true } },
+        stockReceipts: { include: { supplier: true } },
       },
       skip,
       take,
