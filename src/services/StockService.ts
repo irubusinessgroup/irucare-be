@@ -5,36 +5,146 @@ import { StockCalculations } from "../utils/calculations";
 import type { Request } from "express";
 
 export class StockService {
-  static async createStock(data: CreateStockDto, companyId: string) {
-    await this.validateReferences(data, companyId);
+  static async createStockReceipt(data: CreateStockDto, companyId: string) {
+    const references = await this.validateReferences(data, companyId);
 
-    const totalCost = StockCalculations.calculateTotalCost(
-      data.quantityReceived,
-      data.unitCost,
-    );
+    const totalCost =
+      data.quantityReceived * (data.unitCost || references.unitCost);
 
-    const stock = await prisma.stockReceipts.create({
-      data: { ...data, totalCost, companyId },
-      include: { item: true, company: true, supplier: true },
-    });
-
-    const stockToCreate = Array.from({ length: data.quantityReceived }, () => ({
-      stockReceiptId: stock.id,
-      status: "AVAILABLE",
-      sellId: null,
-    }));
-
-    await prisma.stock.createMany({
-      data: stockToCreate,
+    const stockReceipt = await prisma.stockReceipts.create({
+      data: {
+        ...data,
+        itemId: references.itemId,
+        supplierId: references.supplierId,
+        purchaseOrderItemId: data.purchaseOrderItemId,
+        totalCost,
+        companyId,
+      },
+      include: {
+        item: true,
+        company: true,
+        supplier: true,
+        purchaseOrderItem: {
+          include: {
+            purchaseOrder: true,
+          },
+        },
+      },
     });
 
     return {
       message: "Stock record created successfully",
-      data: stock,
+      data: stockReceipt,
     };
   }
 
-  static async updateStock(
+  static async addToStock(stockReceiptId: string) {
+    return await prisma.$transaction(async (tx) => {
+      const stockReceipt = await tx.stockReceipts.findUnique({
+        where: { id: stockReceiptId },
+        include: {
+          item: true,
+          approvals: {
+            where: { approvalStatus: "APPROVED" },
+            orderBy: { dateApproved: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!stockReceipt) {
+        throw new AppError("Stock receipt not found", 404);
+      }
+
+      const expectedSellPrice =
+        stockReceipt.approvals[0]?.ExpectedSellPrice || null;
+
+      const existingStock = await tx.stock.findFirst({
+        where: {
+          stockReceipt: { itemId: stockReceipt.itemId },
+          status: "AVAILABLE",
+        },
+        include: {
+          stockReceipt: {
+            include: {
+              approvals: {
+                where: { approvalStatus: "APPROVED" },
+                orderBy: { dateApproved: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
+      });
+
+      if (existingStock) {
+        const newStockUnits = Array.from(
+          {
+            length: stockReceipt.quantityReceived.toNumber(),
+          },
+          () => ({
+            stockReceiptId: stockReceiptId,
+            status: "AVAILABLE",
+          }),
+        );
+
+        await tx.stock.createMany({
+          data: newStockUnits,
+        });
+
+        const allStockReceiptsForItem = await tx.stockReceipts.findMany({
+          where: { itemId: stockReceipt.itemId },
+          select: { id: true },
+        });
+
+        const stockReceiptIds = allStockReceiptsForItem.map((sr) => sr.id);
+
+        if (expectedSellPrice) {
+          await tx.approvals.updateMany({
+            where: {
+              stockReceiptId: { in: stockReceiptIds },
+              approvalStatus: "APPROVED",
+            },
+            data: {
+              ExpectedSellPrice: expectedSellPrice,
+            },
+          });
+        }
+
+        return {
+          message:
+            "Stock updated successfully - quantity added and sell price updated",
+          stockUnitsCreated: newStockUnits.length,
+          totalAvailableUnits: await tx.stock.count({
+            where: {
+              stockReceipt: { itemId: stockReceipt.itemId },
+              status: "AVAILABLE",
+            },
+          }),
+        };
+      } else {
+        const stockUnits = Array.from(
+          { length: stockReceipt.quantityReceived.toNumber() },
+          () => ({
+            stockReceiptId: stockReceiptId,
+            status: "AVAILABLE",
+          }),
+        );
+
+        await tx.stock.createMany({
+          data: stockUnits,
+        });
+
+        return {
+          message: "New stock item created successfully",
+          stockUnitsCreated: stockUnits.length,
+          totalAvailableUnits: stockUnits.length,
+        };
+      }
+    });
+  }
+
+  static async updateStockReceipt(
     id: string,
     data: UpdateStockDto,
     companyId: string,
@@ -84,13 +194,10 @@ export class StockService {
         data.unitCost ?? parseFloat(existingEntry.unitCost.toString()),
       );
 
-      type StockAdjustment = {
+      let stockAdjustment: Array<{
         stockReceiptId: string;
         status: "AVAILABLE";
-        // companyId: string;
-      };
-
-      let stockAdjustment: StockAdjustment[] = [];
+      }> = [];
 
       if (data.quantityReceived !== undefined) {
         const newQty = data.quantityReceived;
@@ -101,7 +208,6 @@ export class StockService {
           stockAdjustment = Array.from({ length: diff }, () => ({
             stockReceiptId: id,
             status: "AVAILABLE",
-            // companyId,
           }));
         } else if (diff < 0) {
           const decreaseBy = -diff;
@@ -156,7 +262,7 @@ export class StockService {
     });
   }
 
-  static async deleteStock(id: string, companyId: string) {
+  static async deleteStockReceipt(id: string, companyId: string) {
     const stock = await prisma.stockReceipts.findUnique({
       where: { id, companyId: companyId },
       include: { approvals: true },
@@ -177,7 +283,7 @@ export class StockService {
     return { message: "Stock record deleted successfully" };
   }
 
-  static async getStock(id: string, companyId: string) {
+  static async getStockReceipt(id: string, companyId: string) {
     const stock = await prisma.stockReceipts.findUnique({
       where: { id, companyId: companyId },
       include: {
@@ -190,6 +296,7 @@ export class StockService {
         supplier: { include: { company: true } },
         company: true,
         approvals: { include: { approvedByUser: true } },
+        stocks: { where: { status: "AVAILABLE" } },
       },
     });
 
@@ -216,10 +323,16 @@ export class StockService {
         ? {
             companyId,
             OR: [
-              { purchaseOrderId: { contains: searchq } },
               { invoiceNo: { contains: searchq } },
               { item: { itemCodeSku: { contains: searchq } } },
               { item: { itemFullName: { contains: searchq } } },
+              {
+                purchaseOrderItem: {
+                  purchaseOrder: {
+                    poNumber: { contains: searchq },
+                  },
+                },
+              },
             ],
           }
         : { companyId };
@@ -239,15 +352,14 @@ export class StockService {
           createdAt: "desc",
         },
         include: {
-          item: {
-            include: {
-              category: true,
-              company: true,
-            },
-          },
+          item: { include: { category: true, company: true } },
           supplier: { include: { company: true } },
           company: true,
           approvals: { include: { approvedByUser: true } },
+          stocks: { where: { status: "AVAILABLE" } },
+          purchaseOrderItem: {
+            include: { purchaseOrder: true },
+          },
         },
       });
 
@@ -264,6 +376,9 @@ export class StockService {
             ...stockItem,
             expiryStatus,
             totalStockQuantity,
+            isApproved: stockItem.approvals.some(
+              (a) => a.approvalStatus === "APPROVED",
+            ),
           };
         }),
       );
@@ -283,26 +398,60 @@ export class StockService {
   private static async validateReferences(
     data: CreateStockDto,
     companyId: string,
-  ): Promise<void> {
-    const item = await prisma.items.findUnique({
-      where: { id: data.itemId, companyId: companyId },
-    });
-    if (!item) {
-      throw new AppError("Item not found", 404);
+  ): Promise<{
+    itemId: string;
+    supplierId: string;
+    unitCost: number;
+  }> {
+    if (data.itemId) {
+      const item = await prisma.items.findUnique({
+        where: { id: data.itemId, companyId },
+      });
+      if (!item) throw new AppError("Item not found", 404);
     }
 
-    const supplier = await prisma.suppliers.findUnique({
-      where: { id: data.supplierId },
-    });
-    if (!supplier) {
-      throw new AppError("Supplier not found", 404);
+    if (data.supplierId) {
+      const supplier = await prisma.suppliers.findUnique({
+        where: { id: data.supplierId, companyId },
+      });
+      if (!supplier) throw new AppError("Supplier not found", 404);
     }
 
     if (data.purchaseOrderId) {
       const po = await prisma.purchaseOrder.findUnique({
         where: { id: data.purchaseOrderId },
+        include: { stockReceipts: { select: { quantityReceived: true } } },
       });
       if (!po) throw new AppError("Purchase Order not found", 404);
     }
+
+    const poItem = await prisma.purchaseOrderItem.findUnique({
+      where: { id: data.purchaseOrderItemId },
+      include: {
+        purchaseOrder: true,
+        item: true,
+        stockReceipts: true,
+      },
+    });
+
+    if (!poItem || poItem.purchaseOrder.companyId !== companyId) {
+      throw new AppError("Invalid purchase order item", 400);
+    }
+
+    const received = poItem.stockReceipts.reduce(
+      (sum, sr) => sum + sr.quantityReceived.toNumber(),
+      0,
+    );
+    const remaining = poItem.quantity.toNumber() - received;
+
+    if (data.quantityReceived > remaining) {
+      throw new AppError(`Quantity exceeds PO remaining (${remaining})`, 400);
+    }
+
+    return {
+      itemId: poItem.itemId,
+      supplierId: poItem.purchaseOrder.supplierId,
+      unitCost: data.unitCost || 0,
+    };
   }
 }

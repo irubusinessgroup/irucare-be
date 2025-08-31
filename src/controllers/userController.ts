@@ -19,10 +19,14 @@ import type {
   ISignUpUser,
   IUserResponse,
   CreateUserDto,
+  UpdateProfileDto,
 } from "../utils/interfaces/common";
 import { loggerMiddleware } from "../utils/loggers/loggingMiddleware";
 import { Request as ExpressRequest } from "express";
-import { appendPhoto } from "../middlewares/company.middlewares";
+import {
+  appendPhoto,
+  appendSinglePhoto,
+} from "../middlewares/company.middlewares";
 import upload from "../utils/cloudinary";
 
 @Tags("Authentication")
@@ -105,5 +109,36 @@ export class UserController {
   @Middlewares(loggerMiddleware)
   public getMe(@Request() req: ExpressRequest) {
     return UserService.getMe(req);
+  }
+
+  @Get("/profile")
+  @Security("jwt")
+  @Middlewares(loggerMiddleware)
+  public getProfile(@Request() req: ExpressRequest) {
+    return UserService.getProfile(req);
+  }
+
+  @Put("/profile")
+  @Security("jwt")
+  @Middlewares(upload.any(), appendPhoto, loggerMiddleware)
+  public async updateProfile(
+    @Request() req: ExpressRequest,
+    @Body() profileData: UpdateProfileDto,
+  ) {
+    return UserService.updateProfile(req, profileData);
+  }
+
+  @Put("/profile/avatar")
+  @Security("jwt")
+  @Middlewares(upload.single("photo"), appendSinglePhoto, loggerMiddleware)
+  public async updateAvatar(@Request() req: ExpressRequest) {
+    return UserService.updateAvatar(req, req.body.photo);
+  }
+
+  @Delete("/profile/avatar")
+  @Security("jwt")
+  @Middlewares(loggerMiddleware)
+  public async deleteAvatar(@Request() req: ExpressRequest) {
+    return UserService.deleteAvatar(req);
   }
 }

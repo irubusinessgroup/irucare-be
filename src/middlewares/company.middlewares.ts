@@ -6,7 +6,7 @@ import AppError from "../utils/error";
 export const appendPhotoAttachments = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.files) {
@@ -15,7 +15,7 @@ export const appendPhotoAttachments = async (
       // Handle thumbnail
       if (files.some((file) => file.fieldname === "thumbnail")) {
         req.body.thumbnail = files.find(
-          (file) => file.fieldname === "thumbnail",
+          (file) => file.fieldname === "thumbnail"
         )?.path;
       }
 
@@ -39,7 +39,7 @@ export const appendPhotoAttachments = async (
 export const appendPhoto = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.files) {
@@ -56,10 +56,25 @@ export const appendPhoto = async (
   }
 };
 
+export const appendSinglePhoto = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (req.file) {
+      req.body.photo = req.file.path;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const appendNIDAttachment = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.files) {
@@ -79,7 +94,7 @@ export const appendNIDAttachment = async (
 export const appendImage = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.file) {
@@ -94,7 +109,7 @@ export const appendImage = async (
 export const checkCompany = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const company = await prisma.company.findUnique({
@@ -117,7 +132,7 @@ export const checkCompany = async (
 export const appendAttachments = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     // Initialize nested objects if they don't exist
@@ -136,7 +151,7 @@ export const appendAttachments = async (
 
       // Handle company certificate
       const certificateFile = files.find(
-        (file) => file.fieldname === "company[certificate]",
+        (file) => file.fieldname === "company[certificate]"
       );
       if (certificateFile) {
         req.body.company.certificate = certificateFile.path;
@@ -144,7 +159,7 @@ export const appendAttachments = async (
 
       // Handle contact person ID attachment
       const idAttachmentFile = files.find(
-        (file) => file.fieldname === "contactPerson[idAttachment]",
+        (file) => file.fieldname === "contactPerson[idAttachment]"
       );
       if (idAttachmentFile) {
         req.body.contactPerson.idAttachment = idAttachmentFile.path;
@@ -185,7 +200,7 @@ export const appendAttachments = async (
 export const userBelongsToACompany = (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (!req.user?.company) {
@@ -200,7 +215,7 @@ export const userBelongsToACompany = (
 export const appendDocumentAttachments = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.files) {
@@ -216,44 +231,44 @@ export const appendDocumentAttachments = async (
 export const appendShortListingAttachments = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.files) {
       const files = req.files as Express.Multer.File[];
       req.body.studentCard = files.find(
-        (file) => file.fieldname == "studentCard",
+        (file) => file.fieldname == "studentCard"
       )?.path;
       req.body.recommendationLetter = files.find(
-        (file) => file.fieldname == "recommendationLetter",
+        (file) => file.fieldname == "recommendationLetter"
       )?.path;
       req.body.insurance = files.find(
-        (file) => file.fieldname == "insurance",
+        (file) => file.fieldname == "insurance"
       )?.path;
       req.body.transcript = files.find(
-        (file) => file.fieldname == "transcript",
+        (file) => file.fieldname == "transcript"
       )?.path;
       req.body.nameTag = files.find(
-        (file) => file.fieldname == "nameTag",
+        (file) => file.fieldname == "nameTag"
       )?.path;
       req.body.passportPhoto = files.find(
-        (file) => file.fieldname == "passportPhoto",
+        (file) => file.fieldname == "passportPhoto"
       )?.path;
       req.body.birthCertificate = files.find(
-        (file) => file.fieldname == "birthCertificate",
+        (file) => file.fieldname == "birthCertificate"
       )?.path;
       req.body.medicalReport = files.find(
-        (file) => file.fieldname == "medicalReport",
+        (file) => file.fieldname == "medicalReport"
       )?.path;
       req.body.academicCertificate = files.find(
-        (file) => file.fieldname == "academicCertificate",
+        (file) => file.fieldname == "academicCertificate"
       )?.path;
       req.body.applicationForm = files.find(
-        (file) => file.fieldname == "applicationForm",
+        (file) => file.fieldname == "applicationForm"
       )?.path;
       req.body.idCard = files.find((file) => file.fieldname == "idCard")?.path;
       req.body.consentLetter = files.find(
-        (file) => file.fieldname == "consentLetter",
+        (file) => file.fieldname == "consentLetter"
       )?.path;
     }
     next();
@@ -265,7 +280,7 @@ export const appendShortListingAttachments = async (
 export const appendGallery = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     if (req.file) {

@@ -7,6 +7,7 @@ import {
   ISignUpUser,
   IUserResponse,
   CreateUserDto,
+  UpdateProfileDto,
 } from "../utils/interfaces/common";
 import { compare } from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -24,12 +25,12 @@ export class UserService extends BaseService {
   public static async getUsers(
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ): Promise<IPaged<IUserResponse[]>> {
     try {
       const queryOptions = QueryOptions(
         ["firstName", "lastName", "email"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -90,11 +91,11 @@ export class UserService extends BaseService {
               .map((role) => role.name)
               .filter((r) => !!r),
           },
-          process.env.JWT_SECRET!,
+          process.env.JWT_SECRET!
         );
         console.log(userData.userRoles);
         const userRoles = userData.userRoles.map(
-          (roleRecord) => roleRecord.name,
+          (roleRecord) => roleRecord.name
         );
 
         // Get industry from company if user has a company association
@@ -259,7 +260,7 @@ export class UserService extends BaseService {
   public static async updatePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string,
+    newPassword: string
   ) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -324,7 +325,7 @@ export class UserService extends BaseService {
   public static async resetPassword(
     email: string,
     otp: string,
-    newPassword: string,
+    newPassword: string
   ) {
     const user = await prisma.user.findFirst({ where: { email } });
 
@@ -466,5 +467,131 @@ export class UserService extends BaseService {
     });
 
     return users.map((user) => user.id);
+  }
+
+  public static async getProfile(req: Request) {
+    try {
+      const userId = req.user!.id;
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          userRoles: true,
+        },
+      });
+
+      if (!user) {
+        throw new AppError("User not found", 404);
+      }
+
+      const userRoles = user.userRoles.map((roleRecord) => roleRecord.name);
+
+      return {
+        message: "Profile fetched successfully",
+        statusCode: 200,
+        data: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          photo: user.photo,
+          roles: userRoles,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  public static async updateProfile(
+    req: Request,
+    profileData: UpdateProfileDto
+  ) {
+    try {
+      const userId = req.user!.id;
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new AppError("User not found", 404);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          email: profileData.email,
+          phoneNumber: profileData.phoneNumber,
+          ...(profileData.photo && {
+            photo:
+              typeof profileData.photo === "string"
+                ? profileData.photo
+                : undefined,
+          }),
+        },
+      });
+
+      return {
+        message: "Profile updated successfully",
+        statusCode: 200,
+        data: updatedUser,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  public static async updateAvatar(req: Request, photo: string) {
+    try {
+      const userId = req.user!.id;
+      // const photoUrl = photo || req.body?.photo;
+
+      // if (!photoUrl) {
+      //   throw new AppError("Photo is required", 400);
+      // }
+      if (!photo || photo.trim() === "") {
+        throw new AppError("Photo is required", 400);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { photo },
+      });
+
+      return {
+        message: "Avatar updated successfully",
+        statusCode: 200,
+        data: { photo: updatedUser.photo },
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  public static async deleteAvatar(req: Request) {
+    try {
+      const userId = req.user!.id;
+
+      const defaultPhoto =
+        "https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg";
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { photo: defaultPhoto },
+      });
+
+      return {
+        message: "Avatar deleted successfully",
+        statusCode: 200,
+        data: { photo: updatedUser.photo },
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
   }
 }

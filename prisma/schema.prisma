@@ -26,6 +26,7 @@ model User {
   company            CompanyUser?
   notification       Notification[]
   approvals           Approvals[]
+  purchaseOrders     PurchaseOrder[]
 
 }
 
@@ -52,7 +53,7 @@ model UserRole {
 
 model ItemCategories {
   id                 String         @id @default(uuid())
-  categoryName      String         @unique 
+  categoryName       String      
   description        String?
   items              Items[]
   companyId         String
@@ -66,12 +67,16 @@ model Suppliers {
   phoneNumber       String 
   email              String         @unique 
   address            String? 
+  TIN                String?        
   createdAt         DateTime       @default(now()) 
   companyId         String
   company           Company      @relation(fields: [companyId], references: [id])
+
+  supplierCompanyId String?
+  supplierCompany   Company?     @relation("supplier_company", fields: [supplierCompanyId], references: [id])
+  
   stockReceipts             StockReceipts[]
   purchaseOrders     PurchaseOrder[]
-
 }
 
 model Items {
@@ -79,6 +84,7 @@ model Items {
   itemCodeSku      String         @unique        
   itemFullName     String
   categoryId        String 
+  productCode       String?
   category           ItemCategories @relation(fields: [categoryId], references: [id])
   companyId        String
   company           Company      @relation(fields: [companyId], references: [id])
@@ -92,8 +98,9 @@ model Items {
   createdAt         DateTime       @default(now()) 
   updatedAt         DateTime       @updatedAt
   stockReceipts      StockReceipts[]
-  purchaseOrders     PurchaseOrder[]
+  purchaseOrderItems PurchaseOrderItem[]
   sells             Sell[]
+  inventory     Inventory?     
 }
 
 model StockReceipts {
@@ -102,6 +109,8 @@ model StockReceipts {
   item               Items           @relation(fields: [itemId], references: [id])               
   purchaseOrderId              String
   purchaseOrderNo     PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderItemId String?  
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
   invoiceNo         String?            
   supplierId        String           
   supplier           Suppliers       @relation(fields: [supplierId], references: [id]) 
@@ -130,9 +139,29 @@ model Stock{
 id                 String         @id @default(uuid())
 stockReceiptId     String
 stockReceipt       StockReceipts  @relation(fields: [stockReceiptId], references: [id])
-status             String
+status             String          @default("PENDING")
 sellId            String?
 sell              Sell?      @relation(fields: [sellId], references: [id])
+}
+
+enum ProcessingStatus {
+  PENDING
+  SENT
+  RECEIVED
+  REJECTED
+}
+
+enum POApprovalStatus {
+  NOT_YET
+  SOME_APPROVED
+  ALL_APPROVED
+  REJECTED
+}
+
+enum ItemApprovalStatus {
+  NOT_ACTED
+  APPROVED
+  REJECTED
 }
 
 model Approvals {
@@ -141,27 +170,66 @@ model Approvals {
   stockReceipts             StockReceipts          @relation(fields: [stockReceiptId], references: [id])
   approvedByUserId String 
   approvedByUser    User          @relation(fields: [approvedByUserId], references: [id])
+  ExpectedSellPrice          Decimal?         @db.Decimal(18, 2)
   dateApproved      DateTime         
-  approvalStatus    String        
+  approvalStatus    String         @default("PENDING")
   comments           String?       
   createdAt          DateTime       @default(now())     
 }
 
 model PurchaseOrder{
   id                 String         @id @default(uuid())
-  poNumber           String
+  poNumber           String         @unique  
   companyId          String
-  itemId             String
-  items              Items @relation(fields: [itemId], references: [id])
+  reqById            String?
+  isDelivered        Boolean        @default(false)
+  deliveredAt        DateTime? 
+  company      Company  @relation(fields: [companyId], references: [id])
+  items              PurchaseOrderItem[]
   supplierId         String
   suppliers          Suppliers @relation(fields: [supplierId], references: [id])
-  quantity           Decimal         @db.Decimal(10, 2)  
-  costPrice          Decimal         @db.Decimal(18, 4)  
-  totalAmount         Decimal         @db.Decimal(18, 2)
+  user                    User? @relation(fields: [reqById], references: [id])
   notes               String?
   expectedDeliveryDate DateTime
+  overallStatus      POApprovalStatus @default(NOT_YET)
+  grandTotal           Decimal? @db.Decimal(18, 4)
+  subtotal             Decimal? @db.Decimal(18, 4)
+  vat                  Decimal? @db.Decimal(18, 4)
+  vatRate              Float?
   createdAt            DateTime    @default(now())
   stockReceipts        StockReceipts[]
+  processingEntries    PurchaseOrderProcessing[]
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  itemId          String
+  item            Items    @relation(fields: [itemId], references: [id])
+  quantity        Decimal  @db.Decimal(10, 2)
+  packSize          Decimal? 	      @db.Decimal(10, 2)
+  itemStatus      ItemApprovalStatus @default(NOT_ACTED)
+  quantityIssued       Decimal? @db.Decimal(10, 2)
+  batchNo              String?
+  expiryDate           DateTime?
+  unitPrice            Decimal? @db.Decimal(18, 4)
+  totalPrice           Decimal? @db.Decimal(18, 2)
+  stockReceipts   StockReceipts[]
+}
+
+
+model PurchaseOrderProcessing {
+  id                   String   @id @default(uuid())
+  purchaseOrderId      String
+  purchaseOrder        PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  companyFromId        String
+  companyFrom          Company @relation("processing_from", fields: [companyFromId], references: [id])
+  companyToId          String
+  companyTo            Company @relation("processing_to", fields: [companyToId], references: [id])
+  status               ProcessingStatus @default(PENDING)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Client {
@@ -189,7 +257,7 @@ model Sell {
     notes              String?
     createdAt         DateTime      @default(now())
     updatedAt         DateTime      @updatedAt
-    stocks            Stock[]
+     stocks            Stock[]
 }
 
 model Notification {
@@ -528,7 +596,7 @@ model Company {
   email          String        @unique
   phoneNumber    String        @unique
   industry       String?
-  website        String?       
+  website        String       
   TIN            String        @unique
   type           String
   certificate    String
@@ -546,6 +614,11 @@ model Company {
   itemCategories ItemCategories[]
   suppliers      Suppliers[]
   stockReceipts          StockReceipts[]
+  processingFrom  PurchaseOrderProcessing[] @relation("processing_from")
+  processingTo    PurchaseOrderProcessing[] @relation("processing_to")
+  supplierFor    Suppliers[] @relation("supplier_company")
+  purchaseOrders PurchaseOrder[]
+  companyTools     CompanyTools[]
 }
 
 model CompanyUser {
@@ -626,4 +699,29 @@ model Insurance {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   insuranceCard InsuranceCard[]
+}
+
+model Inventory{
+id                 String         @id @default(uuid())
+itemId             String         @unique
+item               Items          @relation(fields: [itemId], references: [id])
+totalQuantity      Decimal        @db.Decimal(10, 2)
+status             String          @default("PENDING")
+expireDate    DateTime?
+expired       Boolean  @default(false)
+sellingPercentage   Int?
+sellingPrice       Decimal?        @db.Decimal(10, 2)
+}
+
+model  CompanyTools {
+  id                  String         @id @default(uuid())
+  companyId           String
+  sellingPercentage   Int?
+  companySignature    String?
+  companyStamp        String?
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  company      Company      @relation(fields: [companyId], references: [id])
 }

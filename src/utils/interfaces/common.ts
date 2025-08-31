@@ -550,6 +550,15 @@ export interface CreateCompanyStaffDto {
   idAttachment?: Express.Multer.File | string;
 }
 
+// CompanyTools DTOs
+export interface CreateCompanyToolsDto {
+  sellingPercentage?: number;
+  companySignature?: Express.Multer.File | string;
+  companyStamp?: Express.Multer.File | string;
+}
+
+export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
+
 export interface CreatePatientDto {
   name: string;
   identificationType: string;
@@ -598,6 +607,7 @@ export interface CreateItemDto {
   itemFullName: string;
   categoryId: string;
   description?: string;
+  productCode?: string;
   brandManufacturer?: string;
   minLevel: number;
   maxLevel: number;
@@ -610,6 +620,7 @@ export interface UpdateItemDto {
   itemFullName?: string;
   categoryId: string;
   description?: string;
+  productCode?: string;
   brandManufacturer?: string;
   minLevel: number;
   maxLevel: number;
@@ -619,10 +630,11 @@ export interface UpdateItemDto {
 }
 
 export interface CreateStockDto {
-  itemId: string;
+  itemId?: string;
+  purchaseOrderItemId: string;
   purchaseOrderId: string;
   invoiceNo?: string;
-  supplierId: string;
+  supplierId?: string;
   dateReceived: Date;
   quantityReceived: number;
   expiryDate?: Date;
@@ -639,7 +651,7 @@ export interface CreateStockDto {
 
 export interface UpdateStockDto {
   itemId?: string;
-  purchaseOrderId: string;
+  purchaseOrderItemId: string;
   invoiceNo?: string;
   supplierId?: string;
   dateReceived?: Date;
@@ -657,12 +669,33 @@ export interface UpdateStockDto {
   remarksNotes?: string;
 }
 
+export interface CreateStockReceiptFromPODto {
+  purchaseOrderItemId: string;
+  quantityReceived: number;
+  unitCost?: number;
+  expiryDate?: Date;
+  invoiceNo?: string;
+  storageLocation: string;
+  condition: string;
+  tempReq: string;
+  uom: string;
+  currency: string;
+  packSize?: number;
+}
+
+export interface BulkCreateStockReceiptsDto {
+  poNumber: string;
+  receipts: CreateStockReceiptFromPODto[];
+}
+
 export interface CreateSupplierRequest {
   supplierName: string;
   contactPerson: string;
   phoneNumber: string;
   email: string;
   address?: string;
+  TIN?: string; // Optional: Tax Identification Number
+  supplierCompanyId?: string; // NEW: Link to actual supplier company
 }
 
 export interface UpdateSupplierRequest {
@@ -671,6 +704,8 @@ export interface UpdateSupplierRequest {
   phoneNumber?: string;
   email?: string;
   address?: string;
+  TIN?: string; // Optional: Tax Identification Number
+  supplierCompanyId?: string; // NEW: Link to actual supplier company
 }
 
 export interface SupplierResponse {
@@ -680,6 +715,14 @@ export interface SupplierResponse {
   phoneNumber: string;
   email: string;
   address?: string | null;
+  TIN?: string | null; // Optional: Tax Identification Number
+  supplierCompanyId?: string | null; // NEW
+  supplierCompany?: {
+    // NEW
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   createdAt: Date;
 }
 
@@ -699,25 +742,67 @@ export interface UpdateCategoryRequest {
   description?: string | null;
 }
 
-export interface CreatePurchaseOrderDto {
-  poNumber: string;
+export interface PurchaseOrderItemDto {
   itemId: string;
-  supplierId: string;
   quantity: number;
-  costPrice: number;
+  packSize: number;
+}
+
+export interface CreatePurchaseOrderDto {
+  poNumber?: string;
+  items: PurchaseOrderItemDto[];
+  supplierId: string;
   notes?: string;
   expectedDeliveryDate: Date;
 }
 
 export interface UpdatePurchaseOrderDto {
   poNumber?: string;
-  itemId?: string;
+  items?: PurchaseOrderItemDto[];
   supplierId?: string;
-  quantity?: number;
-  costPrice?: number;
   notes?: string;
   expectedDeliveryDate?: Date;
-  totalAmount?: number;
+}
+
+export interface CreateProcessingEntryDto {
+  subtotal?: number;
+  vatRate?: number;
+  vat?: number;
+  grandTotal?: number;
+  purchaseOrderId: string;
+  items: ItemsDto[];
+}
+
+export interface ItemsDto {
+  purchaseOrderItemId: string;
+  batchNo?: string;
+  expiryDate?: Date;
+  unitPrice?: number;
+  quantityIssued?: number;
+  totalPrice?: number;
+}
+export interface UpdateProcessingStatusDto {
+  status: "PENDING" | "SENT" | "RECEIVED" | "REJECTED";
+}
+
+export interface ApproveItemDto {
+  itemId: string;
+  action: "APPROVED" | "REJECTED";
+}
+
+export interface ApproveItemsDto {
+  items: ApproveItemDto[];
+}
+
+export interface DeleteProcessingEntryDto {
+  id: string;
+}
+
+export interface UpdateProcessingEntryDto {
+  batchNo?: string;
+  expiryDate?: Date;
+  unitPrice?: number;
+  quantityIssued?: number;
 }
 
 export interface CreateClientDto {
@@ -754,10 +839,20 @@ export interface UpdateSellDto {
 export interface CreateApprovalDto {
   stockReceiptId: string;
   approvalStatus: "APPROVED" | "DISAPPROVED" | "PENDING";
+  expectedSellPrice?: number;
   comments?: string;
 }
 
 export interface UpdateApprovalDto {
   approvalStatus?: "APPROVED" | "DISAPPROVED" | "PENDING";
   comments?: string;
+  expectedSellPrice?: number;
+}
+
+export interface UpdateProfileDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  photo?: Express.Multer.File | string | null;
 }

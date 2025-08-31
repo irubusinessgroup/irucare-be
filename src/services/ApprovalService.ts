@@ -5,6 +5,7 @@ import {
   CreateApprovalDto,
   UpdateApprovalDto,
 } from "../utils/interfaces/common";
+import { StockService } from "./StockService";
 
 export class ApprovalService {
   public static async createApproval(data: CreateApprovalDto, req: Request) {
@@ -15,6 +16,7 @@ export class ApprovalService {
 
     const stockReceipt = await prisma.stockReceipts.findUnique({
       where: { id: data.stockReceiptId },
+      include: { item: true, supplier: true },
     });
     if (!stockReceipt) {
       throw new AppError("Stock receipt not found", 404);
@@ -27,33 +29,36 @@ export class ApprovalService {
       throw new AppError("Approval already exists for this stock receipt", 400);
     }
 
-    const approval = await prisma.approvals.create({
-      data: {
-        stockReceiptId: data.stockReceiptId,
-        approvedByUserId: userId,
-        dateApproved: new Date(),
-        approvalStatus: data.approvalStatus,
-        comments: data.comments,
-      },
-      include: {
-        stockReceipts: {
-          include: {
-            item: true,
-            supplier: true,
+    return await prisma.$transaction(async (tx) => {
+      const approval = await tx.approvals.create({
+        data: {
+          stockReceiptId: data.stockReceiptId,
+          approvedByUserId: userId,
+          dateApproved: new Date(),
+          approvalStatus: data.approvalStatus,
+          ExpectedSellPrice: data.expectedSellPrice,
+          comments: data.comments,
+        },
+        include: {
+          stockReceipts: { include: { item: true, supplier: true } },
+          approvedByUser: {
+            select: { id: true, firstName: true, lastName: true },
           },
         },
-        approvedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+      });
 
-    return { message: "Approval created successfully", data: approval };
+      if (data.approvalStatus === "APPROVED") {
+        await StockService.addToStock(approval.stockReceiptId);
+      }
+
+      return {
+        message:
+          data.approvalStatus === "APPROVED"
+            ? "Approval created successfully and stock units added to inventory"
+            : "Approval created successfully",
+        data: approval,
+      };
+    });
   }
 
   public static async getApprovalByStockReceiptId(stockReceiptId: string) {
@@ -93,46 +98,47 @@ export class ApprovalService {
       throw new AppError("User ID is missing", 400);
     }
 
-    console.log("Looking for approval with ID:", userId);
-
     const approval = await prisma.approvals.findUnique({
       where: { id },
+      include: { stockReceipts: true },
     });
-
-    console.log("Found approval:", approval);
 
     if (!approval) {
       throw new AppError("Approval not found", 404);
     }
 
-    const updatedApproval = await prisma.approvals.update({
-      where: { id },
-      data: {
-        ...data,
-        approvedByUserId: userId,
-        dateApproved: new Date(),
-      },
-      include: {
-        stockReceipts: {
-          include: {
-            item: true,
-            supplier: true,
+    return await prisma.$transaction(async (tx) => {
+      const updatedApproval = await tx.approvals.update({
+        where: { id },
+        data: {
+          ...data,
+          approvedByUserId: userId,
+          dateApproved: new Date(),
+        },
+        include: {
+          stockReceipts: { include: { item: true, supplier: true } },
+          approvedByUser: {
+            select: { id: true, firstName: true, lastName: true, email: true },
           },
         },
-        approvedByUser: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-      },
-    });
+      });
 
-    return {
-      message: "Approval updated successfully",
-      data: updatedApproval,
-    };
+      if (
+        data.approvalStatus === "APPROVED" &&
+        approval.approvalStatus !== "APPROVED"
+      ) {
+        const existingStock = await tx.stock.findFirst({
+          where: { stockReceiptId: approval.stockReceiptId },
+        });
+        if (!existingStock) {
+          await StockService.addToStock(approval.stockReceiptId);
+        }
+      }
+
+      return {
+        message: "Approval updated successfully",
+        data: updatedApproval,
+      };
+    });
   }
 }

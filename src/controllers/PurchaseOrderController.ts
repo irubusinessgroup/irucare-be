@@ -36,6 +36,12 @@ export class PurchaseOrderController {
     return PurchaseOrderService.getAllPurchaseOrders(req, searchq, limit, page);
   }
 
+  @Get("/client/order")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getClientOrder(@Request() req: ExpressRequest) {
+    return PurchaseOrderService.getClientOrders(req);
+  }
+
   @Get("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getPurchaseOrderById(
@@ -51,8 +57,7 @@ export class PurchaseOrderController {
     @Body() body: CreatePurchaseOrderDto,
     @Request() req: ExpressRequest,
   ) {
-    const companyId = req.user?.company?.companyId;
-    return PurchaseOrderService.createPurchaseOrder(body, companyId!);
+    return PurchaseOrderService.createPurchaseOrder(body, req);
   }
 
   @Put("/{id}")
