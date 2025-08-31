@@ -30,12 +30,31 @@ export class SupplierService {
       throw new AppError("Company not found", 404);
     }
 
+    // Validate supplier company if provided
+    if (data.supplierCompanyId) {
+      const supplierCompany = await prisma.company.findUnique({
+        where: { id: data.supplierCompanyId },
+      });
+      if (!supplierCompany) {
+        throw new AppError("Supplier company not found", 404);
+      }
+    }
+
     const supplier = await prisma.suppliers.create({
       data: {
         ...data,
         companyId: companyId,
       },
-      include: { company: true },
+      include: {
+        company: true,
+        supplierCompany: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     return {
@@ -51,7 +70,16 @@ export class SupplierService {
   ): Promise<IResponse<SupplierResponse>> {
     const supplier = await prisma.suppliers.findUnique({
       where: { id, companyId: companyId },
-      include: { company: true },
+      include: {
+        company: true,
+        supplierCompany: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
     });
 
     if (!supplier) {
@@ -163,5 +191,33 @@ export class SupplierService {
     } catch (error) {
       throw new AppError(error, 500);
     }
+  }
+
+  static async getSuppliersByCompany(
+    supplierCompanyId: string,
+  ): Promise<IResponse<SupplierResponse[]>> {
+    const suppliers = await prisma.suppliers.findMany({
+      where: { supplierCompanyId },
+      include: {
+        company: true,
+        supplierCompany: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // if (suppliers.length === 0) {
+    //   throw new AppError("No suppliers found for this company", 404);
+    // }
+
+    return {
+      statusCode: 200,
+      message: "Suppliers fetched successfully",
+      data: suppliers,
+    };
   }
 }

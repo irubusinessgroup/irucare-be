@@ -80,4 +80,12 @@ export class SupplierController {
       currentPage,
     );
   }
+
+  @Get("/by-company/:supplierCompanyId")
+  @Security("jwt")
+  public async getSuppliersByCompany(
+    @Path() supplierCompanyId: string,
+  ): Promise<IResponse<SupplierResponse[]>> {
+    return await SupplierService.getSuppliersByCompany(supplierCompanyId);
+  }
 }
