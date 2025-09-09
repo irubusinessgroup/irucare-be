@@ -1,5 +1,6 @@
 import type { $Enums, PaymentMethod } from "@prisma/client";
 import { TsoaResponse } from "tsoa";
+import { DeliveryItemStatus } from "@prisma/client";
 
 export interface IResponse<T> {
   statusCode: number;
@@ -403,38 +404,6 @@ export type TDelivery = {
   updatedAt: Date;
 };
 
-export interface CreateDeliveryDto {
-  orderId: string;
-  address: string;
-  city: string;
-  province: string;
-  country: string;
-  postalCode: string;
-  customerFirstName: string;
-  customerLastName: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerNote?: string;
-  estimatedDate?: Date;
-  deliveredAt?: Date;
-}
-
-export interface UpdateDeliveryDto {
-  address: string;
-  city: string;
-  province: string;
-  country: string;
-  postalCode: string;
-  customerFirstName: string;
-  customerLastName: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerNote?: string;
-  estimatedDate?: Date;
-  deliveredAt?: Date;
-  deliveryStatus: DeliveryStatus;
-}
-
 export interface CreateProductDto {
   name: string;
   isFeatured?: boolean;
@@ -553,8 +522,8 @@ export interface CreateCompanyStaffDto {
 // CompanyTools DTOs
 export interface CreateCompanyToolsDto {
   sellingPercentage?: number;
-  companySignature?: Express.Multer.File | string;
-  companyStamp?: Express.Multer.File | string;
+  companySignature?: string;
+  companyStamp?: string;
 }
 
 export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
@@ -745,7 +714,7 @@ export interface UpdateCategoryRequest {
 export interface PurchaseOrderItemDto {
   itemId: string;
   quantity: number;
-  packSize: number;
+  packSize?: number | null;
 }
 
 export interface CreatePurchaseOrderDto {
@@ -762,6 +731,26 @@ export interface UpdatePurchaseOrderDto {
   supplierId?: string;
   notes?: string;
   expectedDeliveryDate?: Date;
+}
+
+// Client order DTOs (used when creating orders for individual clients)
+export interface CreateClientOrderDto {
+  items: PurchaseOrderItemDto[];
+  clientId: string; // user id of the client
+  companyId?: string | null; // optional buyer company id (empty if client not part of company)
+  clientAddress?: string | null;
+  notes?: string;
+  expectedDeliveryDate: Date | string;
+}
+
+export interface UpdateClientOrderDto {
+  poNumber?: string;
+  items?: PurchaseOrderItemDto[];
+  clientId?: string;
+  companyId?: string | null;
+  clientAddress?: string | null;
+  notes?: string;
+  expectedDeliveryDate?: Date | string;
 }
 
 export interface CreateProcessingEntryDto {
@@ -855,4 +844,111 @@ export interface UpdateProfileDto {
   email: string;
   phoneNumber: string;
   photo?: Express.Multer.File | string | null;
+}
+
+export interface DirectStockAdditionRequest {
+  itemId: string;
+  supplierId?: string;
+  dateReceived: Date;
+  expiryDate?: Date;
+  quantityReceived: number;
+  unitCost: number;
+  packSize?: number;
+  uom: string;
+  tempReq: string;
+  currency: string;
+  condition: string;
+  storageLocation: string;
+  reason: string;
+  specialHandlingNotes?: string;
+  remarksNotes?: string;
+}
+
+export interface CreateDeliveryDto {
+  purchaseOrderId?: string;
+  plannedDeliveryDate: string;
+  deliveryAddress?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  deliveryNotes?: string;
+  specialInstructions?: string;
+  deliveryCharges?: number;
+  items?: CreateDeliveryItemDto[];
+
+  buyerCompanyId?: string; // Required when no PO
+  deliveryType?: "PURCHASE_ORDER" | "DIRECT_STOCK";
+}
+
+export interface CreateDeliveryItemDto {
+  purchaseOrderItemId?: string;
+  itemId?: string;
+  quantityToDeliver: number;
+  actualBatchNo?: string;
+  actualExpiryDate?: Date;
+  actualUnitPrice?: number;
+}
+
+export interface UpdateDeliveryDto {
+  plannedDeliveryDate?: Date;
+  deliveryAddress?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  deliveryNotes?: string;
+  specialInstructions?: string;
+  deliveryCharges?: number;
+  items?: UpdateDeliveryItemDto[];
+}
+
+export interface UpdateDeliveryItemDto {
+  purchaseOrderItemId: string;
+  quantityToDeliver?: number;
+  quantityDelivered?: number;
+  quantityDamaged?: number;
+  quantityRejected?: number;
+  actualBatchNo?: string;
+  actualExpiryDate?: Date;
+  actualUnitPrice?: number;
+  itemStatus?: DeliveryItemStatus;
+  notes?: string;
+}
+
+export interface UpdateDeliveryStatusDto {
+  status: DeliveryStatus;
+  dispatchDate?: Date;
+  actualDeliveryDate?: Date;
+  courierService?: string;
+  trackingNumber?: string;
+  vehicleDetails?: string;
+  driverName?: string;
+  driverPhone?: string;
+  currentLocation?: string;
+  statusNote?: string;
+}
+
+export interface DeliveryTrackingDto {
+  location?: string;
+  description: string;
+}
+
+export interface CancelDeliveryDto {
+  reason: string;
+}
+
+export interface ConfirmDeliveryDto {
+  items: ConfirmDeliveryItemDto[];
+  actualDeliveryDate?: Date;
+  receiverName?: string;
+  receiverSignature?: string;
+  notes?: string;
+}
+
+export interface ConfirmDeliveryItemDto {
+  purchaseOrderItemId: string;
+  quantityReceived: number;
+  quantityDamaged?: number;
+  quantityRejected?: number;
+  damageNotes?: string;
+  rejectionReason?: string;
 }

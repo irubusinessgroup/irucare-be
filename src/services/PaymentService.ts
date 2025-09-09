@@ -221,7 +221,7 @@ export class PaymentService extends BaseService {
       if (!payment) throw new AppError("Payment not found", 404);
 
       // Delete associated deliveries first
-      await prisma.delivery.deleteMany({ where: { orderId: payment.orderId } });
+      // await prisma.delivery.deleteMany({ where: { orderId: payment.orderId } });
 
       await prisma.payment.delete({ where: { id } }); // Delete payment
       await prisma.order.delete({ where: { id: payment.orderId } }); // Then delete the associated order

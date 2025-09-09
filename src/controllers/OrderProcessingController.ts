@@ -85,4 +85,10 @@ export class OrderProcessingController {
   ) {
     return OrderProcessingService.getOrdersByPONumber(poNumber, req);
   }
+
+  @Get("/processed-items")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getProcessedItems(@Request() req: AuthRequest) {
+    return OrderProcessingService.getProcessedItems(req);
+  }
 }

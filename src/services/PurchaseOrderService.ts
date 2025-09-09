@@ -3,24 +3,19 @@ import AppError from "../utils/error";
 import {
   CreatePurchaseOrderDto,
   UpdatePurchaseOrderDto,
+  PurchaseOrderItemDto,
+  CreateClientOrderDto,
+  UpdateClientOrderDto,
 } from "../utils/interfaces/common";
 import type { Request } from "express";
 import { PONumberGenerator } from "../utils/PONumberGenerator ";
 import { Prisma } from "@prisma/client";
 
 export class PurchaseOrderService {
-  // Merge duplicate items helper: combines items with same itemId, packSize and itemCode by summing quantities
-  private static mergeItems(
-    items: {
-      itemId: string;
-      packSize?: number | null;
-      itemCode?: string | null;
-      quantity?: number | string;
-    }[],
-  ): {
+  // Merge duplicate items helper: combines items with same itemId and packSize by summing quantities
+  private static mergeItems(items: PurchaseOrderItemDto[]): {
     itemId: string;
     packSize?: number | null;
-    itemCode?: string | null;
     quantity: number;
   }[] {
     if (!items || !Array.isArray(items)) return [];
@@ -29,15 +24,13 @@ export class PurchaseOrderService {
       {
         itemId: string;
         packSize?: number | null;
-        itemCode?: string | null;
         quantity: number;
       }
     >();
 
     for (const it of items) {
-      // Ensure itemId exists; skip otherwise
       if (!it.itemId) continue;
-      const key = `${it.itemId}:${it.packSize ?? ""}:${it.itemCode ?? ""}`;
+      const key = `${it.itemId}:${it.packSize ?? ""}`;
       const qty = Number(it.quantity ?? 0);
       if (map.has(key)) {
         const existing = map.get(key)!;
@@ -47,7 +40,6 @@ export class PurchaseOrderService {
         map.set(key, {
           itemId: it.itemId,
           packSize: it.packSize ?? null,
-          itemCode: it.itemCode ?? null,
           quantity: qty,
         });
       }
@@ -187,6 +179,7 @@ export class PurchaseOrderService {
         suppliers: true,
         company: true,
         user: true,
+        client: true,
         processingEntries: true,
       },
       skip,
@@ -210,6 +203,8 @@ export class PurchaseOrderService {
       user: po.user,
       supplier: po.suppliers,
       processingEntries: po.processingEntries,
+      clientAddress: po.clientAddress,
+      reqClient: po.client,
       items: po.items.map((item) => ({
         ...item,
         remainingQuantity: null,
@@ -535,5 +530,270 @@ export class PurchaseOrderService {
         packSize: item.packSize ? item.packSize.toNumber() : null,
       };
     });
+  }
+
+  public static async createClientOrder(
+    data: CreateClientOrderDto,
+    req: Request,
+  ) {
+    const sellerCompanyId = req.user?.company?.companyId;
+    if (!sellerCompanyId) {
+      throw new AppError("Seller company ID is missing", 400);
+    }
+
+    // Resolve the Suppliers record that represents the seller company
+    let supplierRecord = await prisma.suppliers.findFirst({
+      where: {
+        OR: [
+          { supplierCompanyId: sellerCompanyId },
+          { companyId: sellerCompanyId },
+        ],
+      },
+    });
+
+    // If not found, create a supplier profile for the seller company (we are acting as supplier)
+    if (!supplierRecord) {
+      const company = await prisma.company.findUnique({
+        where: { id: sellerCompanyId },
+      });
+
+      if (!company) {
+        throw new AppError("Seller company not found", 400);
+      }
+
+      const currentUserId = req.user?.id;
+      let currentUser = null;
+      if (currentUserId) {
+        currentUser = await prisma.user.findUnique({
+          where: { id: currentUserId },
+        });
+      }
+
+      supplierRecord = await prisma.suppliers.create({
+        data: {
+          supplierName: company.name,
+          contactPerson: currentUser
+            ? `${currentUser.firstName ?? ""} ${currentUser.lastName ?? ""}`.trim()
+            : company.name,
+          phoneNumber: company.phoneNumber || "",
+          email: company.email || `supplier-${company.id}@example.com`,
+          address: company.website || "",
+          companyId: sellerCompanyId,
+          supplierCompanyId: sellerCompanyId,
+        },
+      });
+    }
+
+    const clientId = data.clientId;
+    if (!clientId) {
+      throw new AppError("Client ID is required", 400);
+    }
+
+    if (!data.items || data.items.length === 0) {
+      throw new AppError("At least one item is required", 400);
+    }
+
+    const mergedItems = PurchaseOrderService.mergeItems(data.items);
+
+    if (!mergedItems || mergedItems.length === 0) {
+      throw new AppError("At least one item is required", 400);
+    }
+
+    const poNumber = await PONumberGenerator.generatePONumber(sellerCompanyId);
+    const existingPO = await prisma.purchaseOrder.findFirst({
+      where: { poNumber, supplierId: supplierRecord.id },
+    });
+
+    if (existingPO) {
+      throw new AppError("Purchase order number already exists", 409);
+    }
+
+    const purchaseOrder = await prisma.purchaseOrder.create({
+      data: {
+        poNumber,
+        companyId:
+          data.companyId && data.companyId !== "" ? data.companyId : null,
+        // use the Suppliers.id (not Company id) for supplierId
+        supplierId: supplierRecord.id,
+        notes: data.notes,
+        clientAddress: data.clientAddress ?? null,
+        reqClientId: clientId,
+        expectedDeliveryDate: new Date(data.expectedDeliveryDate),
+        items: {
+          create: mergedItems.map((item) => {
+            const createObj: Prisma.PurchaseOrderItemUncheckedCreateWithoutPurchaseOrderInput =
+              {
+                itemId: item.itemId,
+                quantity: Number(item.quantity),
+                ...(item.packSize !== undefined && item.packSize !== null
+                  ? { packSize: item.packSize }
+                  : {}),
+              };
+
+            return createObj;
+          }),
+        },
+      },
+      include: {
+        suppliers: true,
+        items: {
+          include: { item: true },
+        },
+      },
+    });
+
+    return {
+      message: "Client order created successfully",
+      data: purchaseOrder,
+    };
+  }
+
+  public static async updateClientOrder(
+    id: string,
+    data: UpdateClientOrderDto,
+    req: Request,
+  ) {
+    const sellerCompanyId = req.user?.company?.companyId;
+    if (!sellerCompanyId) {
+      throw new AppError("Seller company ID is missing", 400);
+    }
+
+    // Resolve the Suppliers record for this seller company
+    const supplierRecord = await prisma.suppliers.findFirst({
+      where: {
+        OR: [
+          { supplierCompanyId: sellerCompanyId },
+          { companyId: sellerCompanyId },
+        ],
+      },
+    });
+
+    if (!supplierRecord) {
+      throw new AppError(
+        "Supplier profile for seller company not found. Create a supplier entry with supplierCompanyId set to your company id.",
+        400,
+      );
+    }
+
+    const existingPO = await prisma.purchaseOrder.findFirst({
+      where: { id, supplierId: supplierRecord.id },
+      include: { stockReceipts: true, items: true },
+    });
+
+    if (!existingPO) {
+      throw new AppError(
+        "Client purchase order not found or you do not have permission",
+        404,
+      );
+    }
+
+    if (existingPO.stockReceipts && existingPO.stockReceipts.length > 0) {
+      throw new AppError(
+        "Cannot modify purchase order with existing stock receipts",
+        400,
+      );
+    }
+
+    const poUpdate: Prisma.PurchaseOrderUncheckedUpdateInput = {};
+
+    if (data.poNumber) poUpdate.poNumber = data.poNumber;
+    if (data.notes !== undefined)
+      poUpdate.notes = data.notes as string | undefined;
+    if (data.expectedDeliveryDate)
+      poUpdate.expectedDeliveryDate = new Date(
+        data.expectedDeliveryDate as string,
+      );
+    if (data.clientAddress !== undefined)
+      poUpdate.clientAddress = data.clientAddress as string | undefined;
+
+    // companyId is optional in schema (unchecked input allows setting it directly)
+    poUpdate.companyId =
+      data.companyId && data.companyId !== "" ? data.companyId : null;
+
+    if (data.clientId) poUpdate.reqClientId = data.clientId;
+
+    if (data.items && data.items.length > 0) {
+      const mergedItems = PurchaseOrderService.mergeItems(
+        data.items as PurchaseOrderItemDto[],
+      );
+
+      await prisma.purchaseOrderItem.deleteMany({
+        where: { purchaseOrderId: id },
+      });
+
+      const nestedCreate: Prisma.PurchaseOrderItemUncheckedCreateWithoutPurchaseOrderInput[] =
+        mergedItems.map((item) => ({
+          itemId: item.itemId,
+          quantity: Number(item.quantity),
+          ...(item.packSize !== undefined && item.packSize !== null
+            ? { packSize: item.packSize }
+            : {}),
+        }));
+
+      poUpdate.items = {
+        create: nestedCreate,
+      } as Prisma.PurchaseOrderItemUncheckedCreateNestedManyWithoutPurchaseOrderInput;
+    }
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id },
+      data: poUpdate,
+      include: {
+        suppliers: true,
+        items: { include: { item: true } },
+      },
+    });
+
+    return {
+      message: "Client order updated successfully",
+      data: updated,
+    };
+  }
+
+  public static async deleteClientOrder(id: string, req: Request) {
+    const sellerCompanyId = req.user?.company?.companyId;
+    if (!sellerCompanyId) {
+      throw new AppError("Seller company ID is missing", 400);
+    }
+
+    // Resolve the Suppliers record for this seller company
+    const supplierRecord = await prisma.suppliers.findFirst({
+      where: {
+        OR: [
+          { supplierCompanyId: sellerCompanyId },
+          { companyId: sellerCompanyId },
+        ],
+      },
+    });
+
+    if (!supplierRecord) {
+      throw new AppError(
+        "Supplier profile for seller company not found. Create a supplier entry with supplierCompanyId set to your company id.",
+        400,
+      );
+    }
+
+    const existingPO = await prisma.purchaseOrder.findFirst({
+      where: { id, supplierId: supplierRecord.id },
+    });
+    if (!existingPO) {
+      throw new AppError(
+        "Client purchase order not found or you do not have permission",
+        404,
+      );
+    }
+
+    const stockReceiptsCount = await prisma.stockReceipts.count({
+      where: { purchaseOrderId: id },
+    });
+    if (stockReceiptsCount > 0) {
+      throw new AppError(
+        "Cannot delete purchase order with existing stock receipts",
+        400,
+      );
+    }
+
+    await prisma.purchaseOrder.delete({ where: { id } });
+    return { message: "Client purchase order deleted successfully" };
   }
 }

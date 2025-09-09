@@ -52,24 +52,6 @@ export class StockController {
     return StockService.createStockReceipt(body, companyId!);
   }
 
-  // @Post("/bulk-from-po")
-  // @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  // public createStockReceiptsFromPO(
-  //   @Body() body: BulkCreateStockReceiptsDto,
-  //   @Request() req: ExpressRequest,
-  // ) {
-  //   const companyId = req.user?.company?.companyId;
-  //   if (!companyId) {
-  //     throw new AppError("Company ID is missing", 400);
-  //   }
-
-  //   return StockService.createStockReceiptsFromPO(
-  //     body.poNumber,
-  //     body.receipts,
-  //     companyId,
-  //   );
-  // }
-
   @Put("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public updateStockReceipt(
