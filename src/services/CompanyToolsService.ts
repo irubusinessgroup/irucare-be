@@ -1,13 +1,14 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import type { Request } from "express";
+import { SellThroughRateService } from "./SellThroughRateService";
 
 export class CompanyToolsService {
   public static async createCompanyTools(
     data: {
       sellingPercentage?: number;
-      companySignature?: string | Express.Multer.File;
-      companyStamp?: string | Express.Multer.File;
+      companySignature?: string;
+      companyStamp?: string;
     },
     companyId: string,
   ) {
@@ -16,16 +17,28 @@ export class CompanyToolsService {
     });
     if (!company) throw new AppError("Company not found", 404);
 
+    // Check if company tools already exist
+    const existing = await prisma.companyTools.findFirst({
+      where: { companyId },
+    });
+    if (existing) {
+      throw new AppError(
+        "Company tools already exist. Please update instead.",
+        400,
+      );
+    }
+
     const created = await prisma.companyTools.create({
       data: {
-        sellingPercentage: data.sellingPercentage,
-        companySignature:
-          typeof data.companySignature === "string"
-            ? data.companySignature
-            : undefined,
-        companyStamp:
-          typeof data.companyStamp === "string" ? data.companyStamp : undefined,
+        sellingPercentage: data.sellingPercentage || 0,
+        companySignature: data.companySignature,
+        companyStamp: data.companyStamp,
         company: { connect: { id: companyId } },
+      },
+      include: {
+        company: {
+          select: { name: true },
+        },
       },
     });
 
@@ -33,18 +46,41 @@ export class CompanyToolsService {
   }
 
   public static async getCompanyTools(id: string) {
-    const tools = await prisma.companyTools.findUnique({ where: { id } });
+    const tools = await prisma.companyTools.findUnique({
+      where: { id },
+      include: {
+        company: {
+          select: { name: true },
+        },
+      },
+    });
     if (!tools) throw new AppError("Company tools not found", 404);
 
     return { message: "Company tools fetched successfully", data: tools };
+  }
+
+  public static async getCompanyToolsByCompanyId(companyId: string) {
+    const tools = await prisma.companyTools.findFirst({
+      where: { companyId },
+      include: {
+        company: {
+          select: { name: true },
+        },
+      },
+    });
+
+    return {
+      message: "Company tools fetched successfully",
+      data: tools,
+    };
   }
 
   public static async updateCompanyTools(
     id: string,
     data: {
       sellingPercentage?: number;
-      companySignature?: string | Express.Multer.File;
-      companyStamp?: string | Express.Multer.File;
+      companySignature?: string;
+      companyStamp?: string;
     },
     companyId: string,
   ) {
@@ -55,19 +91,31 @@ export class CompanyToolsService {
     }
 
     const updateData: Record<string, unknown> = {};
+
     if (typeof data.sellingPercentage !== "undefined") {
       updateData.sellingPercentage = data.sellingPercentage;
     }
-    if (typeof data.companySignature === "string") {
+
+    if (data.companySignature) {
       updateData.companySignature = data.companySignature;
+    } else if (existing.companySignature) {
+      updateData.companySignature = existing.companySignature;
     }
-    if (typeof data.companyStamp === "string") {
+
+    if (data.companyStamp) {
       updateData.companyStamp = data.companyStamp;
+    } else if (existing.companyStamp) {
+      updateData.companyStamp = existing.companyStamp;
     }
 
     const updated = await prisma.companyTools.update({
       where: { id },
       data: updateData,
+      include: {
+        company: {
+          select: { name: true },
+        },
+      },
     });
 
     return { message: "Company tools updated successfully", data: updated };
@@ -101,6 +149,11 @@ export class CompanyToolsService {
       skip,
       take,
       orderBy: { createdAt: "desc" },
+      include: {
+        company: {
+          select: { name: true },
+        },
+      },
     });
 
     const totalItems = await prisma.companyTools.count({
@@ -113,6 +166,26 @@ export class CompanyToolsService {
       currentPage: page || 1,
       itemsPerPage: limit || items.length,
       message: "Company tools retrieved successfully",
+    };
+  }
+
+  public static async getSTRDashboard(req: Request) {
+    const companyId = req.user?.company?.companyId;
+    if (!companyId) throw new AppError("Company ID is missing", 400);
+
+    const strSummary = await SellThroughRateService.getSTRSummary(req);
+    const topPerformers = await SellThroughRateService.getCompanySTR(req);
+    const top5 = topPerformers.slice(0, 5);
+    const worst5 = topPerformers.slice(-5).reverse();
+
+    return {
+      message: "STR Dashboard data retrieved successfully",
+      data: {
+        summary: strSummary,
+        topPerformers: top5,
+        worstPerformers: worst5,
+        lastUpdated: new Date(),
+      },
     };
   }
 }

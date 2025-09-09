@@ -27,6 +27,8 @@ model User {
   notification       Notification[]
   approvals           Approvals[]
   purchaseOrders     PurchaseOrder[]
+  createdDeliveries   Delivery[]
+  deliveryTracking    DeliveryTracking[]
 
 }
 
@@ -99,21 +101,21 @@ model Items {
   updatedAt         DateTime       @updatedAt
   stockReceipts      StockReceipts[]
   purchaseOrderItems PurchaseOrderItem[]
-  sells             Sell[]
-  inventory     Inventory?     
+  sells             Sell[]  
+  deliveries        DeliveryItem[] 
 }
 
 model StockReceipts {
   id                 String          @id @default(uuid())
   itemId            String           
   item               Items           @relation(fields: [itemId], references: [id])               
-  purchaseOrderId              String
-  purchaseOrderNo     PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId              String?
+  purchaseOrderNo     PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
   purchaseOrderItemId String?  
   purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
   invoiceNo         String?            
-  supplierId        String           
-  supplier           Suppliers       @relation(fields: [supplierId], references: [id]) 
+  supplierId        String?           
+  supplier           Suppliers?       @relation(fields: [supplierId], references: [id]) 
   companyId        String
   company           Company      @relation(fields: [companyId], references: [id]) 
   dateReceived      DateTime
@@ -127,7 +129,8 @@ model StockReceipts {
   currency           String
   condition          String
   storageLocation   String   
-  specialHandlingNotes      String? 	      
+  specialHandlingNotes      String? 	
+  receiptType        String          @default("PURCHASE_ORDER")      
   remarksNotes       String?
   createdAt          DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
@@ -142,6 +145,8 @@ stockReceipt       StockReceipts  @relation(fields: [stockReceiptId], references
 status             String          @default("PENDING")
 sellId            String?
 sell              Sell?      @relation(fields: [sellId], references: [id])
+deliveryItemId     String?       
+deliveryItem       DeliveryItem?  @relation(fields: [deliveryItemId], references: [id])
 }
 
 enum ProcessingStatus {
@@ -180,15 +185,17 @@ model Approvals {
 model PurchaseOrder{
   id                 String         @id @default(uuid())
   poNumber           String         @unique  
-  companyId          String
+  companyId          String?
   reqById            String?
+  reqClientId        String?
   isDelivered        Boolean        @default(false)
   deliveredAt        DateTime? 
-  company      Company  @relation(fields: [companyId], references: [id])
+  company      Company?  @relation(fields: [companyId], references: [id])
   items              PurchaseOrderItem[]
   supplierId         String
   suppliers          Suppliers @relation(fields: [supplierId], references: [id])
   user                    User? @relation(fields: [reqById], references: [id])
+  client                    Client? @relation(fields: [reqClientId], references: [id])
   notes               String?
   expectedDeliveryDate DateTime
   overallStatus      POApprovalStatus @default(NOT_YET)
@@ -196,9 +203,11 @@ model PurchaseOrder{
   subtotal             Decimal? @db.Decimal(18, 4)
   vat                  Decimal? @db.Decimal(18, 4)
   vatRate              Float?
+  clientAddress        String?
   createdAt            DateTime    @default(now())
   stockReceipts        StockReceipts[]
   processingEntries    PurchaseOrderProcessing[]
+  deliveries          Delivery[]
 }
 
 model PurchaseOrderItem {
@@ -216,6 +225,7 @@ model PurchaseOrderItem {
   unitPrice            Decimal? @db.Decimal(18, 4)
   totalPrice           Decimal? @db.Decimal(18, 2)
   stockReceipts   StockReceipts[]
+  deliveryItems       DeliveryItem[]
 }
 
 
@@ -242,6 +252,7 @@ model Client {
     createdAt         DateTime      @default(now())
     updatedAt         DateTime      @updatedAt
     sells             Sell[]
+    purchaseOrders     PurchaseOrder[]
 }
 
 model Sell {
@@ -397,15 +408,6 @@ enum PaymentMethod {
   MTN_MOBILE_MONEY
 }
 
-enum DeliveryStatus {
-  PENDING
-  DISPATCHED
-  IN_TRANSIT
-  DELIVERED
-  RETURNED
-}
-
-
 
 model Faq {
   id                      String           @id @default(uuid())
@@ -535,7 +537,6 @@ model Order {
 
   orderItems     OrderItem[]
   payment        Payment?
-  delivery       Delivery?
 }
 
 
@@ -567,27 +568,7 @@ model Payment {
   order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
-model Delivery {
-  id             String         @id @default(uuid())
-  orderId        String         @unique
-  address        String
-  city           String
-  province       String
-  country        String
-  postalCode     String
-  customerFirstName   String
-  customerLastName   String
-  customerEmail  String
-  customerPhone  String
-  customerNote   String?
-  deliveryStatus DeliveryStatus @default(PENDING)
-  estimatedDate  DateTime?
-  deliveredAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
 
-  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-}
 
 
 model Company {
@@ -619,6 +600,8 @@ model Company {
   supplierFor    Suppliers[] @relation("supplier_company")
   purchaseOrders PurchaseOrder[]
   companyTools     CompanyTools[]
+  supplierDeliveries  Delivery[] @relation("DeliverySupplier")
+  buyerDeliveries     Delivery[] @relation("DeliveryBuyer")
 }
 
 model CompanyUser {
@@ -701,18 +684,6 @@ model Insurance {
   insuranceCard InsuranceCard[]
 }
 
-model Inventory{
-id                 String         @id @default(uuid())
-itemId             String         @unique
-item               Items          @relation(fields: [itemId], references: [id])
-totalQuantity      Decimal        @db.Decimal(10, 2)
-status             String          @default("PENDING")
-expireDate    DateTime?
-expired       Boolean  @default(false)
-sellingPercentage   Int?
-sellingPrice       Decimal?        @db.Decimal(10, 2)
-}
-
 model  CompanyTools {
   id                  String         @id @default(uuid())
   companyId           String
@@ -724,4 +695,111 @@ model  CompanyTools {
   updatedAt           DateTime       @updatedAt
 
   company      Company      @relation(fields: [companyId], references: [id])
+}
+
+enum DeliveryStatus {
+  PENDING
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+  PARTIALLY_DELIVERED
+}
+
+enum DeliveryType {
+  FULL_DELIVERY
+  PARTIAL_DELIVERY
+}
+
+model Delivery {
+  id                    String            @id @default(uuid())
+  deliveryNumber        String            @unique
+  purchaseOrderId       String?
+  purchaseOrder         PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
+
+  supplierCompanyId     String
+  supplierCompany       Company           @relation("DeliverySupplier", fields: [supplierCompanyId], references: [id])
+  buyerCompanyId        String
+  buyerCompany          Company           @relation("DeliveryBuyer", fields: [buyerCompanyId], references: [id])
+
+  status                DeliveryStatus    @default(PENDING)
+  deliveryType          DeliveryType      @default(FULL_DELIVERY)
+
+  plannedDeliveryDate   DateTime
+  actualDeliveryDate    DateTime?
+  dispatchDate          DateTime?
+
+  deliveryAddress       String?
+  contactPerson         String?
+  contactPhone          String?
+  contactEmail          String?
+
+  courierService        String?
+  trackingNumber        String?
+  vehicleDetails        String?
+  driverName            String?
+  driverPhone           String?
+
+  deliveryNotes         String?
+  specialInstructions   String?
+
+  deliveryCharges       Decimal?          @db.Decimal(18, 2)
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  createdById           String?
+  createdBy             User?             @relation(fields: [createdById], references: [id])
+
+  deliveryItems         DeliveryItem[]
+  deliveryTracking      DeliveryTracking[]
+}
+
+model DeliveryItem {
+  id                    String            @id @default(uuid())
+  deliveryId            String
+  delivery              Delivery          @relation(fields: [deliveryId], references: [id])
+  purchaseOrderItemId   String?
+  purchaseOrderItem     PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  itemId                String?           // For direct stock deliveries
+  item                  Items?            @relation(fields: [itemId], references: [id])
+
+  quantityToDeliver     Decimal           @db.Decimal(10, 2)
+  quantityDelivered     Decimal?          @db.Decimal(10, 2)
+  quantityDamaged       Decimal?          @db.Decimal(10, 2)
+  quantityRejected      Decimal?          @db.Decimal(10, 2)
+
+  actualBatchNo         String?
+  actualExpiryDate      DateTime?
+  actualUnitPrice       Decimal?          @db.Decimal(18, 4)
+
+  itemStatus            DeliveryItemStatus @default(PENDING)
+  notes                 String?
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  stocks                Stock[] 
+}
+
+enum DeliveryItemStatus {
+  PENDING
+  DISPATCHED
+  DELIVERED
+  DAMAGED
+  REJECTED
+  CANCELLED
+}
+
+model DeliveryTracking {
+  id              String    @id @default(uuid())
+  deliveryId      String
+  delivery        Delivery  @relation(fields: [deliveryId], references: [id])
+  
+  status          DeliveryStatus
+  location        String?
+  description     String?
+  timestamp       DateTime  @default(now())
+  updatedById     String?
+  updatedBy       User?     @relation(fields: [updatedById], references: [id])
+  
+  createdAt       DateTime  @default(now())
 }

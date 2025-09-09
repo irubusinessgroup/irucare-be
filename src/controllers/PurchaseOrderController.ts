@@ -16,6 +16,8 @@ import { PurchaseOrderService } from "../services/PurchaseOrderService";
 import {
   CreatePurchaseOrderDto,
   UpdatePurchaseOrderDto,
+  CreateClientOrderDto,
+  UpdateClientOrderDto,
 } from "../utils/interfaces/common";
 import { Request as ExpressRequest } from "express";
 import { roles } from "../utils/roles";
@@ -24,7 +26,7 @@ import { checkRole } from "../middlewares";
 @Security("jwt")
 @Route("/api/purchase-orders")
 @Tags("Purchase Order")
-export class PurchaseOrderController {
+export class Purchase {
   @Get("/")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getAllPurchaseOrders(
@@ -58,6 +60,31 @@ export class PurchaseOrderController {
     @Request() req: ExpressRequest,
   ) {
     return PurchaseOrderService.createPurchaseOrder(body, req);
+  }
+  // Client order endpoints
+  @Post("/client-orders")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public createClientOrder(
+    @Body() body: CreateClientOrderDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return PurchaseOrderService.createClientOrder(body, req);
+  }
+
+  @Put("/client-orders/{id}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public updateClientOrder(
+    @Path() id: string,
+    @Body() body: UpdateClientOrderDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return PurchaseOrderService.updateClientOrder(id, body, req);
+  }
+
+  @Delete("/client-orders/{id}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public deleteClientOrder(@Path() id: string, @Request() req: ExpressRequest) {
+    return PurchaseOrderService.deleteClientOrder(id, req);
   }
 
   @Put("/{id}")

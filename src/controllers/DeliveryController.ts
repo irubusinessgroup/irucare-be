@@ -1,42 +1,128 @@
-import { Body, Delete, Get, Path, Post, Put, Route, Tags } from "tsoa";
+import {
+  Body,
+  Get,
+  Middlewares,
+  Path,
+  Post,
+  Put,
+  Request,
+  Route,
+  Security,
+  Tags,
+} from "tsoa";
+import { Request as ExpressRequest } from "express";
 import {
   CreateDeliveryDto,
-  IResponse,
-  TDelivery,
   UpdateDeliveryDto,
+  UpdateDeliveryStatusDto,
+  DeliveryTrackingDto,
+  CancelDeliveryDto,
+  ConfirmDeliveryDto,
 } from "../utils/interfaces/common";
 import { DeliveryService } from "../services/DeliveryService";
+import { checkRole } from "../middlewares";
+import { roles } from "../utils/roles";
 
-@Tags("Delivery")
-@Route("/api/delivery")
+@Security("jwt")
+@Route("/api/deliveries")
+@Tags("Delivery Management")
 export class DeliveryController {
-  @Get("/")
-  public async getAllDeliveries(): Promise<IResponse<TDelivery[]>> {
-    return DeliveryService.getAllDeliveries();
-  }
-
+  // Create delivery (Supplier only)
   @Post("/")
-  public async createDelivery(
-    @Body() deliveryData: CreateDeliveryDto,
-  ): Promise<IResponse<TDelivery>> {
-    return DeliveryService.createDelivery(deliveryData);
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public createDelivery(
+    @Body() body: CreateDeliveryDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.createDelivery(body, req);
   }
 
+  // Update delivery details (Supplier only)
   @Put("/{id}")
-  public async updateDelivery(
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public updateDelivery(
     @Path() id: string,
-    @Body() deliveryData: Partial<UpdateDeliveryDto>,
-  ): Promise<IResponse<TDelivery>> {
-    return DeliveryService.updateDelivery(id, deliveryData);
+    @Body() body: UpdateDeliveryDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.updateDelivery(id, body, req);
   }
 
-  @Delete("/{id}")
-  public async deleteDelivery(@Path() id: string): Promise<IResponse<null>> {
-    return DeliveryService.deleteDelivery(id);
+  // Update delivery status (Both supplier and buyer)
+  @Put("/{id}/status")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public updateDeliveryStatus(
+    @Path() id: string,
+    @Body() body: UpdateDeliveryStatusDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.updateDeliveryStatus(id, body, req);
   }
 
+  // Get supplier's outgoing deliveries
+  @Get("/supplier")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getSupplierDeliveries(@Request() req: ExpressRequest) {
+    return DeliveryService.getSupplierDeliveries(req);
+  }
+
+  // Get buyer's incoming deliveries
+  @Get("/buyer")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getBuyerDeliveries(@Request() req: ExpressRequest) {
+    return DeliveryService.getBuyerDeliveries(req);
+  }
+
+  // Get specific delivery by ID
   @Get("/{id}")
-  public async getDelivery(@Path() id: string): Promise<IResponse<TDelivery>> {
-    return DeliveryService.getDelivery(id);
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getDeliveryById(@Path() id: string, @Request() req: ExpressRequest) {
+    return DeliveryService.getDeliveryById(id, req);
+  }
+
+  // Add tracking information
+  @Post("/{id}/tracking")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public addDeliveryTracking(
+    @Path() id: string,
+    @Body() body: DeliveryTrackingDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.addDeliveryTracking(id, body, req);
+  }
+
+  // Cancel delivery (Supplier only)
+  @Put("/{id}/cancel")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public cancelDelivery(
+    @Path() id: string,
+    @Body() body: CancelDeliveryDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.cancelDelivery(id, body.reason, req);
+  }
+
+  // Confirm delivery receipt (Buyer only)
+  @Put("/{id}/confirm")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public confirmDelivery(
+    @Path() id: string,
+    @Body() body: ConfirmDeliveryDto,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.confirmDeliveryReceipt(id, body, req);
+  }
+
+  // Auto-create delivery from approved PO (called internally)
+  @Post("/auto-create/{purchaseOrderId}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public autoCreateDelivery(
+    @Path() purchaseOrderId: string,
+    @Request() req: ExpressRequest,
+  ) {
+    return DeliveryService.autoCreateDeliveryFromApprovedPO(
+      purchaseOrderId,
+      req,
+    );
   }
 }

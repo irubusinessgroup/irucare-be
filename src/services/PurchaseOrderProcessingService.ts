@@ -1,5 +1,6 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
+import { ItemApprovalStatus } from "@prisma/client";
 import type { Request } from "express";
 import {
   CreateProcessingEntryDto,
@@ -49,6 +50,15 @@ export class OrderProcessingService {
     // Determine companyFrom and companyTo
     const companyFromId = companyId;
     const companyToId = po.companyId;
+
+    // If the purchase order buyer is not a company (companyId is null), we cannot
+    // create a processing entry between companies. Reject early with a clear error.
+    if (!companyToId) {
+      throw new AppError(
+        "Cannot create processing entry: purchase order buyer is not a company",
+        400,
+      );
+    }
 
     const itemUpdates: Promise<unknown>[] = [];
 
@@ -516,6 +526,71 @@ export class OrderProcessingService {
         userRole,
         canApproveItems: userRole === "BUYER",
       },
+    };
+  }
+
+  // Add this method to the OrderProcessingService class
+  public static async getProcessedItems(req: AuthRequest) {
+    const companyId = req.user?.company?.companyId;
+    if (!companyId) throw new AppError("Company ID is missing", 400);
+
+    // Get processed items that are approved and have quantity issued
+    const processedItems = await prisma.purchaseOrderItem.findMany({
+      where: {
+        itemStatus: ItemApprovalStatus.APPROVED,
+        quantityIssued: { gt: 0 },
+        purchaseOrder: {
+          supplierId: companyId, // Current user's company is the supplier
+          overallStatus: { in: ["SOME_APPROVED", "ALL_APPROVED"] },
+        },
+      },
+      include: {
+        item: true,
+        purchaseOrder: {
+          select: {
+            poNumber: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Calculate remaining quantity for each item (considering previous deliveries)
+    const itemsWithRemaining = await Promise.all(
+      processedItems.map(async (item) => {
+        // Sum up all delivered quantities for this item
+        const deliveredResult = await prisma.deliveryItem.aggregate({
+          where: {
+            purchaseOrderItemId: item.id,
+          },
+          _sum: {
+            quantityDelivered: true,
+          },
+        });
+
+        const deliveredQuantity = deliveredResult._sum.quantityDelivered || 0;
+        const remainingQuantity =
+          Number(item.quantityIssued) - Number(deliveredQuantity);
+
+        return {
+          ...item,
+          remainingQuantity,
+          canDeliver: remainingQuantity > 0,
+        };
+      }),
+    );
+
+    // Filter out items that have been fully delivered
+    const availableItems = itemsWithRemaining.filter((item) => item.canDeliver);
+
+    return {
+      message: "Processed items retrieved successfully",
+      data: availableItems,
     };
   }
 }

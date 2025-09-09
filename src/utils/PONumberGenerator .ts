@@ -104,7 +104,7 @@ export class PONumberGenerator {
 
         // Try to find a free sequence in this loop. Insert company-derived letters before the date to form: PREFIX-LLYYYYMMDD-SEQ
         let letters = companyLetters;
-        let poNumber = `${prefix}-${letters}${dateStr}-${String(nextSeq).padStart(padLength, "0")}`;
+        let poNumber = `${prefix}-${letters}${dateStr}-${String(nextSeq).padStart(padLength, "0")}${randomLetters(1)}`;
         // If collision detected, increment sequence, regenerate letters, and retry
         while (
           await prisma.purchaseOrder.findFirst({
@@ -122,7 +122,7 @@ export class PONumberGenerator {
           }
           // keep company-derived letters deterministic; fall back to random only if needed
           letters = companyLetters || randomLetters(2);
-          poNumber = `${prefix}-${letters}${dateStr}-${String(nextSeq).padStart(padLength, "0")}`;
+          poNumber = `${prefix}-${letters}${dateStr}-${String(nextSeq).padStart(padLength, "0")}${randomLetters(1)}`;
         }
 
         // Unique poNumber found

@@ -14,19 +14,24 @@ import {
 } from "tsoa";
 import { Request as ExpressRequest } from "express";
 import { CompanyToolsService } from "../services/CompanyToolsService";
-import { checkRole } from "../middlewares";
+import { appendCompanyToolsAttachments, checkRole } from "../middlewares";
 import { roles } from "../utils/roles";
 import {
   CreateCompanyToolsDto,
   UpdateCompanyToolsDto,
 } from "../utils/interfaces/common";
+import upload from "../utils/cloudinary";
 
 @Security("jwt")
 @Route("/api/company-tools")
 @Tags("CompanyTools")
 export class CompanyToolsController {
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(
+    checkRole(roles.COMPANY_ADMIN),
+    upload.any(),
+    appendCompanyToolsAttachments,
+  )
   public async create(
     @Body() data: CreateCompanyToolsDto,
     @Request() req: ExpressRequest,
@@ -41,8 +46,19 @@ export class CompanyToolsController {
     return CompanyToolsService.getCompanyTools(id);
   }
 
-  @Put("/{id}")
+  @Get("/company/current")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getCurrentCompanyTools(@Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId as string;
+    return CompanyToolsService.getCompanyToolsByCompanyId(companyId);
+  }
+
+  @Put("/{id}")
+  @Middlewares(
+    checkRole(roles.COMPANY_ADMIN),
+    upload.any(),
+    appendCompanyToolsAttachments,
+  )
   public update(
     @Path() id: string,
     @Body() body: UpdateCompanyToolsDto,
@@ -67,5 +83,11 @@ export class CompanyToolsController {
     @Query() page?: number,
   ) {
     return CompanyToolsService.getCompanyToolsList(req, limit, page);
+  }
+
+  @Get("/dashboard/str")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getSTRDashboard(@Request() req: ExpressRequest) {
+    return CompanyToolsService.getSTRDashboard(req);
   }
 }
