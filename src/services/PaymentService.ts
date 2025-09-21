@@ -126,7 +126,7 @@ export class PaymentService extends BaseService {
         paidAt: cashInResponse.data.created_at ?? null,
         accountProvider: cashInResponse.data.provider ?? null,
         refId: cashInResponse.data.ref ?? null,
-        orderId: paymentData.orderId!,
+        subscriptionId: paymentData.subscriptionId!,
         ...(paymentData.accountNumber && {
           accountNumber: paymentData.accountNumber,
         }),
@@ -224,7 +224,9 @@ export class PaymentService extends BaseService {
       // await prisma.delivery.deleteMany({ where: { orderId: payment.orderId } });
 
       await prisma.payment.delete({ where: { id } }); // Delete payment
-      await prisma.order.delete({ where: { id: payment.orderId } }); // Then delete the associated order
+      await prisma.subscription.delete({
+        where: { id: payment.subscriptionId },
+      }); // Then delete the associated order
     });
 
     return {
@@ -305,12 +307,12 @@ export class PaymentService extends BaseService {
             },
           });
 
-          if (newStatus === "SUCCEEDED") {
-            await prisma.order.update({
-              where: { id: payment.orderId },
-              data: { status: "CONFIRMED" },
-            });
-          }
+          // if (newStatus === "SUCCEEDED") {
+          //   await prisma.order.update({
+          //     where: { id: payment.orderId },
+          //     data: { status: "CONFIRMED" },
+          //   });
+          // }
         }
       } catch (error) {
         console.error(

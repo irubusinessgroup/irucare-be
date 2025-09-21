@@ -2,8 +2,24 @@ import { UserService } from "../services/userService";
 import { NotificationService } from "../services/NotificationService";
 import { RoleType, TNotification } from "./interfaces/common";
 import { Server as SocketIOServer } from "socket.io";
+import { prisma } from "./client";
 
 export class NotificationHelper {
+  // Reusable utility to get company name by ID
+  public static async getCompanyName(companyId: string): Promise<string> {
+    if (!companyId) return "Unknown Company";
+
+    try {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { name: true },
+      });
+      return company?.name || "Unknown Company";
+    } catch (error) {
+      console.error("Error fetching company name:", error);
+      return "Unknown Company";
+    }
+  }
   static async sendToUser(
     io: SocketIOServer,
     userId: string,
@@ -82,6 +98,39 @@ export class NotificationHelper {
     metadata?: Record<string, unknown>,
   ): Promise<void> {
     const userIds = await UserService.getUserIdsByRole(roleName as RoleType);
+    for (const userId of userIds) {
+      const notification = await NotificationService.createNotification(
+        userId,
+        title,
+        message,
+        type,
+        actionUrl,
+        entityType,
+        entityId,
+        metadata,
+      );
+
+      // Emit to specific user
+      io.to(userId).emit("notification", notification);
+
+      // Update unread count
+      const unreadCount = await NotificationService.getUnreadCount(userId);
+      io.to(userId).emit("unread_count_updated", { unreadCount });
+    }
+  }
+
+  static async sendToCompany(
+    io: SocketIOServer,
+    companyId: string,
+    title: string,
+    message: string,
+    type: TNotification["type"] = "info",
+    actionUrl?: string,
+    entityType?: string,
+    entityId?: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    const userIds = await UserService.getUserIdsByCompany(companyId);
     for (const userId of userIds) {
       const notification = await NotificationService.createNotification(
         userId,

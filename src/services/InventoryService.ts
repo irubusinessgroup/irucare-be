@@ -7,7 +7,7 @@ export class InventoryService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -32,6 +32,7 @@ export class InventoryService {
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
             ],
           },
         },
@@ -49,6 +50,7 @@ export class InventoryService {
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
             ],
           },
           include: {
@@ -58,8 +60,11 @@ export class InventoryService {
                 supplierName: true,
               },
             },
+            warehouse: true,
             stocks: {
-              where: { status: "AVAILABLE" },
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+              },
               select: {
                 id: true,
                 status: true,
@@ -90,7 +95,7 @@ export class InventoryService {
         return new Date(current.dateReceived) > new Date(latest.dateReceived)
           ? current
           : latest;
-      });
+      }, item.stockReceipts[0]);
 
       let latestExpectedSellPrice = null;
       let latestApprovalDate: Date | null = null;
@@ -114,7 +119,7 @@ export class InventoryService {
         (total, receipt) => {
           return total + Number(receipt.quantityReceived);
         },
-        0,
+        0
       );
 
       let totalCost = 0;
@@ -137,6 +142,7 @@ export class InventoryService {
 
       const suppliers = [
         ...new Set(item.stockReceipts.map((r) => r.supplier?.supplierName)),
+        ...new Set(item.stockReceipts.map((r) => r.supplier?.supplierName)),
       ];
 
       const earliestExpiry = item.stockReceipts.reduce(
@@ -147,7 +153,7 @@ export class InventoryService {
             ? receipt.expiryDate
             : earliest;
         },
-        null as Date | null,
+        null as Date | null
       );
 
       return {
@@ -158,6 +164,7 @@ export class InventoryService {
         category: item.category,
         suppliers: suppliers,
         primarySupplier: latestReceipt.supplier?.supplierName,
+        primarySupplier: latestReceipt.supplier?.supplierName,
         dateReceived: latestReceipt.dateReceived,
         expiryDate: earliestExpiry,
         totalQuantityReceived: totalQuantityReceived,
@@ -165,7 +172,7 @@ export class InventoryService {
         avgUnitCost: avgUnitCost,
         totalValue: totalCurrentStock * avgUnitCost,
         currency: latestReceipt.currency,
-        storageLocation: latestReceipt.storageLocation,
+        warehouse: latestReceipt.warehouse,
         condition: latestReceipt.condition,
         stockStatus,
         minLevel: item.minLevel,
@@ -199,13 +206,14 @@ export class InventoryService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const now = new Date();
     const now = new Date();
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
@@ -228,9 +236,11 @@ export class InventoryService {
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
             ],
             expiryDate: {
               not: null,
+              gt: now,
               gt: now,
               lte: threeMonthsFromNow,
             },
@@ -250,9 +260,11 @@ export class InventoryService {
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
             ],
             expiryDate: {
               not: null,
+              gt: now,
               gt: now,
               lte: threeMonthsFromNow,
             },
@@ -264,8 +276,11 @@ export class InventoryService {
                 supplierName: true,
               },
             },
+            warehouse: true,
             stocks: {
-              where: { status: "AVAILABLE" },
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+              },
               select: {
                 id: true,
                 status: true,
@@ -292,7 +307,7 @@ export class InventoryService {
 
       const expiryDate = new Date(earliestExpiringReceipt.expiryDate!);
       const daysUntilExpiry = Math.ceil(
-        (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       let urgencyLevel = "LOW";
@@ -330,11 +345,12 @@ export class InventoryService {
         (total, receipt) => {
           return total + Number(receipt.quantityReceived);
         },
-        0,
+        0
       );
 
       return {
         itemId: item.id,
+        productCode: item.productCode,
         productCode: item.productCode,
         itemCodeSku: item.itemCodeSku,
         itemFullName: item.itemFullName,
@@ -349,7 +365,7 @@ export class InventoryService {
         unitCost: earliestExpiringReceipt.unitCost,
         totalCost: earliestExpiringReceipt.totalCost,
         currency: earliestExpiringReceipt.currency,
-        storageLocation: earliestExpiringReceipt.storageLocation,
+        warehouse: earliestExpiringReceipt.warehouse,
         condition: earliestExpiringReceipt.condition,
         expectedSellPrice: latestExpectedSellPrice,
         tempReq: earliestExpiringReceipt.tempReq,
@@ -395,7 +411,7 @@ export class InventoryService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -423,6 +439,7 @@ export class InventoryService {
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
             ],
             expiryDate: {
               not: null,
@@ -444,6 +461,7 @@ export class InventoryService {
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
             ],
             expiryDate: {
               not: null,
@@ -457,8 +475,11 @@ export class InventoryService {
                 supplierName: true,
               },
             },
+            warehouse: true,
             stocks: {
-              where: { status: "AVAILABLE" },
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+              },
               select: {
                 id: true,
                 status: true,
@@ -486,7 +507,7 @@ export class InventoryService {
       const nowLocal = new Date();
       const expiryDate = new Date(earliestExpiringReceipt.expiryDate!);
       const daysUntilExpiry = Math.ceil(
-        (expiryDate.getTime() - nowLocal.getTime()) / (1000 * 60 * 60 * 24),
+        (expiryDate.getTime() - nowLocal.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       let urgencyLevel = "LOW";
@@ -524,7 +545,7 @@ export class InventoryService {
         (total, receipt) => {
           return total + Number(receipt.quantityReceived);
         },
-        0,
+        0
       );
 
       return {
@@ -543,7 +564,7 @@ export class InventoryService {
         unitCost: earliestExpiringReceipt.unitCost,
         totalCost: earliestExpiringReceipt.totalCost,
         currency: earliestExpiringReceipt.currency,
-        storageLocation: earliestExpiringReceipt.storageLocation,
+        warehouse: earliestExpiringReceipt.warehouse,
         condition: earliestExpiringReceipt.condition,
         expectedSellPrice: latestExpectedSellPrice,
         tempReq: earliestExpiringReceipt.tempReq,
@@ -599,11 +620,11 @@ export class InventoryService {
       tempReq: string;
       currency: string;
       condition: string;
-      storageLocation: string;
+      warehouseId: string;
       reason: string;
       specialHandlingNotes?: string;
       remarksNotes?: string;
-    },
+    }
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -625,7 +646,7 @@ export class InventoryService {
     if (!item) {
       throw new AppError(
         "Item not found or doesn't belong to your company",
-        404,
+        404
       );
     }
 
@@ -646,7 +667,8 @@ export class InventoryService {
         tempReq: stockData.tempReq,
         currency: stockData.currency,
         condition: stockData.condition,
-        storageLocation: stockData.storageLocation,
+        // Normalize empty string to null so the foreign key constraint is not violated
+        warehouseId: stockData.warehouseId ? stockData.warehouseId : null,
         specialHandlingNotes: stockData.specialHandlingNotes,
         remarksNotes: `${stockData.reason}${stockData.remarksNotes ? ` | ${stockData.remarksNotes}` : ""}`,
         receiptType: "DIRECT_ADDITION",
@@ -664,7 +686,7 @@ export class InventoryService {
             stockReceiptId: stockReceipt.id,
             status: "AVAILABLE",
           },
-        }),
+        })
     );
 
     await Promise.all(stockPromises);

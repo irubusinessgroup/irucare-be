@@ -1,6 +1,10 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
-import { CreateStockDto, UpdateStockDto } from "../utils/interfaces/common";
+import {
+  CreateStockDto,
+  UpdateStockDto,
+  CreateManualStockReceiptDto,
+} from "../utils/interfaces/common";
 import { StockCalculations } from "../utils/calculations";
 import type { Request } from "express";
 
@@ -34,6 +38,74 @@ export class StockService {
 
     return {
       message: "Stock record created successfully",
+      data: stockReceipt,
+    };
+  }
+
+  static async createManualStockReceipt(
+    data: CreateManualStockReceiptDto,
+    companyId: string,
+  ) {
+    const manualPoNumber = data.manualPoNumber?.trim();
+    if (!manualPoNumber) {
+      throw new AppError("manualPoNumber is required for manual receipts", 400);
+    }
+
+    // Validate item, supplier, warehouse belong to company
+    const [item, supplier, warehouse] = await Promise.all([
+      prisma.items.findUnique({ where: { id: data.itemId, companyId } }),
+      prisma.suppliers.findUnique({
+        where: { id: data.supplierId, companyId },
+      }),
+      prisma.warehouse.findUnique({
+        where: { id: data.warehouseId, companyId },
+      }),
+    ]);
+
+    if (!item) throw new AppError("Item not found or not in your company", 404);
+    if (!supplier)
+      throw new AppError("Supplier not found or not in your company", 404);
+    if (!warehouse)
+      throw new AppError("Warehouse not found or not in your company", 404);
+
+    const quantityReceived = data.quantityReceived;
+    const unitCost = data.unitCost;
+    const totalCost = quantityReceived * unitCost;
+
+    const stockReceipt = await prisma.stockReceipts.create({
+      data: {
+        itemId: data.itemId,
+        supplierId: data.supplierId,
+        purchaseOrderId: null,
+        purchaseOrderItemId: null,
+        manualPoNumber: manualPoNumber,
+        dateReceived: new Date(data.dateReceived),
+        quantityReceived,
+        unitCost,
+        totalCost,
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
+        invoiceNo: data.invoiceNo,
+        warehouseId: data.warehouseId,
+        condition: data.condition,
+        tempReq: data.tempReq,
+        uom: data.uom,
+        currency: data.currency,
+        packSize: data.packSize,
+        companyId,
+        receiptType: "MANUAL",
+        remarksNotes: data.remarksNotes,
+        specialHandlingNotes: data.specialHandlingNotes,
+      },
+      include: {
+        item: true,
+        supplier: true,
+        company: true,
+        warehouse: true,
+      },
+    });
+
+    return {
+      message: "Manual stock receipt created successfully",
       data: stockReceipt,
     };
   }
@@ -354,6 +426,7 @@ export class StockService {
         include: {
           item: { include: { category: true, company: true } },
           supplier: { include: { company: true } },
+          warehouse: true,
           company: true,
           approvals: { include: { approvedByUser: true } },
           stocks: { where: { status: "AVAILABLE" } },

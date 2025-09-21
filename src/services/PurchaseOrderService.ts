@@ -6,12 +6,53 @@ import {
   PurchaseOrderItemDto,
   CreateClientOrderDto,
   UpdateClientOrderDto,
+  PurchaseOrderItemDto,
+  CreateClientOrderDto,
+  UpdateClientOrderDto,
 } from "../utils/interfaces/common";
 import type { Request } from "express";
 import { PONumberGenerator } from "../utils/PONumberGenerator ";
 import { Prisma } from "@prisma/client";
+import { NotificationHelper } from "../utils/notificationHelper";
+import { Server as SocketIOServer } from "socket.io";
 
 export class PurchaseOrderService {
+  // Helper method to send purchase order notifications
+  private static async sendPurchaseOrderNotification(
+    purchaseOrder: Prisma.PurchaseOrderGetPayload<{
+      include: {
+        suppliers: true;
+        items: { include: { item: true } };
+      };
+    }>,
+    buyerCompanyId: string,
+    io: SocketIOServer
+  ): Promise<void> {
+    if (!purchaseOrder?.suppliers?.supplierCompanyId) {
+      return;
+    }
+
+    const buyerCompanyName =
+      await NotificationHelper.getCompanyName(buyerCompanyId);
+
+    await NotificationHelper.sendToCompany(
+      io,
+      purchaseOrder.suppliers.supplierCompanyId,
+      "New Purchase Order",
+      `New purchase order ${purchaseOrder.poNumber} from ${buyerCompanyName}`,
+      "info",
+      `/dashboard/purchase-orders/${purchaseOrder.id}`,
+      "purchase_order",
+      purchaseOrder.id,
+      {
+        poNumber: purchaseOrder.poNumber,
+        buyerCompany: buyerCompanyName,
+        supplierCompany: purchaseOrder.suppliers.supplierName,
+        expectedDeliveryDate: purchaseOrder.expectedDeliveryDate,
+      }
+    );
+  }
+
   // Merge duplicate items helper: combines items with same itemId and packSize by summing quantities
   private static mergeItems(items: PurchaseOrderItemDto[]): {
     itemId: string;
@@ -30,6 +71,7 @@ export class PurchaseOrderService {
 
     for (const it of items) {
       if (!it.itemId) continue;
+      const key = `${it.itemId}:${it.packSize ?? ""}`;
       const key = `${it.itemId}:${it.packSize ?? ""}`;
       const qty = Number(it.quantity ?? 0);
       if (map.has(key)) {
@@ -51,7 +93,7 @@ export class PurchaseOrderService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -180,6 +222,7 @@ export class PurchaseOrderService {
         company: true,
         user: true,
         client: true,
+        client: true,
         processingEntries: true,
       },
       skip,
@@ -203,6 +246,8 @@ export class PurchaseOrderService {
       user: po.user,
       supplier: po.suppliers,
       processingEntries: po.processingEntries,
+      clientAddress: po.clientAddress,
+      reqClient: po.client,
       clientAddress: po.clientAddress,
       reqClient: po.client,
       items: po.items.map((item) => ({
@@ -250,6 +295,7 @@ export class PurchaseOrderService {
   public static async createPurchaseOrder(
     data: CreatePurchaseOrderDto,
     req: Request,
+    io?: SocketIOServer
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -325,6 +371,16 @@ export class PurchaseOrderService {
       },
     });
 
+    // Send notification to supplier company users if io is provided
+    if (io && purchaseOrder.suppliers?.supplierCompanyId) {
+      try {
+        await this.sendPurchaseOrderNotification(purchaseOrder, companyId, io);
+      } catch (error) {
+        console.error("Error sending purchase order notification:", error);
+        // Don't throw error here - notification failure shouldn't break the main flow
+      }
+    }
+
     return {
       message: "Purchase order created successfully",
       data: purchaseOrder,
@@ -334,7 +390,7 @@ export class PurchaseOrderService {
   public static async updatePurchaseOrder(
     id: string,
     data: UpdatePurchaseOrderDto,
-    req: Request,
+    req: Request
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -479,7 +535,7 @@ export class PurchaseOrderService {
     if (stockReceiptsCount > 0) {
       throw new AppError(
         "Cannot delete purchase order with existing stock receipts",
-        400,
+        400
       );
     }
 
@@ -489,7 +545,7 @@ export class PurchaseOrderService {
 
   public static async getPurchaseOrderForStockReceipt(
     poNumber: string,
-    companyId: string,
+    companyId: string
   ) {
     const purchaseOrder = await prisma.purchaseOrder.findFirst({
       where: { poNumber, companyId },
@@ -513,7 +569,7 @@ export class PurchaseOrderService {
     return purchaseOrder.items.map((item) => {
       const received = item.stockReceipts.reduce(
         (sum, sr) => sum + sr.quantityReceived.toNumber(),
-        0,
+        0
       );
       const remaining = item.quantity.toNumber() - received;
 
@@ -534,7 +590,7 @@ export class PurchaseOrderService {
 
   public static async createClientOrder(
     data: CreateClientOrderDto,
-    req: Request,
+    req: Request
   ) {
     const sellerCompanyId = req.user?.company?.companyId;
     if (!sellerCompanyId) {
@@ -651,7 +707,7 @@ export class PurchaseOrderService {
   public static async updateClientOrder(
     id: string,
     data: UpdateClientOrderDto,
-    req: Request,
+    req: Request
   ) {
     const sellerCompanyId = req.user?.company?.companyId;
     if (!sellerCompanyId) {
@@ -671,7 +727,7 @@ export class PurchaseOrderService {
     if (!supplierRecord) {
       throw new AppError(
         "Supplier profile for seller company not found. Create a supplier entry with supplierCompanyId set to your company id.",
-        400,
+        400
       );
     }
 
@@ -683,14 +739,14 @@ export class PurchaseOrderService {
     if (!existingPO) {
       throw new AppError(
         "Client purchase order not found or you do not have permission",
-        404,
+        404
       );
     }
 
     if (existingPO.stockReceipts && existingPO.stockReceipts.length > 0) {
       throw new AppError(
         "Cannot modify purchase order with existing stock receipts",
-        400,
+        400
       );
     }
 
@@ -701,7 +757,7 @@ export class PurchaseOrderService {
       poUpdate.notes = data.notes as string | undefined;
     if (data.expectedDeliveryDate)
       poUpdate.expectedDeliveryDate = new Date(
-        data.expectedDeliveryDate as string,
+        data.expectedDeliveryDate as string
       );
     if (data.clientAddress !== undefined)
       poUpdate.clientAddress = data.clientAddress as string | undefined;
@@ -714,7 +770,7 @@ export class PurchaseOrderService {
 
     if (data.items && data.items.length > 0) {
       const mergedItems = PurchaseOrderService.mergeItems(
-        data.items as PurchaseOrderItemDto[],
+        data.items as PurchaseOrderItemDto[]
       );
 
       await prisma.purchaseOrderItem.deleteMany({
@@ -769,7 +825,7 @@ export class PurchaseOrderService {
     if (!supplierRecord) {
       throw new AppError(
         "Supplier profile for seller company not found. Create a supplier entry with supplierCompanyId set to your company id.",
-        400,
+        400
       );
     }
 
@@ -779,7 +835,7 @@ export class PurchaseOrderService {
     if (!existingPO) {
       throw new AppError(
         "Client purchase order not found or you do not have permission",
-        404,
+        404
       );
     }
 
@@ -789,7 +845,7 @@ export class PurchaseOrderService {
     if (stockReceiptsCount > 0) {
       throw new AppError(
         "Cannot delete purchase order with existing stock receipts",
-        400,
+        400
       );
     }
 

@@ -12,8 +12,25 @@ import {
 } from "tsoa";
 import { Request as ExpressRequest } from "express";
 import {
+  Body,
+  Get,
+  Middlewares,
+  Path,
+  Post,
+  Put,
+  Request,
+  Route,
+  Security,
+  Tags,
+} from "tsoa";
+import { Request as ExpressRequest } from "express";
+import {
   CreateDeliveryDto,
   UpdateDeliveryDto,
+  UpdateDeliveryStatusDto,
+  DeliveryTrackingDto,
+  CancelDeliveryDto,
+  ConfirmDeliveryDto,
   UpdateDeliveryStatusDto,
   DeliveryTrackingDto,
   CancelDeliveryDto,
@@ -22,17 +39,23 @@ import {
 import { DeliveryService } from "../services/DeliveryService";
 import { checkRole } from "../middlewares";
 import { roles } from "../utils/roles";
+import { checkRole } from "../middlewares";
+import { roles } from "../utils/roles";
 
+@Security("jwt")
+@Route("/api/deliveries")
+@Tags("Delivery Management")
 @Security("jwt")
 @Route("/api/deliveries")
 @Tags("Delivery Management")
 export class DeliveryController {
   // Create delivery (Supplier only)
+  // Create delivery (Supplier only)
   @Post("/")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public createDelivery(
     @Body() body: CreateDeliveryDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return DeliveryService.createDelivery(body, req);
   }
@@ -43,7 +66,7 @@ export class DeliveryController {
   public updateDelivery(
     @Path() id: string,
     @Body() body: UpdateDeliveryDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return DeliveryService.updateDelivery(id, body, req);
   }
@@ -54,11 +77,24 @@ export class DeliveryController {
   public updateDeliveryStatus(
     @Path() id: string,
     @Body() body: UpdateDeliveryStatusDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
-    return DeliveryService.updateDeliveryStatus(id, body, req);
+    const io = req.app.get("io");
+    return DeliveryService.updateDeliveryStatus(id, body, req, io);
   }
 
+  // Get supplier's outgoing deliveries
+  @Get("/supplier")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getSupplierDeliveries(@Request() req: ExpressRequest) {
+    return DeliveryService.getSupplierDeliveries(req);
+  }
+
+  // Get buyer's incoming deliveries
+  @Get("/buyer")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public getBuyerDeliveries(@Request() req: ExpressRequest) {
+    return DeliveryService.getBuyerDeliveries(req);
   // Get supplier's outgoing deliveries
   @Get("/supplier")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
@@ -74,6 +110,7 @@ export class DeliveryController {
   }
 
   // Get specific delivery by ID
+  // Get specific delivery by ID
   @Get("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getDeliveryById(@Path() id: string, @Request() req: ExpressRequest) {
@@ -86,7 +123,7 @@ export class DeliveryController {
   public addDeliveryTracking(
     @Path() id: string,
     @Body() body: DeliveryTrackingDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return DeliveryService.addDeliveryTracking(id, body, req);
   }
@@ -97,9 +134,10 @@ export class DeliveryController {
   public cancelDelivery(
     @Path() id: string,
     @Body() body: CancelDeliveryDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
-    return DeliveryService.cancelDelivery(id, body.reason, req);
+    const io = req.app.get("io");
+    return DeliveryService.cancelDelivery(id, body.reason, req, io);
   }
 
   // Confirm delivery receipt (Buyer only)
@@ -108,9 +146,10 @@ export class DeliveryController {
   public confirmDelivery(
     @Path() id: string,
     @Body() body: ConfirmDeliveryDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
-    return DeliveryService.confirmDeliveryReceipt(id, body, req);
+    const io = req.app.get("io");
+    return DeliveryService.confirmDeliveryReceipt(id, body, req, io);
   }
 
   // Auto-create delivery from approved PO (called internally)
@@ -118,11 +157,11 @@ export class DeliveryController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public autoCreateDelivery(
     @Path() purchaseOrderId: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return DeliveryService.autoCreateDeliveryFromApprovedPO(
       purchaseOrderId,
-      req,
+      req
     );
   }
 }

@@ -12,7 +12,7 @@ type AuthRequest = Request & {
 };
 export class DashboardService {
   public static async getStockLogisticsStats(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -73,7 +73,7 @@ export class DashboardService {
   }
 
   public static async getInventoryCategoriesSummary(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -167,7 +167,7 @@ export class DashboardService {
   }
 
   public static async getReorderAlerts(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -275,7 +275,7 @@ export class DashboardService {
 
   public static async getRecentShipments(
     req: AuthRequest,
-    limit: number = 10
+    limit: number = 10,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -313,8 +313,8 @@ export class DashboardService {
         const categories = [
           ...new Set(
             delivery.deliveryItems.map(
-              (item) => item.item?.category?.categoryName
-            )
+              (item) => item.item?.category?.categoryName,
+            ),
           ),
         ];
         const category = categories[0] || "Mixed";
@@ -373,7 +373,7 @@ export class DashboardService {
 
   public static async getInventoryTrends(
     req: AuthRequest,
-    months: number = 6
+    months: number = 6,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -392,7 +392,7 @@ export class DashboardService {
           0,
           23,
           59,
-          59
+          59,
         );
 
         const monthName = startDate.toLocaleDateString("en-US", {
@@ -468,7 +468,7 @@ export class DashboardService {
         // Get low stock alerts for this month
         const lowStockAlerts = await this.getLowStockItemsCount(
           companyId,
-          endDate
+          endDate,
         );
 
         trends.push({
@@ -494,7 +494,7 @@ export class DashboardService {
 
   // Helper methods
   private static async getReorderAlertsCount(
-    companyId: string
+    companyId: string,
   ): Promise<number> {
     const items = await prisma.items.findMany({
       where: { companyId },
@@ -524,7 +524,7 @@ export class DashboardService {
   }
 
   private static async calculateDeliveryEfficiency(
-    companyId: string
+    companyId: string,
   ): Promise<number> {
     const deliveries = await prisma.delivery.findMany({
       where: {
@@ -548,12 +548,12 @@ export class DashboardService {
     });
 
     return Number(
-      ((onTimeDeliveries.length / deliveries.length) * 100).toFixed(1)
+      ((onTimeDeliveries.length / deliveries.length) * 100).toFixed(1),
     );
   }
 
   private static async calculateTotalInventoryValue(
-    companyId: string
+    companyId: string,
   ): Promise<number> {
     const items = await prisma.items.findMany({
       where: { companyId },
@@ -592,7 +592,7 @@ export class DashboardService {
 
   private static async getLowStockItemsCount(
     companyId: string,
-    beforeDate?: Date
+    beforeDate?: Date,
   ): Promise<number> {
     const items = await prisma.items.findMany({
       where: {
@@ -626,7 +626,7 @@ export class DashboardService {
   }
 
   private static async getExpiringItemsCount(
-    companyId: string
+    companyId: string,
   ): Promise<number> {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
@@ -658,7 +658,7 @@ export class DashboardService {
   }
 
   private static async calculateMonthlyGrowth(
-    companyId: string
+    companyId: string,
   ): Promise<number> {
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -684,13 +684,15 @@ export class DashboardService {
     if (lastMonthItems === 0) return currentMonthItems > 0 ? 100 : 0;
 
     return Number(
-      (((currentMonthItems - lastMonthItems) / lastMonthItems) * 100).toFixed(1)
+      (((currentMonthItems - lastMonthItems) / lastMonthItems) * 100).toFixed(
+        1,
+      ),
     );
   }
 
   // Inventory Dashboard APIs
   public static async getCategoryPerformance(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -773,7 +775,7 @@ export class DashboardService {
   }
 
   public static async getInventoryAgingAnalysis(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -804,7 +806,7 @@ export class DashboardService {
         const items = stockReceipts.filter((receipt) => {
           const daysDiff = Math.floor(
             (now.getTime() - receipt.dateReceived.getTime()) /
-              (1000 * 60 * 60 * 24)
+              (1000 * 60 * 60 * 24),
           );
           if (bucket.days === Infinity) {
             return daysDiff > 90;
@@ -846,7 +848,7 @@ export class DashboardService {
   }
 
   public static async getLowStockItems(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -918,8 +920,8 @@ export class DashboardService {
                 Math.floor(
                   (new Date().getTime() -
                     latestReceipt.dateReceived.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                )
+                    (1000 * 60 * 60 * 24),
+                ),
               )
             : 0;
 
@@ -978,7 +980,7 @@ export class DashboardService {
   }
 
   public static async getTopPerformers(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1052,7 +1054,7 @@ export class DashboardService {
   }
 
   public static async getWarehouseUtilization(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1069,13 +1071,14 @@ export class DashboardService {
             { receiptType: "DIRECT_ADDITION" },
           ],
         },
-        include: { stocks: true },
+        include: { stocks: true, warehouse: true },
       });
 
       // Group by storage location
       const locationMap = new Map();
       stockReceipts.forEach((receipt) => {
-        const location = receipt.storageLocation || "Default Warehouse";
+        const location =
+          receipt.warehouse?.warehousename || "Default Warehouse";
         if (!locationMap.has(location)) {
           locationMap.set(location, {
             used: 0,
@@ -1104,7 +1107,7 @@ export class DashboardService {
             capacity: "m²",
             items: data.items,
           };
-        }
+        },
       );
 
       return {
@@ -1119,7 +1122,7 @@ export class DashboardService {
 
   // Reorder Alerts APIs
   public static async getCriticalItems(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1190,8 +1193,8 @@ export class DashboardService {
                 Math.floor(
                   (new Date().getTime() -
                     latestReceipt.dateReceived.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                )
+                    (1000 * 60 * 60 * 24),
+                ),
               )
             : 0;
 
@@ -1210,7 +1213,7 @@ export class DashboardService {
             item.stockReceipts.length > 0
               ? item.stockReceipts.reduce(
                   (sum, receipt) => sum + Number(receipt.quantityReceived),
-                  0
+                  0,
                 ) / item.stockReceipts.length
               : 0;
 
@@ -1250,7 +1253,7 @@ export class DashboardService {
   }
 
   public static async getWarningItems(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1321,8 +1324,8 @@ export class DashboardService {
                 Math.floor(
                   (new Date().getTime() -
                     latestReceipt.dateReceived.getTime()) /
-                    (1000 * 60 * 60 * 24)
-                )
+                    (1000 * 60 * 60 * 24),
+                ),
               )
             : 0;
 
@@ -1341,7 +1344,7 @@ export class DashboardService {
             item.stockReceipts.length > 0
               ? item.stockReceipts.reduce(
                   (sum, receipt) => sum + Number(receipt.quantityReceived),
-                  0
+                  0,
                 ) / item.stockReceipts.length
               : 0;
 
@@ -1381,7 +1384,7 @@ export class DashboardService {
   }
 
   public static async getSupplierSummary(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1459,7 +1462,7 @@ export class DashboardService {
           const totalValue = itemsNeedingReorder.reduce((total, itemData) => {
             const item = itemData.item;
             const receipts = supplier.stockReceipts.filter(
-              (r) => r.itemId === item.id
+              (r) => r.itemId === item.id,
             );
             let itemValue = 0;
             receipts.forEach((receipt) => {
@@ -1512,7 +1515,7 @@ export class DashboardService {
       supplierId: string;
       priority: string;
     },
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1583,7 +1586,7 @@ export class DashboardService {
   }
   // Shipments Dashboard APIs
   public static async getIncomingShipments(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1619,8 +1622,8 @@ export class DashboardService {
         const categories = [
           ...new Set(
             delivery.deliveryItems.map(
-              (item) => item.item?.category?.categoryName
-            )
+              (item) => item.item?.category?.categoryName,
+            ),
           ),
         ];
         const category = categories[0] || "Mixed";
@@ -1714,7 +1717,7 @@ export class DashboardService {
   }
 
   public static async getOutgoingShipments(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1750,8 +1753,8 @@ export class DashboardService {
         const categories = [
           ...new Set(
             delivery.deliveryItems.map(
-              (item) => item.item?.category?.categoryName
-            )
+              (item) => item.item?.category?.categoryName,
+            ),
           ),
         ];
         const category = categories[0] || "Mixed";
@@ -1816,7 +1819,7 @@ export class DashboardService {
           const deliveredDate = new Date(delivery.actualDeliveryDate);
           const now = new Date();
           const diffHours = Math.floor(
-            (now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60)
+            (now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60),
           );
 
           if (diffHours < 24) {
@@ -1868,7 +1871,7 @@ export class DashboardService {
   }
 
   public static async getPerformanceMetrics(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1911,7 +1914,7 @@ export class DashboardService {
               const diffHours =
                 Math.abs(
                   new Date(delivery.actualDeliveryDate).getTime() -
-                    new Date(delivery.plannedDeliveryDate).getTime()
+                    new Date(delivery.plannedDeliveryDate).getTime(),
                 ) /
                 (1000 * 60 * 60);
               return total + diffHours;
@@ -1966,7 +1969,7 @@ export class DashboardService {
   }
 
   public static async getRecentActivity(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1996,7 +1999,7 @@ export class DashboardService {
         const now = new Date();
         const entryTime = new Date(entry.timestamp);
         const diffMinutes = Math.floor(
-          (now.getTime() - entryTime.getTime()) / (1000 * 60)
+          (now.getTime() - entryTime.getTime()) / (1000 * 60),
         );
 
         let timeAgo = "Just now";
@@ -2046,7 +2049,7 @@ export class DashboardService {
   }
 
   public static async getCarrierPerformance(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2098,7 +2101,7 @@ export class DashboardService {
           const transitTime =
             Math.abs(
               new Date(delivery.actualDeliveryDate).getTime() -
-                new Date(delivery.plannedDeliveryDate).getTime()
+                new Date(delivery.plannedDeliveryDate).getTime(),
             ) /
             (1000 * 60 * 60); // hours
           data.transitTimes.push(transitTime);
@@ -2115,7 +2118,7 @@ export class DashboardService {
             data.transitTimes.length > 0
               ? data.transitTimes.reduce(
                   (sum: number, time: number) => sum + time,
-                  0
+                  0,
                 ) / data.transitTimes.length
               : 0;
           const avgCost =
@@ -2139,7 +2142,7 @@ export class DashboardService {
             avgTransitTime: `${Math.round(avgTransitTime)}h`,
             reliability: onTimePercentage,
           };
-        }
+        },
       );
 
       // Sort by rating
@@ -2156,7 +2159,7 @@ export class DashboardService {
   }
 
   public static async getCostBreakdown(
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2226,7 +2229,7 @@ export class DashboardService {
 
   public static async getMonthlyTrends(
     req: AuthRequest,
-    months: number = 6
+    months: number = 6,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2245,7 +2248,7 @@ export class DashboardService {
           0,
           23,
           59,
-          59
+          59,
         );
 
         const monthName = startDate.toLocaleDateString("en-US", {
@@ -2280,7 +2283,7 @@ export class DashboardService {
 
         // Calculate on-time percentage
         const deliveredShipments = deliveries.filter(
-          (d) => d.status === "DELIVERED"
+          (d) => d.status === "DELIVERED",
         );
         const onTimeShipments = deliveredShipments.filter((delivery) => {
           if (!delivery.actualDeliveryDate) return false;
@@ -2292,7 +2295,7 @@ export class DashboardService {
         const onTime =
           deliveredShipments.length > 0
             ? Math.round(
-                (onTimeShipments.length / deliveredShipments.length) * 100
+                (onTimeShipments.length / deliveredShipments.length) * 100,
               )
             : 0;
 
@@ -2325,7 +2328,7 @@ export class DashboardService {
       status: string;
       location?: string;
     },
-    req: AuthRequest
+    req: AuthRequest,
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;

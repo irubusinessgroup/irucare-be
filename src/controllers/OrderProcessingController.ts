@@ -32,9 +32,10 @@ export class OrderProcessingController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public create(
     @Body() body: CreateProcessingEntryDto,
-    @Request() req: AuthRequest,
+    @Request() req: AuthRequest
   ) {
-    return OrderProcessingService.createUpdateProcessingDraft(body, req);
+    const io = req.app.get("io");
+    return OrderProcessingService.createUpdateProcessingDraft(body, req, io);
   }
 
   @Get("/performa")
@@ -52,7 +53,8 @@ export class OrderProcessingController {
   @Put("/{id}/complete")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public complete(@Path() id: string, @Request() req: AuthRequest) {
-    return OrderProcessingService.completeAndSend(id, req);
+    const io = req.app.get("io");
+    return OrderProcessingService.completeAndSend(id, req, io);
   }
 
   @Put("/po/{poNumber}/approve")
@@ -60,9 +62,10 @@ export class OrderProcessingController {
   public approveItems(
     @Path() poNumber: string,
     @Body() body: ApproveItemsDto,
-    @Request() req: AuthRequest,
+    @Request() req: AuthRequest
   ) {
-    return OrderProcessingService.approveItems(poNumber, body, req);
+    const io = req.app.get("io");
+    return OrderProcessingService.approveItems(poNumber, body, req, io);
   }
 
   @Get("/client/performa")
@@ -81,7 +84,7 @@ export class OrderProcessingController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getOrderByPONumber(
     @Path() poNumber: string,
-    @Request() req: AuthRequest,
+    @Request() req: AuthRequest
   ) {
     return OrderProcessingService.getOrdersByPONumber(poNumber, req);
   }
