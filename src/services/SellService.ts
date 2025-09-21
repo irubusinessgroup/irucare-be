@@ -55,6 +55,24 @@ export class SellService {
             phone: true,
           },
         },
+        sellItems: {
+          include: {
+            item: {
+              select: {
+                id: true,
+                itemCodeSku: true,
+                itemFullName: true,
+                category: {
+                  select: {
+                    id: true,
+                    categoryName: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        // Legacy item for backward compatibility
         item: {
           select: {
             id: true,
@@ -92,6 +110,16 @@ export class SellService {
       where: { id, companyId },
       include: {
         client: true,
+        sellItems: {
+          include: {
+            item: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        // Legacy item for backward compatibility
         item: {
           include: {
             category: true,
@@ -115,6 +143,24 @@ export class SellService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    // Support both new format (items array) and legacy format (single item)
+    const itemsToProcess =
+      data.items && data.items.length > 0
+        ? data.items
+        : data.itemId && data.quantity && data.sellPrice
+          ? [
+              {
+                itemId: data.itemId,
+                quantity: data.quantity,
+                sellPrice: data.sellPrice,
+              },
+            ]
+          : [];
+
+    if (itemsToProcess.length === 0) {
+      throw new AppError("No items provided for sale", 400);
+    }
+
     return await prisma.$transaction(async (tx) => {
       const client = await tx.client.findFirst({
         where: { id: data.clientId, companyId },
@@ -126,72 +172,156 @@ export class SellService {
         );
       }
 
-      const item = await tx.items.findFirst({
-        where: { id: data.itemId, companyId },
+      // Fetch company tools to apply selling percentage markup
+      const companyTools = await tx.companyTools.findFirst({
+        where: { companyId },
       });
-      if (!item) {
-        throw new AppError(
-          "Item not found or doesn't belong to your company",
-          404,
-        );
-      }
+      const sellingPercentage = Number(companyTools?.sellingPercentage ?? 0);
 
-      const availableStock = await tx.stock.findMany({
-        where: {
-          stockReceipt: { itemId: data.itemId, companyId },
-          status: "AVAILABLE",
-        },
-        include: {
-          stockReceipt: {
-            select: {
-              id: true,
-              expiryDate: true,
-              dateReceived: true,
+      let totalAmount = 0;
+      const sellItems = [];
+      const stockUpdates = [];
+
+      // Process each item
+      for (const itemData of itemsToProcess) {
+        const item = await tx.items.findFirst({
+          where: { id: itemData.itemId, companyId },
+        });
+        if (!item) {
+          throw new AppError(
+            `Item not found or doesn't belong to your company: ${itemData.itemId}`,
+            404,
+          );
+        }
+
+        const availableStock = await tx.stock.findMany({
+          where: {
+            stockReceipt: { itemId: itemData.itemId, companyId },
+            status: "AVAILABLE",
+          },
+          include: {
+            stockReceipt: {
+              select: {
+                id: true,
+                expiryDate: true,
+                dateReceived: true,
+              },
             },
           },
-        },
-        orderBy: [
-          { stockReceipt: { expiryDate: "asc" } },
-          { stockReceipt: { dateReceived: "asc" } },
-        ],
-      });
+          orderBy: [
+            { stockReceipt: { expiryDate: "asc" } },
+            { stockReceipt: { dateReceived: "asc" } },
+          ],
+        });
 
-      if (availableStock.length < data.quantity) {
-        throw new AppError(
-          `Insufficient stock. Available: ${availableStock.length}, Requested: ${data.quantity}`,
-          400,
-        );
+        if (availableStock.length < itemData.quantity) {
+          throw new AppError(
+            `Insufficient stock for item ${item.itemFullName}. Available: ${availableStock.length}, Requested: ${itemData.quantity}`,
+            400,
+          );
+        }
+
+        if (availableStock.length === 0) {
+          throw new AppError(
+            `No available stock for item ${item.itemFullName}`,
+            400,
+          );
+        }
+
+        const stockToUpdate = availableStock.slice(0, itemData.quantity);
+        const stockIds = stockToUpdate.map((stock) => stock.id);
+
+        const adjustedSellPrice =
+          Number(itemData.sellPrice) * (1 + sellingPercentage / 100);
+        const itemTotalAmount = Number(itemData.quantity) * adjustedSellPrice;
+        totalAmount += itemTotalAmount;
+
+        sellItems.push({
+          itemId: itemData.itemId,
+          quantity: itemData.quantity,
+          sellPrice: adjustedSellPrice,
+          totalAmount: itemTotalAmount,
+        });
+
+        stockUpdates.push({
+          stockIds,
+          itemName: item.itemFullName,
+        });
       }
 
-      if (availableStock.length === 0) {
-        throw new AppError("No available stock for this item", 400);
-      }
-
-      const stockToUpdate = availableStock.slice(0, data.quantity);
-      const stockIds = stockToUpdate.map((stock) => stock.id);
-
-      const totalAmount = data.quantity * data.sellPrice;
+      // Create the sell record
       const sell = await tx.sell.create({
         data: {
-          ...data,
+          clientId: data.clientId,
           companyId,
           totalAmount,
+          notes: data.notes,
+          // Legacy fields for backward compatibility
+          itemId:
+            itemsToProcess.length === 1 ? itemsToProcess[0].itemId : undefined,
+          quantity:
+            itemsToProcess.length === 1
+              ? itemsToProcess[0].quantity
+              : undefined,
+          sellPrice:
+            itemsToProcess.length === 1
+              ? itemsToProcess[0].sellPrice
+              : undefined,
         },
         include: {
           client: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      // Create sell items
+      for (const sellItemData of sellItems) {
+        await tx.sellItem.create({
+          data: {
+            sellId: sell.id,
+            ...sellItemData,
+          },
+        });
+      }
+
+      // Update stock status for all items
+      for (const stockUpdate of stockUpdates) {
+        await tx.stock.updateMany({
+          where: { id: { in: stockUpdate.stockIds } },
+          data: {
+            status: "SOLD",
+            sellId: sell.id,
+          },
+        });
+      }
+
+      // Auto-create transaction for this sale
+      await tx.transaction.create({
+        data: {
+          clientId: data.clientId,
+          companyId,
+          amount: totalAmount,
+          date: new Date(),
+        },
+      });
+
+      // Fetch the complete sell data with items
+      const completeSell = await tx.sell.findUnique({
+        where: { id: sell.id },
+        include: {
+          client: { select: { id: true, name: true, email: true } },
+          sellItems: {
+            include: {
+              item: {
+                select: { id: true, itemCodeSku: true, itemFullName: true },
+              },
+            },
+          },
+          // Legacy item for backward compatibility
           item: { select: { id: true, itemCodeSku: true, itemFullName: true } },
         },
       });
 
-      await tx.stock.updateMany({
-        where: { id: { in: stockIds } },
-        data: {
-          status: "SOLD",
-          sellId: sell.id,
-        },
-      });
-
-      return { message: "Sale created successfully", data: sell };
+      return { message: "Sale created successfully", data: completeSell };
     });
   }
 
@@ -210,6 +340,7 @@ export class SellService {
         where: { id, companyId },
         include: {
           stocks: true,
+          sellItems: true,
         },
       });
 
@@ -229,22 +360,23 @@ export class SellService {
         }
       }
 
-      const oldItemId = existingSell.itemId;
-      const oldQuantity = Number(existingSell.quantity);
-      const newItemId = data.itemId ?? oldItemId;
-      const newQuantity = Number(data.quantity ?? oldQuantity);
+      // Support both new format (items array) and legacy format (single item)
+      const itemsToProcess =
+        data.items && data.items.length > 0
+          ? data.items
+          : data.itemId && data.quantity && data.sellPrice
+            ? [
+                {
+                  itemId: data.itemId,
+                  quantity: data.quantity,
+                  sellPrice: data.sellPrice,
+                },
+              ]
+            : null;
 
-      const itemCheck = await tx.items.findFirst({
-        where: { id: newItemId, companyId },
-      });
-      if (!itemCheck) {
-        throw new AppError(
-          "Item not found or doesn't belong to your company",
-          404,
-        );
-      }
-
-      if (newItemId !== oldItemId || newQuantity !== oldQuantity) {
+      // If items are being updated, handle the update
+      if (itemsToProcess) {
+        // Release all current stock
         await tx.stock.updateMany({
           where: { sellId: id },
           data: {
@@ -253,11 +385,46 @@ export class SellService {
           },
         });
 
-        if (newQuantity > 0) {
+        // Delete existing sell items
+        await tx.sellItem.deleteMany({
+          where: { sellId: id },
+        });
+
+        // Fetch company tools to apply selling percentage markup
+        const companyTools = await tx.companyTools.findFirst({
+          where: { companyId },
+        });
+        const sellingPercentage = Number(companyTools?.sellingPercentage ?? 0);
+
+        let totalAmount = 0;
+        const sellItems = [];
+        const stockUpdates = [];
+
+        // Process each item
+        for (const itemData of itemsToProcess) {
+          const item = await tx.items.findFirst({
+            where: { id: itemData.itemId, companyId },
+          });
+          if (!item) {
+            throw new AppError(
+              `Item not found or doesn't belong to your company: ${itemData.itemId}`,
+              404,
+            );
+          }
+
           const availableStock = await tx.stock.findMany({
             where: {
-              stockReceipt: { itemId: newItemId },
+              stockReceipt: { itemId: itemData.itemId, companyId },
               status: "AVAILABLE",
+            },
+            include: {
+              stockReceipt: {
+                select: {
+                  id: true,
+                  expiryDate: true,
+                  dateReceived: true,
+                },
+              },
             },
             orderBy: [
               { stockReceipt: { expiryDate: "asc" } },
@@ -265,53 +432,213 @@ export class SellService {
             ],
           });
 
-          if (availableStock.length < newQuantity) {
+          if (availableStock.length < itemData.quantity) {
             throw new AppError(
-              `Insufficient stock. Available: ${availableStock.length}, Requested: ${newQuantity}`,
+              `Insufficient stock for item ${item.itemFullName}. Available: ${availableStock.length}, Requested: ${itemData.quantity}`,
               400,
             );
           }
 
-          const stockToAllocate = availableStock.slice(0, newQuantity);
+          if (availableStock.length === 0) {
+            throw new AppError(
+              `No available stock for item ${item.itemFullName}`,
+              400,
+            );
+          }
+
+          const stockToUpdate = availableStock.slice(0, itemData.quantity);
+          const stockIds = stockToUpdate.map((stock) => stock.id);
+
+          const adjustedSellPrice =
+            Number(itemData.sellPrice) * (1 + sellingPercentage / 100);
+          const itemTotalAmount = Number(itemData.quantity) * adjustedSellPrice;
+          totalAmount += itemTotalAmount;
+
+          sellItems.push({
+            itemId: itemData.itemId,
+            quantity: itemData.quantity,
+            sellPrice: adjustedSellPrice,
+            totalAmount: itemTotalAmount,
+          });
+
+          stockUpdates.push({
+            stockIds,
+            itemName: item.itemFullName,
+          });
+        }
+
+        // Create new sell items
+        for (const sellItemData of sellItems) {
+          await tx.sellItem.create({
+            data: {
+              sellId: id,
+              ...sellItemData,
+            },
+          });
+        }
+
+        // Update stock status for all items
+        for (const stockUpdate of stockUpdates) {
           await tx.stock.updateMany({
-            where: { id: { in: stockToAllocate.map((s) => s.id) } },
+            where: { id: { in: stockUpdate.stockIds } },
             data: {
               status: "SOLD",
               sellId: id,
             },
           });
         }
-      }
 
-      const updateData = { ...data };
-      if (data.quantity !== undefined || data.sellPrice !== undefined) {
-        const quantity = Number(data.quantity ?? oldQuantity);
-        const sellPrice = Number(data.sellPrice ?? existingSell.sellPrice);
-        updateData.totalAmount = quantity * sellPrice;
-      }
+        // Update the sell record
+        const updateData = {
+          ...data,
+          totalAmount,
+          // Legacy fields for backward compatibility
+          itemId:
+            itemsToProcess.length === 1 ? itemsToProcess[0].itemId : undefined,
+          quantity:
+            itemsToProcess.length === 1
+              ? itemsToProcess[0].quantity
+              : undefined,
+          sellPrice:
+            itemsToProcess.length === 1
+              ? itemsToProcess[0].sellPrice
+              : undefined,
+        };
 
-      const sell = await tx.sell.update({
-        where: { id },
-        data: updateData,
-        include: {
-          client: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+        const sell = await tx.sell.update({
+          where: { id },
+          data: updateData,
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            sellItems: {
+              include: {
+                item: {
+                  select: {
+                    id: true,
+                    itemCodeSku: true,
+                    itemFullName: true,
+                  },
+                },
+              },
+            },
+            // Legacy item for backward compatibility
+            item: {
+              select: {
+                id: true,
+                itemCodeSku: true,
+                itemFullName: true,
+              },
             },
           },
-          item: {
-            select: {
-              id: true,
-              itemCodeSku: true,
-              itemFullName: true,
+        });
+
+        return { message: "Sale updated successfully", data: sell };
+      } else {
+        // Handle legacy single item update
+        const oldItemId = existingSell.itemId;
+        const oldQuantity = Number(existingSell.quantity);
+        const newItemId = data.itemId ?? oldItemId;
+        const newQuantity = Number(data.quantity ?? oldQuantity);
+
+        if (newItemId) {
+          const itemCheck = await tx.items.findFirst({
+            where: { id: newItemId, companyId },
+          });
+          if (!itemCheck) {
+            throw new AppError(
+              "Item not found or doesn't belong to your company",
+              404,
+            );
+          }
+        }
+
+        if (newItemId !== oldItemId || newQuantity !== oldQuantity) {
+          await tx.stock.updateMany({
+            where: { sellId: id },
+            data: {
+              status: "AVAILABLE",
+              sellId: null,
+            },
+          });
+
+          if (newQuantity > 0 && newItemId) {
+            const availableStock = await tx.stock.findMany({
+              where: {
+                stockReceipt: { itemId: newItemId },
+                status: "AVAILABLE",
+              },
+              orderBy: [
+                { stockReceipt: { expiryDate: "asc" } },
+                { stockReceipt: { dateReceived: "asc" } },
+              ],
+            });
+
+            if (availableStock.length < newQuantity) {
+              throw new AppError(
+                `Insufficient stock. Available: ${availableStock.length}, Requested: ${newQuantity}`,
+                400,
+              );
+            }
+
+            const stockToAllocate = availableStock.slice(0, newQuantity);
+            await tx.stock.updateMany({
+              where: { id: { in: stockToAllocate.map((s) => s.id) } },
+              data: {
+                status: "SOLD",
+                sellId: id,
+              },
+            });
+          }
+        }
+
+        const updateData = { ...data };
+        if (data.quantity !== undefined || data.sellPrice !== undefined) {
+          const quantity = Number(data.quantity ?? oldQuantity);
+          const sellPrice = Number(data.sellPrice ?? existingSell.sellPrice);
+          updateData.totalAmount = quantity * sellPrice;
+        }
+
+        const sell = await tx.sell.update({
+          where: { id },
+          data: updateData,
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            sellItems: {
+              include: {
+                item: {
+                  select: {
+                    id: true,
+                    itemCodeSku: true,
+                    itemFullName: true,
+                  },
+                },
+              },
+            },
+            // Legacy item for backward compatibility
+            item: {
+              select: {
+                id: true,
+                itemCodeSku: true,
+                itemFullName: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      return { message: "Sale updated successfully", data: sell };
+        return { message: "Sale updated successfully", data: sell };
+      }
     });
   }
 
@@ -321,15 +648,36 @@ export class SellService {
       throw new AppError("Company ID is missing", 400);
     }
 
-    const existingSell = await prisma.sell.findFirst({
-      where: { id, companyId },
+    return await prisma.$transaction(async (tx) => {
+      const existingSell = await tx.sell.findFirst({
+        where: { id, companyId },
+        include: {
+          sellItems: true,
+        },
+      });
+
+      if (!existingSell) {
+        throw new AppError("Sale record not found", 404);
+      }
+
+      // Release all stock back to available
+      await tx.stock.updateMany({
+        where: { sellId: id },
+        data: {
+          status: "AVAILABLE",
+          sellId: null,
+        },
+      });
+
+      // Delete sell items (cascade will handle this, but being explicit)
+      await tx.sellItem.deleteMany({
+        where: { sellId: id },
+      });
+
+      // Delete the sell record
+      await tx.sell.delete({ where: { id } });
+
+      return { message: "Sale deleted successfully" };
     });
-
-    if (!existingSell) {
-      throw new AppError("Sale record not found", 404);
-    }
-
-    await prisma.sell.delete({ where: { id } });
-    return { message: "Sale deleted successfully" };
   }
 }

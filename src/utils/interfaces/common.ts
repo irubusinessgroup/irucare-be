@@ -1,6 +1,7 @@
 import type { $Enums, PaymentMethod } from "@prisma/client";
 import { TsoaResponse } from "tsoa";
 import { DeliveryItemStatus } from "@prisma/client";
+import { DeliveryItemStatus } from "@prisma/client";
 
 export interface IResponse<T> {
   statusCode: number;
@@ -348,7 +349,7 @@ export type TOrderItem = {
 
 export type TPayment = {
   id: string;
-  orderId: string;
+  subscriptionId: string;
   kind: string;
   amount: number;
   method: string;
@@ -359,11 +360,11 @@ export type TPayment = {
   refId?: string | null;
   createdAt: Date;
   updatedAt: Date;
-  order?: TOrder;
+  subscription?: TSubscription;
 };
 
 export interface CreatePaymentDto {
-  orderId: string;
+  subscriptionId: string;
   amount: number;
   method: PaymentMethod;
   accountNumber: string;
@@ -375,7 +376,7 @@ export interface withdrawalPaymentDto {
 }
 
 export interface UpdatePaymentDto {
-  orderId: string;
+  subscriptionId: string;
   amount: number;
   method: PaymentMethod;
   paidAt?: Date;
@@ -524,6 +525,8 @@ export interface CreateCompanyToolsDto {
   sellingPercentage?: number;
   companySignature?: string;
   companyStamp?: string;
+  companySignature?: string;
+  companyStamp?: string;
 }
 
 export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
@@ -604,16 +607,37 @@ export interface CreateStockDto {
   purchaseOrderId: string;
   invoiceNo?: string;
   supplierId?: string;
-  dateReceived: Date;
+  // Accept both Date and string so controllers can receive flexible date inputs (ISO string, empty string, etc.)
+  dateReceived: Date | string;
   quantityReceived: number;
-  expiryDate?: Date;
+  expiryDate?: Date | string | null;
   unitCost: number;
   packSize?: number;
   uom: string;
   tempReq: string;
   currency: string;
   condition: string;
-  storageLocation: string;
+  // warehouseId may be omitted or null when not assigned; empty string will be normalized to null by services
+  warehouseId?: string | null;
+  specialHandlingNotes?: string;
+  remarksNotes?: string;
+}
+
+export interface CreateManualStockReceiptDto {
+  manualPoNumber: string;
+  itemId: string;
+  supplierId: string;
+  warehouseId: string;
+  dateReceived: Date | string;
+  quantityReceived: number;
+  unitCost: number;
+  currency: string;
+  uom: string;
+  tempReq: string;
+  condition: string;
+  packSize?: number;
+  expiryDate?: Date | string | null;
+  invoiceNo?: string;
   specialHandlingNotes?: string;
   remarksNotes?: string;
 }
@@ -623,9 +647,9 @@ export interface UpdateStockDto {
   purchaseOrderItemId: string;
   invoiceNo?: string;
   supplierId?: string;
-  dateReceived?: Date;
+  dateReceived?: Date | string;
   quantityReceived?: number;
-  expiryDate?: Date;
+  expiryDate?: Date | string | null;
   unitCost?: number;
   totalCost?: number;
   packSize?: number;
@@ -633,7 +657,7 @@ export interface UpdateStockDto {
   tempReq?: string;
   currency?: string;
   condition?: string;
-  storageLocation?: string;
+  warehouseId?: string;
   specialHandlingNotes?: string;
   remarksNotes?: string;
 }
@@ -644,7 +668,7 @@ export interface CreateStockReceiptFromPODto {
   unitCost?: number;
   expiryDate?: Date;
   invoiceNo?: string;
-  storageLocation: string;
+  warehouseId: string;
   condition: string;
   tempReq: string;
   uom: string;
@@ -701,6 +725,22 @@ export interface CategoryResponse {
   description?: string | null;
 }
 
+export interface WarehouseResponse {
+  id: string;
+  warehousename: string;
+  description?: string | null;
+}
+
+export interface CreateWarehouseRequest {
+  warehousename: string;
+  description?: string | null;
+}
+
+export interface UpdateWarehouseRequest {
+  warehousename: string;
+  description?: string | null;
+}
+
 export interface CreateCategoryRequest {
   categoryName: string;
   description?: string | null;
@@ -714,6 +754,7 @@ export interface UpdateCategoryRequest {
 export interface PurchaseOrderItemDto {
   itemId: string;
   quantity: number;
+  packSize?: number | null;
   packSize?: number | null;
 }
 
@@ -731,6 +772,26 @@ export interface UpdatePurchaseOrderDto {
   supplierId?: string;
   notes?: string;
   expectedDeliveryDate?: Date;
+}
+
+// Client order DTOs (used when creating orders for individual clients)
+export interface CreateClientOrderDto {
+  items: PurchaseOrderItemDto[];
+  clientId: string; // user id of the client
+  companyId?: string | null; // optional buyer company id (empty if client not part of company)
+  clientAddress?: string | null;
+  notes?: string;
+  expectedDeliveryDate: Date | string;
+}
+
+export interface UpdateClientOrderDto {
+  poNumber?: string;
+  items?: PurchaseOrderItemDto[];
+  clientId?: string;
+  companyId?: string | null;
+  clientAddress?: string | null;
+  notes?: string;
+  expectedDeliveryDate?: Date | string;
 }
 
 // Client order DTOs (used when creating orders for individual clients)
@@ -810,19 +871,31 @@ export interface UpdateClientDto {
 
 export interface CreateSellDto {
   clientId: string;
-  itemId: string;
-  quantity: number;
-  sellPrice: number;
+  items: {
+    itemId: string;
+    quantity: number;
+    sellPrice: number;
+  }[];
   notes?: string;
+  // Legacy fields for backward compatibility
+  itemId?: string;
+  quantity?: number;
+  sellPrice?: number;
 }
 
 export interface UpdateSellDto {
   clientId?: string;
+  items?: {
+    itemId: string;
+    quantity: number;
+    sellPrice: number;
+  }[];
+  notes?: string;
+  totalAmount?: number;
+  // Legacy fields for backward compatibility
   itemId?: string;
   quantity?: number;
   sellPrice?: number;
-  notes?: string;
-  totalAmount?: number;
 }
 
 export interface CreateApprovalDto {
@@ -858,7 +931,7 @@ export interface DirectStockAdditionRequest {
   tempReq: string;
   currency: string;
   condition: string;
-  storageLocation: string;
+  warehouseId: string;
   reason: string;
   specialHandlingNotes?: string;
   remarksNotes?: string;
@@ -951,4 +1024,107 @@ export interface ConfirmDeliveryItemDto {
   quantityRejected?: number;
   damageNotes?: string;
   rejectionReason?: string;
+}
+
+// Plan model (matches prisma schema)
+export type TPlan = {
+  id: string;
+  name: string; // plan display name
+  description?: string | null;
+  price: number;
+  setupFee?: number | null;
+  additionalUser?: number | null;
+  additionalLocation?: number | null;
+  features?: string[];
+  period?: string | null;
+  userRange?: string | null;
+  locationRange?: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export interface CreatePlanDto {
+  id?: string;
+  name: string;
+  description?: string;
+  price: number;
+  setupFee?: number;
+  additionalUser?: number;
+  additionalLocation?: number;
+  features?: Array<string | Record<string, unknown>>;
+  period?: string;
+  userRange?: string;
+  locationRange?: string;
+  isActive?: boolean;
+}
+
+export interface UpdatePlanDto extends Partial<CreatePlanDto> {}
+
+// Subscription model (matches prisma schema)
+export type TSubscription = {
+  id: string;
+  companyId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  companyName?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  paymentMethod: string;
+  paymentPhone?: string | null;
+  billingAddress?: string | null;
+  cardNumber?: string | null;
+  expiryDate?: string | null;
+  cvv?: string | null;
+  nameOnCard?: string | null;
+  selectedPlan: string;
+  planId: string;
+  planPrice: number;
+  setupFee?: number | null;
+  totalDueToday: number;
+  billingCycle: string;
+  periodLabel: string;
+  isActive: boolean;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  // Relations (optional in DTOs)
+  company?: { id: string; name: string } | null;
+  plan?: TPlan | null;
+};
+
+export interface CreateSubscriptionDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  companyName?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  paymentMethod: string;
+  paymentPhone?: string;
+  billingAddress?: string;
+  cardNumber?: string;
+  expiryDate?: string;
+  cvv?: string;
+  nameOnCard?: string;
+  selectedPlan: string;
+  planId: string;
+  planPrice: number;
+  setupFee?: number;
+  totalDueToday: number;
+  billingCycle: string;
+  periodLabel: string;
+  isActive?: boolean;
+}
+
+export interface UpdateSubscriptionDto extends Partial<CreateSubscriptionDto> {
+  isActive?: boolean;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
 }

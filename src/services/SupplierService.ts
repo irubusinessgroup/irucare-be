@@ -12,8 +12,12 @@ import {
 export class SupplierService {
   static async createSupplier(
     data: CreateSupplierRequest,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<SupplierResponse>> {
+    // Normalize optional foreign keys to avoid empty-string FK violations
+    const normalizedSupplierCompanyId =
+      data.supplierCompanyId?.trim() || undefined;
+
     const existingSupplier = await prisma.suppliers.findUnique({
       where: { email: data.email },
     });
@@ -30,10 +34,10 @@ export class SupplierService {
       throw new AppError("Company not found", 404);
     }
 
-    // Validate supplier company if provided
-    if (data.supplierCompanyId) {
+    // Validate supplier company if provided (treat empty string as undefined)
+    if (normalizedSupplierCompanyId) {
       const supplierCompany = await prisma.company.findUnique({
-        where: { id: data.supplierCompanyId },
+        where: { id: normalizedSupplierCompanyId },
       });
       if (!supplierCompany) {
         throw new AppError("Supplier company not found", 404);
@@ -42,7 +46,9 @@ export class SupplierService {
 
     const supplier = await prisma.suppliers.create({
       data: {
+        // Spread the rest and only include supplierCompanyId when defined
         ...data,
+        supplierCompanyId: normalizedSupplierCompanyId,
         companyId: companyId,
       },
       include: {
@@ -66,7 +72,7 @@ export class SupplierService {
 
   static async getSupplier(
     id: string,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<SupplierResponse>> {
     const supplier = await prisma.suppliers.findUnique({
       where: { id, companyId: companyId },
@@ -95,8 +101,12 @@ export class SupplierService {
 
   static async updateSupplier(
     id: string,
-    data: UpdateSupplierRequest,
+    data: UpdateSupplierRequest
   ): Promise<IResponse<SupplierResponse>> {
+    // Normalize optional foreign keys
+    const normalizedSupplierCompanyId =
+      data.supplierCompanyId?.trim() || undefined;
+
     const existingSupplier = await prisma.suppliers.findUnique({
       where: { id },
       include: { company: true },
@@ -117,7 +127,11 @@ export class SupplierService {
 
     const updatedSupplier = await prisma.suppliers.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        // Only set when defined; avoid persisting empty strings
+        supplierCompanyId: normalizedSupplierCompanyId,
+      },
       include: { company: true },
     });
 
@@ -143,7 +157,7 @@ export class SupplierService {
     if (supplier.stockReceipts.length > 0) {
       throw new AppError(
         "Cannot delete supplier with existing transactions",
-        404,
+        404
       );
     }
 
@@ -156,12 +170,12 @@ export class SupplierService {
     companyId: string,
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ): Promise<IPaged<SupplierResponse[]>> {
     try {
       const searchOptions = QueryOptions(
-        ["supplier_name", "contact_person", "email"],
-        searchq,
+        ["supplierName", "contactPerson", "email"],
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -194,7 +208,7 @@ export class SupplierService {
   }
 
   static async getSuppliersByCompany(
-    supplierCompanyId: string,
+    supplierCompanyId: string
   ): Promise<IResponse<SupplierResponse[]>> {
     const suppliers = await prisma.suppliers.findMany({
       where: { supplierCompanyId },

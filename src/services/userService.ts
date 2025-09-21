@@ -469,6 +469,20 @@ export class UserService extends BaseService {
     return users.map((user) => user.id);
   }
 
+  static async getUserIdsByCompany(companyId: string): Promise<string[]> {
+    const companyUsers = await prisma.companyUser.findMany({
+      where: {
+        companyId,
+        isActive: true,
+      },
+      select: {
+        userId: true,
+      },
+    });
+
+    return companyUsers.map((companyUser) => companyUser.userId);
+  }
+
   public static async getProfile(req: Request) {
     try {
       const userId = req.user!.id;

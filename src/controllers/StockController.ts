@@ -14,7 +14,11 @@ import {
 } from "tsoa";
 import { Request as ExpressRequest } from "express";
 import { StockService } from "../services/StockService";
-import { CreateStockDto, UpdateStockDto } from "../utils/interfaces/common";
+import {
+  CreateStockDto,
+  UpdateStockDto,
+  CreateManualStockReceiptDto,
+} from "../utils/interfaces/common";
 import { checkRole } from "../middlewares";
 import { roles } from "../utils/roles";
 import { PurchaseOrderService } from "../services/PurchaseOrderService";
@@ -30,7 +34,7 @@ export class StockController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     return StockService.getAllStock(req, searchq, limit, page);
   }
@@ -46,10 +50,20 @@ export class StockController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public createStockReceipt(
     @Body() body: CreateStockDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
     return StockService.createStockReceipt(body, companyId!);
+  }
+
+  @Post("/manual")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public createManualStockReceipt(
+    @Body() body: CreateManualStockReceiptDto,
+    @Request() req: ExpressRequest
+  ) {
+    const companyId = req.user?.company?.companyId;
+    return StockService.createManualStockReceipt(body, companyId!);
   }
 
   @Put("/{id}")
@@ -57,7 +71,7 @@ export class StockController {
   public updateStockReceipt(
     @Path() id: string,
     @Body() body: UpdateStockDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
     return StockService.updateStockReceipt(id, body, companyId!);
@@ -67,7 +81,7 @@ export class StockController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public deleteStockReceipt(
     @Path() id: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
     return StockService.deleteStockReceipt(id, companyId!);
@@ -77,13 +91,13 @@ export class StockController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getPurchaseOrderForStockReceipt(
     @Path() poNumber: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
     return PurchaseOrderService.getPurchaseOrderForStockReceipt(
       poNumber,
-      companyId,
+      companyId
     );
   }
 }

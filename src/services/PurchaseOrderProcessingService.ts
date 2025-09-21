@@ -1,12 +1,16 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import { ItemApprovalStatus } from "@prisma/client";
+import { ItemApprovalStatus } from "@prisma/client";
 import type { Request } from "express";
 import {
   CreateProcessingEntryDto,
   ApproveItemsDto,
 } from "../utils/interfaces/common";
 import { Prisma, ProcessingStatus } from "@prisma/client";
+import { DeliveryService } from "./DeliveryService";
+import { NotificationHelper } from "../utils/notificationHelper";
+import { Server as SocketIOServer } from "socket.io";
 
 type AuthRequest = Request & {
   user?: { company?: { companyId?: string } };
@@ -25,10 +29,110 @@ type POPWithPO = Prisma.PurchaseOrderProcessingGetPayload<{
   };
 }>;
 
+type PurchaseOrderForNotification = {
+  id: string;
+  poNumber: string;
+  companyId: string | null;
+  company?: { name: string } | null;
+  suppliers?: { supplierName: string; supplierCompanyId: string | null } | null;
+  overallStatus?: string;
+};
+
 export class OrderProcessingService {
+  // Helper method to send processing draft notification to buyer
+  private static async sendProcessingDraftNotification(
+    purchaseOrder: PurchaseOrderForNotification,
+    supplierCompanyId: string,
+    io: SocketIOServer
+  ): Promise<void> {
+    if (!purchaseOrder?.companyId) {
+      return;
+    }
+
+    const supplierCompanyName =
+      await NotificationHelper.getCompanyName(supplierCompanyId);
+
+    await NotificationHelper.sendToCompany(
+      io,
+      purchaseOrder.companyId,
+      "Processing Draft Created",
+      `Processing draft created for PO ${purchaseOrder.poNumber} by ${supplierCompanyName}`,
+      "info",
+      `/dashboard/purchase-orders/${purchaseOrder.id}`,
+      "processing_draft",
+      purchaseOrder.id,
+      {
+        poNumber: purchaseOrder.poNumber,
+        supplierCompany: supplierCompanyName,
+        buyerCompany: purchaseOrder.company?.name,
+      }
+    );
+  }
+
+  // Helper method to send completion notification to buyer
+  private static async sendCompletionNotification(
+    purchaseOrder: PurchaseOrderForNotification,
+    supplierCompanyId: string,
+    io: SocketIOServer
+  ): Promise<void> {
+    if (!purchaseOrder?.companyId) {
+      return;
+    }
+
+    const supplierCompanyName =
+      await NotificationHelper.getCompanyName(supplierCompanyId);
+
+    await NotificationHelper.sendToCompany(
+      io,
+      purchaseOrder.companyId,
+      "Processing Complete - Ready for Review",
+      `Processing completed for PO ${purchaseOrder.poNumber} by ${supplierCompanyName}. Please review and approve items.`,
+      "success",
+      `/dashboard/purchase-orders/${purchaseOrder.id}`,
+      "processing_complete",
+      purchaseOrder.id,
+      {
+        poNumber: purchaseOrder.poNumber,
+        supplierCompany: supplierCompanyName,
+        buyerCompany: purchaseOrder.company?.name,
+      }
+    );
+  }
+
+  // Helper method to send approval notification to supplier
+  private static async sendApprovalNotification(
+    purchaseOrder: PurchaseOrderForNotification,
+    buyerCompanyId: string,
+    io: SocketIOServer
+  ): Promise<void> {
+    if (!purchaseOrder?.suppliers?.supplierCompanyId) {
+      return;
+    }
+
+    const buyerCompanyName =
+      await NotificationHelper.getCompanyName(buyerCompanyId);
+
+    await NotificationHelper.sendToCompany(
+      io,
+      purchaseOrder.suppliers.supplierCompanyId,
+      "Items Approved - Prepare Delivery",
+      `Items approved for PO ${purchaseOrder.poNumber} by ${buyerCompanyName}. Please prepare delivery plan.`,
+      "success",
+      `/dashboard/purchase-orders/${purchaseOrder.id}`,
+      "items_approved",
+      purchaseOrder.id,
+      {
+        poNumber: purchaseOrder.poNumber,
+        buyerCompany: buyerCompanyName,
+        supplierCompany: purchaseOrder.suppliers.supplierName,
+        overallStatus: purchaseOrder.overallStatus,
+      }
+    );
+  }
   public static async createUpdateProcessingDraft(
     data: CreateProcessingEntryDto,
     req: AuthRequest,
+    io?: SocketIOServer
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -43,7 +147,7 @@ export class OrderProcessingService {
     if (po.overallStatus !== "NOT_YET") {
       throw new AppError(
         "Cannot edit this performa because the purchase order has progressed — the client may have already taken decisions",
-        400,
+        400
       );
     }
 
@@ -56,7 +160,7 @@ export class OrderProcessingService {
     if (!companyToId) {
       throw new AppError(
         "Cannot create processing entry: purchase order buyer is not a company",
-        400,
+        400
       );
     }
 
@@ -71,18 +175,94 @@ export class OrderProcessingService {
           purchaseOrderId: true,
           quantity: true,
           quantityIssued: true,
+          itemId: true,
+          item: {
+            select: {
+              itemFullName: true,
+              itemCodeSku: true,
+              productCode: true,
+            },
+          },
         },
       });
 
       if (!poItem || poItem.purchaseOrderId !== po.id)
         throw new AppError(
           `Purchase order item ${itemEntry.purchaseOrderItemId} not found for this PO`,
-          404,
+          404
         );
 
       const newIssued = itemEntry.quantityIssued
         ? Number(itemEntry.quantityIssued)
         : 0;
+
+      // Check available stock before proceeding when a quantity is being issued
+      if (newIssued > 0) {
+        // Resolve supplier items by SKU, productCode, or itemFullName to account for different item IDs across companies
+        const sku = poItem.item?.itemCodeSku;
+        const productCode = poItem.item?.productCode || undefined;
+        const name = poItem.item?.itemFullName || undefined;
+
+        let availableStock = 0;
+        const supplierItemIds: string[] = [];
+
+        if (sku) {
+          const supplierItemsBySku = await prisma.items.findMany({
+            where: { companyId: companyFromId, itemCodeSku: sku },
+            select: { id: true },
+          });
+          supplierItemIds.push(...supplierItemsBySku.map((i) => i.id));
+        }
+
+        if (supplierItemIds.length === 0 && productCode) {
+          const supplierItemsByProductCode = await prisma.items.findMany({
+            where: { companyId: companyFromId, productCode: productCode },
+            select: { id: true },
+          });
+          supplierItemIds.push(...supplierItemsByProductCode.map((i) => i.id));
+        }
+
+        if (supplierItemIds.length === 0 && name) {
+          const supplierItemsByName = await prisma.items.findMany({
+            where: { companyId: companyFromId, itemFullName: name },
+            select: { id: true },
+          });
+          supplierItemIds.push(...supplierItemsByName.map((i) => i.id));
+        }
+
+        if (supplierItemIds.length > 0) {
+          availableStock = await prisma.stock.count({
+            where: {
+              stockReceipt: {
+                itemId: { in: supplierItemIds },
+                companyId: companyFromId,
+              },
+              status: "AVAILABLE",
+            },
+          });
+        }
+
+        // Fallback: directly use the PO item's itemId (in case same catalog is shared)
+        if (availableStock === 0) {
+          availableStock = await prisma.stock.count({
+            where: {
+              stockReceipt: {
+                itemId: poItem.itemId,
+                companyId: companyFromId,
+              },
+              status: "AVAILABLE",
+            },
+          });
+        }
+
+        if (availableStock < newIssued) {
+          const itemName = poItem.item?.itemFullName || "selected item";
+          throw new AppError(
+            `Insufficient stock for item ${itemName}. Available: ${availableStock}, Required: ${newIssued}`,
+            400
+          );
+        }
+      }
 
       // Note: Do not block when newIssued would make total exceed orderedQty.
       // We treat quantityIssued from the request as the value to set/overwrite
@@ -112,7 +292,7 @@ export class OrderProcessingService {
           prisma.purchaseOrderItem.update({
             where: { id: poItem.id },
             data: updateData,
-          }),
+          })
         );
       }
     }
@@ -171,6 +351,16 @@ export class OrderProcessingService {
       });
     }
 
+    // Send notification to buyer company if io is provided
+    if (io && po.companyId) {
+      try {
+        await this.sendProcessingDraftNotification(po, companyId, io);
+      } catch (error) {
+        console.error("Error sending processing draft notification:", error);
+        // Don't throw error here - notification failure shouldn't break the main flow
+      }
+    }
+
     return { message: "Processing draft created/updated successfully" };
   }
 
@@ -193,7 +383,11 @@ export class OrderProcessingService {
     return { message: "Processing entry deleted" };
   }
 
-  public static async completeAndSend(id: string, req: AuthRequest) {
+  public static async completeAndSend(
+    id: string,
+    req: AuthRequest,
+    io?: SocketIOServer
+  ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
 
@@ -213,6 +407,23 @@ export class OrderProcessingService {
       data: { status: "SENT" },
     });
 
+    // Send notification to buyer company if io is provided
+    if (io && entry.companyToId) {
+      try {
+        // Get the purchase order details for notification
+        const po = await prisma.purchaseOrder.findUnique({
+          where: { id: entry.purchaseOrderId },
+          include: { company: true },
+        });
+        if (po) {
+          await this.sendCompletionNotification(po, companyId, io);
+        }
+      } catch (error) {
+        console.error("Error sending completion notification:", error);
+        // Don't throw error here - notification failure shouldn't break the main flow
+      }
+    }
+
     return { message: "Processing entry completed and sent", data: updated };
   }
 
@@ -220,8 +431,9 @@ export class OrderProcessingService {
     poNumber: string,
     data: ApproveItemsDto,
     req: AuthRequest,
+    io?: SocketIOServer
   ) {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const companyId = req.user?.company?.companyId;
       if (!companyId) throw new AppError("Company ID is missing", 400);
 
@@ -255,10 +467,10 @@ export class OrderProcessingService {
 
       if (updatedPO) {
         const approvedItems = updatedPO.items.filter(
-          (i) => i.itemStatus === "APPROVED",
+          (i) => i.itemStatus === "APPROVED"
         );
         const rejectedItems = updatedPO.items.filter(
-          (i) => i.itemStatus === "REJECTED",
+          (i) => i.itemStatus === "REJECTED"
         );
         const totalItems = updatedPO.items.length;
 
@@ -286,6 +498,58 @@ export class OrderProcessingService {
 
       return { message: "Items approval updated successfully" };
     });
+
+    // After approvals, auto-create delivery if PO is now SOME/ALL_APPROVED
+    let poAfter: PurchaseOrderForNotification | null = null;
+    try {
+      poAfter = await prisma.purchaseOrder.findFirst({
+        where: { poNumber },
+        include: { suppliers: true, items: true },
+      });
+      if (
+        poAfter &&
+        (poAfter.overallStatus === "SOME_APPROVED" ||
+          poAfter.overallStatus === "ALL_APPROVED")
+      ) {
+        const supplierCompanyId = poAfter.suppliers?.supplierCompanyId;
+        if (supplierCompanyId) {
+          // Create a minimal req acting as supplier to satisfy supplier-only rule
+          const supplierReq = {
+            user: { company: { companyId: supplierCompanyId } },
+          } as unknown as Request;
+
+          await DeliveryService.autoCreateDeliveryFromApprovedPO(
+            poAfter.id,
+            supplierReq
+          );
+        }
+      }
+    } catch (err) {
+      // Swallow auto-create errors to not block approvals, but log context
+      // Preferably replace with centralized logger if available
+      // eslint-disable-next-line no-console
+      console.error("Auto-create delivery after approval failed:", err);
+    }
+
+    // Send notification to supplier company if io is provided and items were approved
+    if (
+      io &&
+      poAfter &&
+      (poAfter.overallStatus === "SOME_APPROVED" ||
+        poAfter.overallStatus === "ALL_APPROVED")
+    ) {
+      try {
+        const companyId = req.user?.company?.companyId;
+        if (companyId) {
+          await this.sendApprovalNotification(poAfter, companyId, io);
+        }
+      } catch (error) {
+        console.error("Error sending approval notification:", error);
+        // Don't throw error here - notification failure shouldn't break the main flow
+      }
+    }
+
+    return result;
   }
 
   public static async getClientPerforma(req: AuthRequest) {
@@ -525,6 +789,7 @@ export class OrderProcessingService {
         ...po,
         userRole,
         canApproveItems: userRole === "BUYER",
+        canAutoCreateDelivery: userRole === "SUPPLIER",
       },
     };
   }
@@ -582,7 +847,7 @@ export class OrderProcessingService {
           remainingQuantity,
           canDeliver: remainingQuantity > 0,
         };
-      }),
+      })
     );
 
     // Filter out items that have been fully delivered
