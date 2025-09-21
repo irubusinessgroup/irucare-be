@@ -87,31 +87,6 @@ export class Purchase {
   public deleteClientOrder(@Path() id: string, @Request() req: ExpressRequest) {
     return PurchaseOrderService.deleteClientOrder(id, req);
   }
-  // Client order endpoints
-  @Post("/client-orders")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public createClientOrder(
-    @Body() body: CreateClientOrderDto,
-    @Request() req: ExpressRequest,
-  ) {
-    return PurchaseOrderService.createClientOrder(body, req);
-  }
-
-  @Put("/client-orders/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public updateClientOrder(
-    @Path() id: string,
-    @Body() body: UpdateClientOrderDto,
-    @Request() req: ExpressRequest,
-  ) {
-    return PurchaseOrderService.updateClientOrder(id, body, req);
-  }
-
-  @Delete("/client-orders/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public deleteClientOrder(@Path() id: string, @Request() req: ExpressRequest) {
-    return PurchaseOrderService.deleteClientOrder(id, req);
-  }
 
   @Put("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))

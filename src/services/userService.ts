@@ -25,12 +25,12 @@ export class UserService extends BaseService {
   public static async getUsers(
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ): Promise<IPaged<IUserResponse[]>> {
     try {
       const queryOptions = QueryOptions(
         ["firstName", "lastName", "email"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -91,11 +91,11 @@ export class UserService extends BaseService {
               .map((role) => role.name)
               .filter((r) => !!r),
           },
-          process.env.JWT_SECRET!,
+          process.env.JWT_SECRET!
         );
         console.log(userData.userRoles);
         const userRoles = userData.userRoles.map(
-          (roleRecord) => roleRecord.name,
+          (roleRecord) => roleRecord.name
         );
 
         // Get industry from company if user has a company association
@@ -260,7 +260,7 @@ export class UserService extends BaseService {
   public static async updatePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string,
+    newPassword: string
   ) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -325,7 +325,7 @@ export class UserService extends BaseService {
   public static async resetPassword(
     email: string,
     otp: string,
-    newPassword: string,
+    newPassword: string
   ) {
     const user = await prisma.user.findFirst({ where: { email } });
 
@@ -521,7 +521,7 @@ export class UserService extends BaseService {
 
   public static async updateProfile(
     req: Request,
-    profileData: UpdateProfileDto,
+    profileData: UpdateProfileDto
   ) {
     try {
       const userId = req.user!.id;

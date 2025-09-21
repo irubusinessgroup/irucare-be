@@ -1,14 +1,9 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import type { Request } from "express";
-import AppError from "../utils/error";
-import type { Request } from "express";
 import {
   CreateDeliveryDto,
   UpdateDeliveryDto,
-  UpdateDeliveryStatusDto,
-  DeliveryTrackingDto,
-  ConfirmDeliveryDto,
   UpdateDeliveryStatusDto,
   DeliveryTrackingDto,
   ConfirmDeliveryDto,
@@ -754,83 +749,11 @@ export class DeliveryService {
 
     return {
       message: "Direct stock delivery created successfully",
-      message: "Direct stock delivery created successfully",
       data: delivery,
     };
   }
 
   public static async updateDelivery(
-    deliveryId: string,
-    data: UpdateDeliveryDto,
-    req: AuthRequest,
-  ) {
-    const companyId = req.user?.company?.companyId;
-    if (!companyId) throw new AppError("Company ID is missing", 400);
-
-    const delivery = await prisma.delivery.findUnique({
-      where: { id: deliveryId },
-      include: { deliveryItems: true },
-    });
-
-    if (!delivery) throw new AppError("Delivery not found", 404);
-
-    if (delivery.supplierCompanyId !== companyId) {
-      throw new AppError("Only supplier can update delivery", 403);
-    }
-
-    if (delivery.status === "DELIVERED") {
-      throw new AppError("Cannot update delivered orders", 400);
-    }
-
-    const updatedDelivery = await prisma.delivery.update({
-      where: { id: deliveryId },
-      data: {
-        plannedDeliveryDate: data.plannedDeliveryDate,
-        deliveryAddress: data.deliveryAddress,
-        contactPerson: data.contactPerson,
-        contactPhone: data.contactPhone,
-        contactEmail: data.contactEmail,
-        deliveryNotes: data.deliveryNotes,
-        specialInstructions: data.specialInstructions,
-        deliveryCharges: data.deliveryCharges
-          ? Number(data.deliveryCharges)
-          : null,
-      },
-      include: {
-        deliveryItems: {
-          include: { purchaseOrderItem: { include: { item: true } } },
-        },
-        purchaseOrder: true,
-      },
-    });
-
-    // Update delivery items if provided
-    if (data.items && data.items.length > 0) {
-      for (const itemData of data.items) {
-        await prisma.deliveryItem.updateMany({
-          where: {
-            deliveryId: delivery.id,
-            purchaseOrderItemId: itemData.purchaseOrderItemId,
-          },
-          data: {
-            quantityToDeliver: Number(itemData.quantityToDeliver),
-            actualBatchNo: itemData.actualBatchNo,
-            actualExpiryDate: itemData.actualExpiryDate,
-            actualUnitPrice: itemData.actualUnitPrice
-              ? Number(itemData.actualUnitPrice)
-              : null,
-          },
-        });
-      }
-    }
-
-    await prisma.deliveryTracking.create({
-      data: {
-        deliveryId: delivery.id,
-        status: delivery.status,
-        description: "Delivery details updated",
-        updatedById: req.user?.id,
-      },
     deliveryId: string,
     data: UpdateDeliveryDto,
     req: AuthRequest,
@@ -1056,8 +979,6 @@ export class DeliveryService {
     return {
       message: "Delivery status updated successfully",
       data: updatedDelivery,
-      message: "Delivery status updated successfully",
-      data: updatedDelivery,
     };
   }
 
@@ -1113,66 +1034,9 @@ export class DeliveryService {
 
     const totalItems = await prisma.delivery.count({
       where,
-  public static async getSupplierDeliveries(req: AuthRequest) {
-    const companyId = req.user?.company?.companyId;
-    if (!companyId) throw new AppError("Company ID is missing", 400);
-
-    const { searchq, page = 1, limit = 15, status } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-
-    const q = String(searchq || "");
-
-    const orFilters: Prisma.DeliveryWhereInput[] = [];
-    if (q) {
-      orFilters.push(
-        { deliveryNumber: { contains: q } },
-        { purchaseOrder: { is: { poNumber: { contains: q } } } },
-        { buyerCompany: { is: { name: { contains: q } } } },
-      );
-    }
-
-    const where: Prisma.DeliveryWhereInput = {
-      supplierCompanyId: companyId,
-      ...(status ? { status: String(status) as DeliveryStatus } : {}),
-      ...(orFilters.length ? { OR: orFilters } : {}),
-    };
-
-    const deliveries = (await prisma.delivery.findMany({
-      where,
-      include: {
-        purchaseOrder: {
-          include: {
-            items: { include: { item: true } },
-            company: true,
-          },
-        },
-        deliveryItems: {
-          include: {
-            purchaseOrderItem: { include: { item: true } },
-          },
-        },
-        buyerCompany: true,
-        deliveryTracking: {
-          include: { updatedBy: true },
-          orderBy: { timestamp: "desc" },
-          take: 1,
-        },
-      },
-      skip,
-      take: Number(limit),
-      orderBy: { createdAt: "desc" },
-    })) as DeliveryWithDetails[];
-
-    const totalItems = await prisma.delivery.count({
-      where,
     });
 
     return {
-      message: "Supplier deliveries retrieved",
-      data: deliveries,
-      totalItems,
-      currentPage: Number(page),
-      itemsPerPage: Number(limit),
       message: "Supplier deliveries retrieved",
       data: deliveries,
       totalItems,

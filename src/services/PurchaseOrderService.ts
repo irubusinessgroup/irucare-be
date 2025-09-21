@@ -6,9 +6,6 @@ import {
   PurchaseOrderItemDto,
   CreateClientOrderDto,
   UpdateClientOrderDto,
-  PurchaseOrderItemDto,
-  CreateClientOrderDto,
-  UpdateClientOrderDto,
 } from "../utils/interfaces/common";
 import type { Request } from "express";
 import { PONumberGenerator } from "../utils/PONumberGenerator ";
@@ -71,7 +68,6 @@ export class PurchaseOrderService {
 
     for (const it of items) {
       if (!it.itemId) continue;
-      const key = `${it.itemId}:${it.packSize ?? ""}`;
       const key = `${it.itemId}:${it.packSize ?? ""}`;
       const qty = Number(it.quantity ?? 0);
       if (map.has(key)) {
@@ -222,7 +218,6 @@ export class PurchaseOrderService {
         company: true,
         user: true,
         client: true,
-        client: true,
         processingEntries: true,
       },
       skip,
@@ -246,8 +241,6 @@ export class PurchaseOrderService {
       user: po.user,
       supplier: po.suppliers,
       processingEntries: po.processingEntries,
-      clientAddress: po.clientAddress,
-      reqClient: po.client,
       clientAddress: po.clientAddress,
       reqClient: po.client,
       items: po.items.map((item) => ({

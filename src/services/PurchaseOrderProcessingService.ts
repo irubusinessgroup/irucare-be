@@ -1,7 +1,6 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import { ItemApprovalStatus } from "@prisma/client";
-import { ItemApprovalStatus } from "@prisma/client";
 import type { Request } from "express";
 import {
   CreateProcessingEntryDto,

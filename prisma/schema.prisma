@@ -102,6 +102,7 @@ model Items {
   stockReceipts      StockReceipts[]
   purchaseOrderItems PurchaseOrderItem[]
   sells             Sell[]  
+  sellItems         SellItem[]
   deliveries        DeliveryItem[] 
 }
 
@@ -113,6 +114,7 @@ model StockReceipts {
   purchaseOrderNo     PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
   purchaseOrderItemId String?  
   purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  manualPoNumber     String?
   invoiceNo         String?            
   supplierId        String?           
   supplier           Suppliers?       @relation(fields: [supplierId], references: [id]) 
@@ -128,7 +130,8 @@ model StockReceipts {
   tempReq           String 
   currency           String
   condition          String
-  storageLocation   String   
+  warehouseId        String? 
+  warehouse           Warehouse?   @relation(fields: [warehouseId], references: [id])
   specialHandlingNotes      String? 	
   receiptType        String          @default("PURCHASE_ORDER")      
   remarksNotes       String?
@@ -136,6 +139,8 @@ model StockReceipts {
   updatedAt           DateTime        @updatedAt
   approvals           Approvals[]	
   stocks              Stock[]
+
+  @@index([manualPoNumber])
 }
 
 model Stock{
@@ -143,6 +148,7 @@ id                 String         @id @default(uuid())
 stockReceiptId     String
 stockReceipt       StockReceipts  @relation(fields: [stockReceiptId], references: [id])
 status             String          @default("PENDING")
+companyId       String?
 sellId            String?
 sell              Sell?      @relation(fields: [sellId], references: [id])
 deliveryItemId     String?       
@@ -253,6 +259,7 @@ model Client {
     updatedAt         DateTime      @updatedAt
     sells             Sell[]
     purchaseOrders     PurchaseOrder[]
+    transactions       Transaction[]
 }
 
 model Sell {
@@ -260,15 +267,45 @@ model Sell {
     clientId           String
     companyId          String
     client             Client         @relation(fields: [clientId], references: [id])
+    totalAmount        Decimal         @db.Decimal(18, 2)
+    notes              String?
+    createdAt         DateTime      @default(now())
+    updatedAt         DateTime      @updatedAt
+    sellItems          SellItem[]
+    stocks             Stock[]
+    
+    // Legacy fields for backward compatibility
+    itemId             String?
+    item               Items?         @relation(fields: [itemId], references: [id])
+    quantity           Decimal?        @db.Decimal(10, 2)
+    sellPrice          Decimal?        @db.Decimal(18, 2)
+}
+
+model SellItem {
+    id                 String         @id @default(uuid())
+    sellId             String
+    sell               Sell           @relation(fields: [sellId], references: [id], onDelete: Cascade)
     itemId             String
     item               Items          @relation(fields: [itemId], references: [id])
     quantity           Decimal         @db.Decimal(10, 2)
     sellPrice          Decimal         @db.Decimal(18, 2)
     totalAmount        Decimal         @db.Decimal(18, 2)
-    notes              String?
     createdAt         DateTime      @default(now())
     updatedAt         DateTime      @updatedAt
-     stocks            Stock[]
+}
+
+model Transaction {
+  id         String   @id @default(uuid())
+  clientId   String
+  companyId  String
+  amount     Decimal  @db.Decimal(18, 2)
+  date       DateTime
+
+  client     Client   @relation(fields: [clientId], references: [id])
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Notification {
@@ -536,7 +573,6 @@ model Order {
   updatedAt      DateTime     @updatedAt
 
   orderItems     OrderItem[]
-  payment        Payment?
 }
 
 
@@ -553,7 +589,7 @@ model OrderItem {
 
 model Payment {
   id           String        @id @default(uuid())
-  orderId      String        @unique
+  subscriptionId      String        @unique
   amount       Float
   kind         String
   method       PaymentMethod
@@ -565,7 +601,7 @@ model Payment {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subscription        Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
 
 
@@ -602,6 +638,9 @@ model Company {
   companyTools     CompanyTools[]
   supplierDeliveries  Delivery[] @relation("DeliverySupplier")
   buyerDeliveries     Delivery[] @relation("DeliveryBuyer")
+  warehouse          Warehouse[]
+  transactions       Transaction[]
+  subscription        Subscription[]
 }
 
 model CompanyUser {
@@ -802,4 +841,81 @@ model DeliveryTracking {
   updatedBy       User?     @relation(fields: [updatedById], references: [id])
   
   createdAt       DateTime  @default(now())
+}
+
+model Warehouse {
+  id                 String         @id @default(uuid())
+  warehousename       String      
+  description        String?
+  stockReceipts             StockReceipts[]
+  companyId         String
+  company            Company      @relation(fields: [companyId], references: [id])
+}
+
+model Plan {
+  id                  String    @id @default(uuid())
+
+  name                String 
+  description         String? 
+  price        Float
+  setupFee            Float?
+  additionalUser Float?
+  additionalLocation Float?
+
+  features            String[]
+
+  period                 String?
+  userRange              String?
+  locationRange          String?
+
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  subscription        Subscription[]
+}
+
+model Subscription {
+  id               String   @id @default(uuid())
+  companyId    String
+  // Subscriber details
+  firstName        String
+  lastName         String
+  email            String
+  phone            String
+  companyName      String?
+  address          String?
+  city             String?
+  country          String?
+
+  // Payment details
+  paymentMethod    String   // e.g. "mobile-money", "credit-card"
+  paymentPhone     String?  // for mobile money payments
+  billingAddress   String?
+  cardNumber       String?  // ⚠️ better store tokenized value, not raw card numbers
+  expiryDate       String?  // MM/YY format if card
+  cvv              String?  // ⚠️ same — better not store, use payment gateway
+  nameOnCard       String?
+
+  // Plan details
+  selectedPlan     String   // Plan display name e.g. "Essential Partner"
+  planId           String   // Reference key (e.g. "essential")
+  planPrice        Float
+  setupFee         Float?
+  totalDueToday    Float
+  billingCycle     String   // e.g. "month", "year"
+  periodLabel      String   // e.g. "/month"
+
+  // Relations
+  company          Company      @relation(fields: [companyId], references: [id])
+  plan             Plan?    @relation(fields: [planId], references: [id])
+
+  payment        Payment?
+
+  // Metadata
+  isActive         Boolean  @default(true)
+  startDate        DateTime @default(now())
+  endDate          DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

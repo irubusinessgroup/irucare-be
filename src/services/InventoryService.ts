@@ -142,7 +142,6 @@ export class InventoryService {
 
       const suppliers = [
         ...new Set(item.stockReceipts.map((r) => r.supplier?.supplierName)),
-        ...new Set(item.stockReceipts.map((r) => r.supplier?.supplierName)),
       ];
 
       const earliestExpiry = item.stockReceipts.reduce(
@@ -163,7 +162,6 @@ export class InventoryService {
         itemFullName: item.itemFullName,
         category: item.category,
         suppliers: suppliers,
-        primarySupplier: latestReceipt.supplier?.supplierName,
         primarySupplier: latestReceipt.supplier?.supplierName,
         dateReceived: latestReceipt.dateReceived,
         expiryDate: earliestExpiry,
@@ -214,7 +212,6 @@ export class InventoryService {
     }
 
     const now = new Date();
-    const now = new Date();
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
 
@@ -241,7 +238,6 @@ export class InventoryService {
             expiryDate: {
               not: null,
               gt: now,
-              gt: now,
               lte: threeMonthsFromNow,
             },
           },
@@ -264,7 +260,6 @@ export class InventoryService {
             ],
             expiryDate: {
               not: null,
-              gt: now,
               gt: now,
               lte: threeMonthsFromNow,
             },
@@ -350,7 +345,6 @@ export class InventoryService {
 
       return {
         itemId: item.id,
-        productCode: item.productCode,
         productCode: item.productCode,
         itemCodeSku: item.itemCodeSku,
         itemFullName: item.itemFullName,

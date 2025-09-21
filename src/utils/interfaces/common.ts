@@ -1,7 +1,6 @@
 import type { $Enums, PaymentMethod } from "@prisma/client";
 import { TsoaResponse } from "tsoa";
 import { DeliveryItemStatus } from "@prisma/client";
-import { DeliveryItemStatus } from "@prisma/client";
 
 export interface IResponse<T> {
   statusCode: number;
@@ -525,8 +524,6 @@ export interface CreateCompanyToolsDto {
   sellingPercentage?: number;
   companySignature?: string;
   companyStamp?: string;
-  companySignature?: string;
-  companyStamp?: string;
 }
 
 export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
@@ -755,7 +752,6 @@ export interface PurchaseOrderItemDto {
   itemId: string;
   quantity: number;
   packSize?: number | null;
-  packSize?: number | null;
 }
 
 export interface CreatePurchaseOrderDto {
@@ -772,26 +768,6 @@ export interface UpdatePurchaseOrderDto {
   supplierId?: string;
   notes?: string;
   expectedDeliveryDate?: Date;
-}
-
-// Client order DTOs (used when creating orders for individual clients)
-export interface CreateClientOrderDto {
-  items: PurchaseOrderItemDto[];
-  clientId: string; // user id of the client
-  companyId?: string | null; // optional buyer company id (empty if client not part of company)
-  clientAddress?: string | null;
-  notes?: string;
-  expectedDeliveryDate: Date | string;
-}
-
-export interface UpdateClientOrderDto {
-  poNumber?: string;
-  items?: PurchaseOrderItemDto[];
-  clientId?: string;
-  companyId?: string | null;
-  clientAddress?: string | null;
-  notes?: string;
-  expectedDeliveryDate?: Date | string;
 }
 
 // Client order DTOs (used when creating orders for individual clients)
