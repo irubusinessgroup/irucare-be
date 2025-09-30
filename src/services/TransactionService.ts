@@ -7,7 +7,7 @@ export class TransactionService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {

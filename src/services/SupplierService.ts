@@ -12,7 +12,7 @@ import {
 export class SupplierService {
   static async createSupplier(
     data: CreateSupplierRequest,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<SupplierResponse>> {
     // Normalize optional foreign keys to avoid empty-string FK violations
     const normalizedSupplierCompanyId =
@@ -72,7 +72,7 @@ export class SupplierService {
 
   static async getSupplier(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<SupplierResponse>> {
     const supplier = await prisma.suppliers.findUnique({
       where: { id, companyId: companyId },
@@ -101,7 +101,7 @@ export class SupplierService {
 
   static async updateSupplier(
     id: string,
-    data: UpdateSupplierRequest
+    data: UpdateSupplierRequest,
   ): Promise<IResponse<SupplierResponse>> {
     // Normalize optional foreign keys
     const normalizedSupplierCompanyId =
@@ -157,7 +157,7 @@ export class SupplierService {
     if (supplier.stockReceipts.length > 0) {
       throw new AppError(
         "Cannot delete supplier with existing transactions",
-        404
+        404,
       );
     }
 
@@ -170,12 +170,12 @@ export class SupplierService {
     companyId: string,
     searchq?: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ): Promise<IPaged<SupplierResponse[]>> {
     try {
       const searchOptions = QueryOptions(
         ["supplierName", "contactPerson", "email"],
-        searchq
+        searchq,
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -208,7 +208,7 @@ export class SupplierService {
   }
 
   static async getSuppliersByCompany(
-    supplierCompanyId: string
+    supplierCompanyId: string,
   ): Promise<IResponse<SupplierResponse[]>> {
     const suppliers = await prisma.suppliers.findMany({
       where: { supplierCompanyId },

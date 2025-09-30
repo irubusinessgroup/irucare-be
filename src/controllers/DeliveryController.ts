@@ -32,7 +32,7 @@ export class DeliveryController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public createDelivery(
     @Body() body: CreateDeliveryDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return DeliveryService.createDelivery(body, req);
   }
@@ -43,7 +43,7 @@ export class DeliveryController {
   public updateDelivery(
     @Path() id: string,
     @Body() body: UpdateDeliveryDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return DeliveryService.updateDelivery(id, body, req);
   }
@@ -54,7 +54,7 @@ export class DeliveryController {
   public updateDeliveryStatus(
     @Path() id: string,
     @Body() body: UpdateDeliveryStatusDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const io = req.app.get("io");
     return DeliveryService.updateDeliveryStatus(id, body, req, io);
@@ -87,7 +87,7 @@ export class DeliveryController {
   public addDeliveryTracking(
     @Path() id: string,
     @Body() body: DeliveryTrackingDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return DeliveryService.addDeliveryTracking(id, body, req);
   }
@@ -98,7 +98,7 @@ export class DeliveryController {
   public cancelDelivery(
     @Path() id: string,
     @Body() body: CancelDeliveryDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const io = req.app.get("io");
     return DeliveryService.cancelDelivery(id, body.reason, req, io);
@@ -110,7 +110,7 @@ export class DeliveryController {
   public confirmDelivery(
     @Path() id: string,
     @Body() body: ConfirmDeliveryDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const io = req.app.get("io");
     return DeliveryService.confirmDeliveryReceipt(id, body, req, io);
@@ -121,11 +121,11 @@ export class DeliveryController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public autoCreateDelivery(
     @Path() purchaseOrderId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return DeliveryService.autoCreateDeliveryFromApprovedPO(
       purchaseOrderId,
-      req
+      req,
     );
   }
 }
