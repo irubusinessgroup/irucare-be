@@ -33,7 +33,7 @@ export class Purchase {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return PurchaseOrderService.getAllPurchaseOrders(req, searchq, limit, page);
   }
@@ -48,7 +48,7 @@ export class Purchase {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getPurchaseOrderById(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return PurchaseOrderService.getPurchaseOrderById(id, req);
   }
@@ -57,7 +57,7 @@ export class Purchase {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public async createPurchaseOrder(
     @Body() body: CreatePurchaseOrderDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const io = req.app.get("io");
     return PurchaseOrderService.createPurchaseOrder(body, req, io);
@@ -67,7 +67,7 @@ export class Purchase {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public createClientOrder(
     @Body() body: CreateClientOrderDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return PurchaseOrderService.createClientOrder(body, req);
   }
@@ -77,7 +77,7 @@ export class Purchase {
   public updateClientOrder(
     @Path() id: string,
     @Body() body: UpdateClientOrderDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return PurchaseOrderService.updateClientOrder(id, body, req);
   }
@@ -93,7 +93,7 @@ export class Purchase {
   public updatePurchaseOrder(
     @Path() id: string,
     @Body() body: UpdatePurchaseOrderDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return PurchaseOrderService.updatePurchaseOrder(id, body, req);
   }
@@ -102,7 +102,7 @@ export class Purchase {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public deletePurchaseOrder(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return PurchaseOrderService.deletePurchaseOrder(id, req);
   }

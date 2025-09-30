@@ -32,7 +32,7 @@ export class OrderProcessingController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public create(
     @Body() body: CreateProcessingEntryDto,
-    @Request() req: AuthRequest
+    @Request() req: AuthRequest,
   ) {
     const io = req.app.get("io");
     return OrderProcessingService.createUpdateProcessingDraft(body, req, io);
@@ -62,7 +62,7 @@ export class OrderProcessingController {
   public approveItems(
     @Path() poNumber: string,
     @Body() body: ApproveItemsDto,
-    @Request() req: AuthRequest
+    @Request() req: AuthRequest,
   ) {
     const io = req.app.get("io");
     return OrderProcessingService.approveItems(poNumber, body, req, io);
@@ -84,7 +84,7 @@ export class OrderProcessingController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getOrderByPONumber(
     @Path() poNumber: string,
-    @Request() req: AuthRequest
+    @Request() req: AuthRequest,
   ) {
     return OrderProcessingService.getOrdersByPONumber(poNumber, req);
   }
