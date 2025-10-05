@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px 10px 0 0;
+      }
+      .content {
+        background: #f9fafb;
+        padding: 30px;
+        border-radius: 0 0 10px 10px;
+      }
+      .success-icon {
+        font-size: 48px;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .info-box {
+        background: white;
+        border-left: 4px solid #10b981;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 5px;
+      }
+      .button {
+        display: inline-block;
+        background: #10b981;
+        color: white;
+        padding: 12px 30px;
+        text-decoration: none;
+        border-radius: 5px;
+        margin-top: 20px;
+      }
+      .steps {
+        background: white;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .step {
+        padding: 10px 0;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .step:last-child {
+        border-bottom: none;
+      }
+    </style>
+    <title>Trial Application Approved</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎉 Trial Application Approved!</h1>
+      </div>
+      <div class="content">
+        <p>Dear {{name}},</p>
+        <p>
+          Great news! Your trial application for
+          <strong>{{organizationName}}</strong> has been approved.
+        </p>
+        <div class="info-box">
+          <p><strong>Application Number:</strong> {{applicationNumber}}</p>
+        </div>
+        <div class="steps">
+          <h3>Next Steps:</h3>
+          <div class="step">
+            <strong>1. Sign the NDA</strong>
+            <p>
+              Download and sign the Non-Disclosure Agreement attached to this
+              email.
+            </p>
+          </div>
+          <div class="step">
+            <strong>2. Setup Your Account</strong>
+            <p>You'll receive login credentials within 24 hours.</p>
+          </div>
+          <div class="step">
+            <strong>3. Schedule Onboarding</strong>
+            <p>Our team will guide you through the initial setup.</p>
+          </div>
+        </div>
+        <a href="{{frontendUrl}}/nda/sign/{{applicationId}}" class="button"
+          >Sign NDA</a
+        >
+      </div>
+    </div>
+  </body>
+</html>

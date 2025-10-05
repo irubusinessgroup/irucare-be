@@ -1104,3 +1104,84 @@ export interface UpdateSubscriptionDto extends Partial<CreateSubscriptionDto> {
   startDate?: Date | string | null;
   endDate?: Date | string | null;
 }
+
+export interface CreateTrialApplicationDto {
+  organizationName: string;
+  organizationType: string;
+  countryCity: string;
+  businessRegNumber?: string;
+  website?: string;
+
+  contactFirstName: string;
+  contactLastName: string;
+  contactPosition: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactWhatsApp?: string;
+
+  modules: string[];
+
+  approximateUsers: number;
+  preferredLanguage: string;
+  hasStableInternet: boolean;
+  devices: string[];
+
+  preferredStartDate?: Date;
+  trialDuration: number;
+
+  feedbackAgreed: boolean;
+  dataUsageAgreed: boolean;
+  ndaAgreed?: boolean;
+  trialUnderstanding?: boolean;
+  authorizedRepresentative?: string;
+  signature?: string;
+  signatureDate?: Date | string;
+}
+
+export interface UpdateTrialApplicationDto {
+  status?:
+    | "PENDING"
+    | "UNDER_REVIEW"
+    | "APPROVED"
+    | "REJECTED"
+    | "ACTIVE"
+    | "EXPIRED"
+    | "CONVERTED";
+  rejectionReason?: string;
+  trialAccountId?: string;
+}
+
+export interface SubmitFeedbackDto {
+  feedbackMonth: number;
+  rating: number; // 1-5
+  comments: string;
+  improvements?: string;
+  wouldRecommend: boolean;
+}
+
+export interface CreateDemoRequestDto {
+  companyName: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  interestedModules: string[];
+  preferredDate?: Date;
+  preferredTime?: "Morning" | "Afternoon" | "Evening";
+  timezone?: string;
+  additionalNotes?: string;
+}
+
+export interface ScheduleDemoDto {
+  scheduledDate: Date;
+  meetingLink: string;
+  assignedTo: string;
+}
+
+export interface NDAData {
+  clientName: string;
+  clientAddress: string;
+  clientEmail: string;
+  clientPhone: string;
+  contactPerson: string;
+  date: string;
+}

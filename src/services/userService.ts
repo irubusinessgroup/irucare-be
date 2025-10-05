@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable linebreak-style */
 import { BaseService } from "./Service";
 import { prisma } from "../utils/client";
 import {
@@ -13,7 +14,7 @@ import { compare } from "bcrypt";
 import jwt from "jsonwebtoken";
 import AppError, { ValidationError } from "../utils/error";
 import { randomBytes } from "crypto";
-import { sendEmail } from "../utils/email";
+import { sendEmail, renderTemplate } from "../utils/email";
 import { hash } from "bcrypt";
 import { roles } from "../utils/roles";
 import type { Request } from "express";
@@ -300,22 +301,16 @@ export class UserService extends BaseService {
       data: { otp, otpExpiresAt },
     });
 
-    // Send OTP via email (implement sendEmail utility)
+    // Send OTP via HTML email
+    const html = renderTemplate("password-reset.html", {
+      firstName: user.firstName || "User",
+      otp,
+      expiresAt: otpExpiresAt.toLocaleString(),
+    });
     await sendEmail({
       to: user.email,
       subject: "Password Reset - One-Time Password (OTP)",
-      body: `
-    Dear ${user.firstName || "User"},
-
-    You have requested to reset your password. Please use the following One-Time Password (OTP) to proceed with the password reset process:
-
-    OTP: ${otp}
-
-    This OTP is valid for a limited time. If you did not request a password reset, please disregard this email.
-
-    Best regards,
-    IRUCARE Support Team
-  `,
+      html,
     });
 
     return { message: "OTP sent to your email " };

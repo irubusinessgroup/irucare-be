@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px 10px 0 0;
+      }
+      .content {
+        background: #f9fafb;
+        padding: 30px;
+        border-radius: 0 0 10px 10px;
+      }
+      .cancelled-icon {
+        color: #ef4444;
+        font-size: 48px;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .reschedule-box {
+        background: white;
+        border: 2px dashed #ef4444;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .reschedule-button {
+        background: #ef4444;
+        color: white;
+        padding: 12px 30px;
+        text-decoration: none;
+        border-radius: 5px;
+        display: inline-block;
+        margin-top: 10px;
+      }
+    </style>
+    <title>Demo Cancelled</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>❌ Demo Cancelled</h1>
+      </div>
+      <div class="content">
+        <div class="cancelled-icon">✕</div>
+        <p>Dear {{name}},</p>
+        <p>
+          Your scheduled IRUCARE demo for <strong>{{companyName}}</strong> has
+          been cancelled.
+        </p>
+        <div class="reschedule-box">
+          <p><strong>Interested in rescheduling?</strong></p>
+          <p>
+            We understand plans change. We'd be happy to schedule a new demo at
+            your convenience.
+          </p>
+          <a href="{{rescheduleLink}}" class="reschedule-button"
+            >Reschedule Demo</a
+          >
+        </div>
+        <p>
+          If you have any questions or would like to discuss IRUCARE at a better
+          time, please don't hesitate to reach out:
+        </p>
+        <p>
+          📧 Email: info@irubusinessgroup.com<br />
+          📞 Phone: +250 795 381 733
+        </p>
+        <p>We hope to connect with you in the future!</p>
+      </div>
+    </div>
+  </body>
+</html>

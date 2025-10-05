@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px 10px 0 0;
+      }
+      .content {
+        background: #f9fafb;
+        padding: 30px;
+        border-radius: 0 0 10px 10px;
+      }
+      .thank-you-icon {
+        color: #3b82f6;
+        font-size: 48px;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .next-steps {
+        background: white;
+        border-left: 4px solid #3b82f6;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 5px;
+      }
+    </style>
+    <title>Thank You for Attending the Demo</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🙏 Thank You for Attending!</h1>
+      </div>
+      <div class="content">
+        <div class="thank-you-icon">✓</div>
+        <p>Dear {{name}},</p>
+        <p>
+          Thank you for attending the IRUCARE demo for
+          <strong>{{companyName}}</strong>.
+        </p>
+        <div class="next-steps">
+          <p><strong>What happens next?</strong></p>
+          <ul>
+            <li>Our team will follow up with any additional information</li>
+            <li>You'll receive pricing details tailored to your needs</li>
+            <li>We're available to answer any further questions</li>
+          </ul>
+        </div>
+        <p><strong>Need immediate assistance?</strong></p>
+        <p>
+          📧 Email: info@irubusinessgroup.com<br />
+          📞 Phone: +250 795 381 733
+        </p>
+        <p>
+          We look forward to helping you transform your operations with IRUCARE!
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

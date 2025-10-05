@@ -919,3 +919,124 @@ model Subscription {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+
+model TrialApplication {
+  id                    String   @id @default(uuid())
+  applicationNumber     String   @unique 
+
+  organizationName      String
+  organizationType      String  
+  countryCity           String
+  businessRegNumber     String?
+  website               String?
+
+  contactFirstName      String
+  contactLastName       String
+  contactPosition       String
+  contactPhone          String
+  contactEmail          String
+  contactWhatsApp       String?
+
+  modules               String[] 
+  approximateUsers      Int
+  preferredLanguage     String   
+  hasStableInternet     Boolean
+  devices               String[] 
+
+  preferredStartDate    DateTime?
+  trialDuration         Int      
+
+  ndaSigned             Boolean   @default(false)
+  ndaSignedAt           DateTime?
+  ndaAgreed             Boolean   @default(false)
+  feedbackAgreed        Boolean   @default(false)
+  dataUsageAgreed       Boolean   @default(false)
+  trialUnderstanding    Boolean   @default(false)
+  authorizedRepresentative String?
+  signature             String?
+  signatureDate         DateTime?
+
+  status                TrialStatus @default(PENDING)
+  reviewedBy            String?
+  reviewedAt            DateTime?
+  approvedBy            String?
+  approvedAt            DateTime?
+  rejectionReason       String?
+
+  trialAccountId        String?   @unique
+  trialStartDate        DateTime?
+  trialEndDate          DateTime?
+  demoScheduled         Boolean   @default(false)
+  demoScheduledDate     DateTime?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  feedbacks             TrialFeedback[]
+  demoRequests          DemoRequest[]
+}
+
+model DemoRequest {
+  id                    String   @id @default(uuid())
+  trialApplicationId    String?
+  trialApplication      TrialApplication? @relation(fields: [trialApplicationId], references: [id], onDelete: SetNull)
+
+  companyName           String
+  contactName           String
+  contactEmail          String
+  contactPhone          String
+  interestedModules     String[] 
+  
+  preferredDate         DateTime?
+  preferredTime         String?
+  timezone              String?
+  
+  additionalNotes       String?  @db.Text
+  
+  status                DemoStatus @default(REQUESTED)
+  scheduledDate         DateTime?
+  meetingLink           String?
+  assignedTo            String? 
+  
+  completedAt           DateTime?
+  followUpNotes         String?  @db.Text
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model TrialFeedback {
+  id                    String   @id @default(uuid())
+  trialApplicationId    String
+  trialApplication      TrialApplication @relation(fields: [trialApplicationId], references: [id], onDelete: Cascade)
+  
+  feedbackMonth         Int
+  rating                Int
+  comments              String   @db.Text
+  improvements          String?  @db.Text
+  wouldRecommend        Boolean
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@index([trialApplicationId])
+}
+
+enum TrialStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ACTIVE
+  EXPIRED
+  CONVERTED
+}
+
+enum DemoStatus {
+  REQUESTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
