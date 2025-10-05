@@ -7,7 +7,7 @@ import {
   TContact,
 } from "../utils/interfaces/common";
 import AppError from "../utils/error";
-import { sendEmail } from "../utils/email";
+import { sendEmail, renderTemplate } from "../utils/email";
 import { Paginations, QueryOptions } from "../utils/DBHelpers";
 
 export class ContactService extends BaseService {
@@ -32,10 +32,13 @@ export class ContactService extends BaseService {
         },
       });
 
+      const html = renderTemplate("contact-thank-you.html", {
+        name: contact.name,
+      });
       await sendEmail({
         to: contact.email,
         subject: "Thank you for contacting IRUCARE",
-        body: `Dear ${contact.name},\n\nWe’ve received your message and will get back to you shortly.\n\nThanks,\n\nBest regards,\nThe IRUCARE Team`,
+        html,
       });
       return {
         statusCode: 201,
@@ -70,15 +73,15 @@ export class ContactService extends BaseService {
       });
 
       try {
+        const html = renderTemplate("contact-reply.html", {
+          name: contact.name,
+          message,
+          adminName,
+        });
         await sendEmail({
           to: contact.email,
           subject: `Re: Your inquiry to IRUCARE`,
-          body:
-            `Dear ${contact.name},\n\n` +
-            `Thank you for contacting us. Here's our reply to your inquiry:\n\n` +
-            `---\n${message}\n---\n\n` +
-            `If you have any further questions, please don't hesitate to contact us.\n\n` +
-            `Best regards,\n${adminName}\nIRUCARE Team`,
+          html,
         });
       } catch (emailError) {
         console.error("Failed to send email reply:", emailError);

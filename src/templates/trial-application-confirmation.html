@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px 10px 0 0;
+      }
+      .content {
+        background: #f9fafb;
+        padding: 30px;
+        border-radius: 0 0 10px 10px;
+      }
+      .info-box {
+        background: white;
+        border-left: 4px solid #667eea;
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 5px;
+      }
+      .timeline {
+        background: white;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+      }
+      .timeline-item {
+        padding: 15px 0;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: start;
+      }
+      .timeline-item:last-child {
+        border-bottom: none;
+      }
+      .timeline-icon {
+        width: 30px;
+        height: 30px;
+        background: #667eea;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        flex-shrink: 0;
+      }
+    </style>
+    <title>Trial Application Received</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Thank You for Your Interest!</h1>
+        <p>Your trial application has been received</p>
+      </div>
+      <div class="content">
+        <p>Dear {{name}},</p>
+        <p>
+          Thank you for submitting your trial application for
+          <strong>{{organizationName}}</strong>.
+        </p>
+        <div class="info-box">
+          <p><strong>Application Number:</strong> {{applicationNumber}}</p>
+          <p>Please save this number for your records.</p>
+        </div>
+        <div class="timeline">
+          <h3>What Happens Next:</h3>
+          <div class="timeline-item">
+            <div class="timeline-icon">1</div>
+            <div>
+              <strong>Review (24-48 hours)</strong>
+              <p>Our team will review your application</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-icon">2</div>
+            <div>
+              <strong>NDA Document</strong>
+              <p>You'll receive an NDA to sign</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-icon">3</div>
+            <div>
+              <strong>Account Setup</strong>
+              <p>We'll configure your trial account</p>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-icon">4</div>
+            <div>
+              <strong>Start Your Trial</strong>
+              <p>Begin exploring IRUCARE</p>
+            </div>
+          </div>
+        </div>
+        <p>If you have any questions, feel free to contact us:</p>
+        <p>
+          📧 Email: info@irubusinessgroup.com<br />
+          📞 Phone: +250 795 381 733 / +250 788 894 032
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

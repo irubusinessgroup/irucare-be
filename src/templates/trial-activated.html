@@ -1,0 +1,149 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px 10px 0 0;
+        text-align: center;
+      }
+      .content {
+        background: #f9fafb;
+        padding: 30px;
+        border-radius: 0 0 10px 10px;
+      }
+      .success-icon {
+        font-size: 48px;
+        text-align: center;
+        margin: 10px 0;
+      }
+      .info-box {
+        background: white;
+        border-left: 4px solid #10b981;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .trial-details {
+        background: white;
+        padding: 20px;
+        border-radius: 5px;
+        margin: 20px 0;
+        border: 2px solid #10b981;
+      }
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+      .button {
+        display: inline-block;
+        background: #10b981;
+        color: white;
+        padding: 12px 30px;
+        text-decoration: none;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-weight: bold;
+      }
+      .support-info {
+        background: #f3f4f6;
+        padding: 15px;
+        border-radius: 5px;
+        margin: 20px 0;
+        text-align: center;
+      }
+    </style>
+    <title>Your Trial is Now Active!</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎉 Your Trial is Now Active!</h1>
+        <p>Welcome to IRUCARE!</p>
+      </div>
+      <div class="content">
+        <div class="success-icon">✅</div>
+
+        <p>Dear {{name}},</p>
+
+        <div class="info-box">
+          <p>
+            We're excited to let you know that your trial for
+            <strong>{{organizationName}}</strong> is now officially active!
+          </p>
+          <p>
+            The NDA has been successfully processed and your trial account has
+            been configured.
+          </p>
+        </div>
+
+        <div class="trial-details">
+          <h3 style="margin-top: 0; color: #10b981">Trial Details</h3>
+          <div class="detail-row">
+            <span><strong>Organization:</strong></span>
+            <span>{{organizationName}}</span>
+          </div>
+          <div class="detail-row">
+            <span><strong>Trial Start Date:</strong></span>
+            <span>{{trialStartDate}}</span>
+          </div>
+          <div class="detail-row">
+            <span><strong>Trial End Date:</strong></span>
+            <span>{{trialEndDate}}</span>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0">
+          <p><strong>Ready to get started?</strong></p>
+          <a href="{{frontendUrl}}/login" class="button">Access Your Trial</a>
+        </div>
+
+        <div class="support-info">
+          <h4>Need Help Getting Started?</h4>
+          <p>Our team is here to support you throughout your trial:</p>
+          <p>
+            📧 Email: info@irubusinessgroup.com<br />
+            📞 Phone: +250 795 381 733 / +250 788 894 032
+          </p>
+          <p>
+            <small
+              >We recommend scheduling an onboarding session to make the most of
+              your trial.</small
+            >
+          </p>
+        </div>
+
+        <p
+          style="
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 30px;
+          "
+        >
+          We're excited to have you onboard and can't wait to see how IRUCARE
+          transforms your organization!
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

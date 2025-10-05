@@ -1,0 +1,79 @@
+Z<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 10px 10px 0 0;
+      }
+      .content {
+        background: #f9fafb;
+        padding: 30px;
+        border-radius: 0 0 10px 10px;
+      }
+      .calendar-box {
+        background: white;
+        border: 2px solid #10b981;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 10px;
+        text-align: center;
+      }
+      .meeting-link {
+        background: #10b981;
+        color: white;
+        padding: 15px 30px;
+        text-decoration: none;
+        border-radius: 5px;
+        display: inline-block;
+        margin: 20px 0;
+        font-weight: bold;
+      }
+    </style>
+    <title>Demo Scheduled</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🎉 Your Demo is Scheduled!</h1>
+      </div>
+      <div class="content">
+        <p>Dear {{name}},</p>
+        <p>
+          Your IRUCARE demo for <strong>{{companyName}}</strong> has been
+          scheduled.
+        </p>
+        <div class="calendar-box">
+          <h2>{{scheduledDate}}</h2>
+          <p style="font-size: 24px; color: #10b981">{{scheduledTime}}</p>
+        </div>
+        <p style="text-align: center">
+          <a href="{{meetingLink}}" class="meeting-link">Join Demo Meeting</a>
+        </p>
+        <p><strong>What to prepare:</strong></p>
+        <ul>
+          <li>List of specific questions or requirements</li>
+          <li>Your team members who should attend</li>
+          <li>Current challenges you'd like to address</li>
+        </ul>
+        <p>
+          We look forward to showing you how IRUCARE can transform your
+          operations!
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
