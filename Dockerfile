@@ -14,6 +14,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install
 
+# Install cloudinary explicitly (add this line)
+RUN pnpm add cloudinary
+
 # Copy the rest of the app
 COPY . .
 
