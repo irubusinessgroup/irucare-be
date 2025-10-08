@@ -15,6 +15,7 @@ import AppError, { ValidationError } from "./utils/error";
 import { NotificationService } from "./services/NotificationService";
 import cron from "node-cron";
 import { PaymentService } from "./services/PaymentService";
+import { SubscriptionService } from "./services/SubscriptionService";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "./utils/jwt";
@@ -187,6 +188,28 @@ cron.schedule("* * * * *", async () => {
     console.log(result.message);
   } catch (error) {
     console.error("Error during payment synchronization:", error);
+  }
+});
+
+// Run subscription scheduled tasks once at startup and then daily at midnight
+(async () => {
+  try {
+    console.log("Running subscription scheduled tasks at startup...");
+    await SubscriptionService.runScheduledSubscriptionTasks(io);
+  } catch (err) {
+    console.error(
+      "Error running subscription scheduled tasks at startup:",
+      err,
+    );
+  }
+})();
+
+cron.schedule("0 0 * * *", async () => {
+  console.log("Running daily subscription scheduled tasks...");
+  try {
+    await SubscriptionService.runScheduledSubscriptionTasks(io);
+  } catch (err) {
+    console.error("Error running subscription scheduled tasks:", err);
   }
 });
 

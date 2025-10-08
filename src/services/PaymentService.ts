@@ -29,19 +29,41 @@ const FIND_TRANSACTION_URL = `${appEnv.PAYPACK_API_BASE_URL}/transactions/find/{
 
 export class PaymentService extends BaseService {
   private static async authenticate(): Promise<string> {
+    if (!appEnv.PAYPACK_API_BASE_URL) {
+      throw new AppError("PAYPACK_API_BASE_URL is not configured", 500);
+    }
+
     const payload = {
       client_id: appEnv.clientId!,
       client_secret: appEnv.clientSecret!,
     };
 
-    const response = await axios.post(LOGIN_URL, payload, {
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-    });
+    try {
+      const response = await axios.post(LOGIN_URL, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
 
-    return response.data.access;
+      return response.data.access;
+    } catch (error: any) {
+      // Surface axios error details when available
+      if (error.response && error.response.data) {
+        const message =
+          error.response.data.message || JSON.stringify(error.response.data);
+        throw new AppError(
+          `Failed to authenticate with payment provider: ${message}`,
+          error.response.status || 502,
+        );
+      }
+
+      // Network or other errors
+      throw new AppError(
+        `Failed to authenticate with payment provider: ${error.message}`,
+        502,
+      );
+    }
   }
 
   private static generateIdempotencyKey(): string {
@@ -306,6 +328,60 @@ export class PaymentService extends BaseService {
               paidAt: transactionStatus.created_at ?? payment.paidAt,
             },
           });
+
+          // If payment succeeded, activate the linked subscription (if present)
+          if (newStatus === "SUCCEEDED" && payment.subscriptionId) {
+            try {
+              const sub = await prisma.subscription.findUnique({
+                where: { id: payment.subscriptionId },
+              });
+
+              if (sub) {
+                const startDate = new Date();
+                const endDate = new Date(startDate);
+                const cycle = (sub.billingCycle || "").toString().toLowerCase();
+
+                if (cycle === "month") {
+                  endDate.setMonth(endDate.getMonth() + 1);
+                } else if (cycle === "year") {
+                  endDate.setFullYear(endDate.getFullYear() + 1);
+                } else {
+                  // fallback: add one day
+                  endDate.setDate(endDate.getDate() + 1);
+                }
+
+                await prisma.subscription.update({
+                  where: { id: sub.id },
+                  data: {
+                    isActive: true,
+                    startDate,
+                    endDate,
+                  },
+                });
+              }
+            } catch (err) {
+              console.error(
+                `Failed to activate subscription ${payment.subscriptionId}:`,
+                err,
+              );
+            }
+          }
+
+          // If payment failed, remove the created subscription so user can retry
+          if (newStatus === "FAILED" && payment.subscriptionId) {
+            try {
+              // Use existing helper to delete both payment and subscription safely
+              await this.deletePayment(payment.id);
+              console.info(
+                `Payment ${payment.id} failed. Deleted associated subscription ${payment.subscriptionId}`,
+              );
+            } catch (err) {
+              console.error(
+                `Failed to delete subscription for failed payment ${payment.id}:`,
+                err,
+              );
+            }
+          }
 
           // if (newStatus === "SUCCEEDED") {
           //   await prisma.order.update({

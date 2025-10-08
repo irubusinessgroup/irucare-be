@@ -13,7 +13,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: () => ({
     public_id: v4(),
-    folder: "healthlinker",
+    folder: "irucare",
   }),
 });
 

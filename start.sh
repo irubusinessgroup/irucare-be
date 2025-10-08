@@ -17,4 +17,4 @@ echo "Database is up. Running Prisma migrations..."
 npx prisma migrate deploy
 
 echo "Starting Node app..."
-npm start
+pnpm start
