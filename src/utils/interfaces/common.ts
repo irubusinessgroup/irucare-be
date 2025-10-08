@@ -1096,7 +1096,6 @@ export interface CreateSubscriptionDto {
   totalDueToday: number;
   billingCycle: string;
   periodLabel: string;
-  isActive?: boolean;
 }
 
 export interface UpdateSubscriptionDto extends Partial<CreateSubscriptionDto> {

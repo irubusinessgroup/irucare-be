@@ -4,12 +4,15 @@ FROM node:18-alpine AS base
 # Add necessary tools for Prisma and OpenSSL
 RUN apk add --no-cache openssl bash
 
+# Install pnpm globally
+RUN npm install -g pnpm
+
 # Set the working directory
 WORKDIR /app
 
 # Install dependencies
-COPY package.json package-lock.json ./
-RUN npm install
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install
 
 # Copy the rest of the app
 COPY . .
@@ -18,7 +21,7 @@ COPY . .
 RUN npx prisma generate
 
 # Build app
-RUN npm run build
+RUN pnpm run build
 
 # Add entrypoint script
 COPY start.sh /app/start.sh

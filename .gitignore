@@ -1,7 +1,61 @@
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build outputs
 build/
+dist/
+dist-dev/
+
+# Environment variables
 .env
-dist
-dist-dev
-build
-.vercel
+.env.local
+.env.production
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Deployment
+.vercel/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# pnpm specific
+pnpm-debug.log*
+.pnpm-debug.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# TypeScript
+*.tsbuildinfo
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma (if not already included)
+.prisma/
