@@ -32,6 +32,27 @@ export class SubscriptionController {
     return SubscriptionService.getUserSubscriptions();
   }
 
+  @Security("jwt")
+  @Get("/me")
+  public async mySubscriptions(
+    @Request() req: ExpressRequest,
+  ): Promise<IResponse<TSubscription[]>> {
+    const companyId = req.user!.company!.companyId;
+    return SubscriptionService.getSubscriptionsByCompany(companyId);
+  }
+
+  @Security("jwt")
+  @Get("/admin")
+  @Middlewares(checkRole(roles.ADMIN))
+  public async adminList(
+    @Request() req: ExpressRequest,
+    @Query() searchQuery?: string,
+    @Query() limit?: number,
+    @Query() page?: number,
+  ): Promise<IResponse<{ data: TSubscription[]; totalItems: number }>> {
+    return SubscriptionService.getActiveSubscriptions(searchQuery, limit, page);
+  }
+
   @Get("/{id}")
   public async getSubscription(
     @Path() id: string,
@@ -63,27 +84,6 @@ export class SubscriptionController {
     @Path() id: string,
   ): Promise<IResponse<null>> {
     return SubscriptionService.cancelSubscription(id);
-  }
-
-  @Security("jwt")
-  @Get("/me")
-  public async mySubscriptions(
-    @Request() req: ExpressRequest,
-  ): Promise<IResponse<TSubscription[]>> {
-    const companyId = req.user!.company!.companyId;
-    return SubscriptionService.getSubscriptionsByCompany(companyId);
-  }
-
-  @Security("jwt")
-  @Get("/admin")
-  @Middlewares(checkRole(roles.ADMIN))
-  public async adminList(
-    @Request() req: ExpressRequest,
-    @Query() searchQuery?: string,
-    @Query() limit?: number,
-    @Query() page?: number,
-  ): Promise<IResponse<{ data: TSubscription[]; totalItems: number }>> {
-    return SubscriptionService.getActiveSubscriptions(searchQuery, limit, page);
   }
 
   @Security("jwt")

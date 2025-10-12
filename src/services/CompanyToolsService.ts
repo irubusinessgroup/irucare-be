@@ -9,8 +9,11 @@ export class CompanyToolsService {
       sellingPercentage?: number;
       companySignature?: string;
       companyStamp?: string;
+      bankName?: string;
+      accountNumber?: string;
+      accountHolderName?: string;
     },
-    companyId: string,
+    companyId: string
   ) {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -24,7 +27,7 @@ export class CompanyToolsService {
     if (existing) {
       throw new AppError(
         "Company tools already exist. Please update instead.",
-        400,
+        400
       );
     }
 
@@ -33,6 +36,9 @@ export class CompanyToolsService {
         sellingPercentage: data.sellingPercentage || 0,
         companySignature: data.companySignature,
         companyStamp: data.companyStamp,
+        bankName: data.bankName,
+        accountNumber: data.accountNumber,
+        accountHolderName: data.accountHolderName,
         company: { connect: { id: companyId } },
       },
       include: {
@@ -64,7 +70,7 @@ export class CompanyToolsService {
       where: { companyId },
       include: {
         company: {
-          select: { name: true },
+          select: { name: true, logo: true, website: true },
         },
       },
     });
@@ -81,8 +87,11 @@ export class CompanyToolsService {
       sellingPercentage?: number;
       companySignature?: string;
       companyStamp?: string;
+      bankName?: string;
+      accountNumber?: string;
+      accountHolderName?: string;
     },
-    companyId: string,
+    companyId: string
   ) {
     const existing = await prisma.companyTools.findUnique({ where: { id } });
     if (!existing) throw new AppError("Company tools not found", 404);
@@ -106,6 +115,18 @@ export class CompanyToolsService {
       updateData.companyStamp = data.companyStamp;
     } else if (existing.companyStamp) {
       updateData.companyStamp = existing.companyStamp;
+    }
+
+    if (data.bankName) {
+      updateData.bankName = data.bankName;
+    }
+
+    if (data.accountNumber) {
+      updateData.accountNumber = data.accountNumber;
+    }
+
+    if (data.accountHolderName) {
+      updateData.accountHolderName = data.accountHolderName;
     }
 
     const updated = await prisma.companyTools.update({
@@ -136,7 +157,7 @@ export class CompanyToolsService {
   public static async getCompanyToolsList(
     req: Request,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -151,7 +172,7 @@ export class CompanyToolsService {
       orderBy: { createdAt: "desc" },
       include: {
         company: {
-          select: { name: true },
+          select: { name: true, logo: true, website: true },
         },
       },
     });
