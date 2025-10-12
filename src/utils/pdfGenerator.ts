@@ -210,7 +210,7 @@ export async function generateNDAPdf(data: NDAData): Promise<Buffer> {
         .fillColor("#9ca3af")
         .text(
           "This document was generated electronically by IRUCARE Trial System",
-          { align: "center" }
+          { align: "center" },
         )
         .text(data.date, { align: "center" });
 

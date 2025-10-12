@@ -467,6 +467,7 @@ export class SubscriptionService extends BaseService {
     companyId: string,
   ): Promise<IResponse<TSubscription[]>> {
     try {
+      console.log("companyId:", companyId);
       const subs = await prisma.subscription.findMany({
         where: { companyId },
         orderBy: { createdAt: "desc" },
@@ -637,6 +638,26 @@ export class SubscriptionService extends BaseService {
   public static async runScheduledSubscriptionTasks(io?: SocketIOServer) {
     try {
       const now = new Date();
+
+      // 0. Remove subscriptions without a valid payment (SUCCEEDED or PENDING)
+      const subsToRemove = await prisma.subscription.findMany({
+        where: {
+          OR: [
+            { payment: null },
+            { payment: { status: { notIn: ["SUCCEEDED", "PENDING"] } } },
+          ],
+        },
+        include: { payment: true },
+      });
+      for (const sub of subsToRemove) {
+        try {
+          await prisma.subscription.delete({ where: { id: sub.id } });
+          // Optionally, delete related payments if needed
+          // await prisma.payment.deleteMany({ where: { subscriptionId: sub.id } });
+        } catch (err) {
+          console.error(`Failed to delete orphan subscription ${sub.id}:`, err);
+        }
+      }
 
       // 1. Deactivate expired subscriptions
       const expired = await prisma.subscription.findMany({

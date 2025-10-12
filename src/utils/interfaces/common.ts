@@ -524,6 +524,9 @@ export interface CreateCompanyToolsDto {
   sellingPercentage?: number;
   companySignature?: string;
   companyStamp?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
 }
 
 export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
@@ -577,12 +580,8 @@ export interface CreateItemDto {
   categoryId: string;
   description?: string;
   productCode?: string;
-  brandManufacturer?: string;
   minLevel: number;
   maxLevel: number;
-  batchLotNumber?: string;
-  serialNumber?: string;
-  barcodeQrCode?: Express.Multer.File | string;
 }
 
 export interface UpdateItemDto {
@@ -590,12 +589,8 @@ export interface UpdateItemDto {
   categoryId: string;
   description?: string;
   productCode?: string;
-  brandManufacturer?: string;
   minLevel: number;
   maxLevel: number;
-  batchLotNumber?: string;
-  serialNumber?: string;
-  barcodeQrCode?: Express.Multer.File | string;
 }
 
 export interface CreateStockDto {
@@ -853,6 +848,13 @@ export interface CreateSellDto {
     sellPrice: number;
   }[];
   notes?: string;
+  // optional (PHARMACY insurance context)
+  patientId?: string;
+  insuranceCardId?: string;
+  insurancePercentage?: number;
+  subtotal?: number;
+  insuranceCoveredAmount?: number;
+  patientPayableAmount?: number;
   // Legacy fields for backward compatibility
   itemId?: string;
   quantity?: number;
@@ -868,6 +870,13 @@ export interface UpdateSellDto {
   }[];
   notes?: string;
   totalAmount?: number;
+  // optional (PHARMACY insurance context)
+  patientId?: string;
+  insuranceCardId?: string;
+  insurancePercentage?: number;
+  subtotal?: number;
+  insuranceCoveredAmount?: number;
+  patientPayableAmount?: number;
   // Legacy fields for backward compatibility
   itemId?: string;
   quantity?: number;
@@ -1183,4 +1192,19 @@ export interface NDAData {
   clientPhone: string;
   contactPerson: string;
   date: string;
+}
+
+export interface ImportItemRow {
+  itemFullName: string;
+  categoryName: string;
+  productCode?: string;
+  description?: string;
+  minLevel: number;
+  maxLevel: number;
+}
+
+export interface ValidationError {
+  row: number;
+  field: string;
+  message: string;
 }

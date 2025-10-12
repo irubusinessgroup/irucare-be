@@ -93,10 +93,6 @@ model Items {
   description        String?
   minLevel           Decimal         @db.Decimal(10, 2)
   maxLevel           Decimal         @db.Decimal(10, 2)
-  brandManufacturer String?
-  batchLotNumber String? 
-  serialNumber String?
-  barcodeQrCode    String? 
   createdAt         DateTime       @default(now()) 
   updatedAt         DateTime       @updatedAt
   stockReceipts      StockReceipts[]
@@ -273,12 +269,24 @@ model Sell {
     updatedAt         DateTime      @updatedAt
     sellItems          SellItem[]
     stocks             Stock[]
+    // Insurance fields (PHARMACY)
+    patientId           String?
+    patient             Patient?        @relation(fields: [patientId], references: [id], onDelete: SetNull)
+    insuranceCardId     String?
+    insuranceCard       InsuranceCard?  @relation(fields: [insuranceCardId], references: [id], onDelete: SetNull)
+    subtotal            Decimal        @db.Decimal(18, 2) @default(0)
+    insuranceCoveredAmount Decimal     @db.Decimal(18, 2) @default(0)
+    patientPayableAmount  Decimal      @db.Decimal(18, 2) @default(0)
+    insurancePercentage   Decimal?     @db.Decimal(5, 2)
     
     // Legacy fields for backward compatibility
     itemId             String?
     item               Items?         @relation(fields: [itemId], references: [id])
     quantity           Decimal?        @db.Decimal(10, 2)
     sellPrice          Decimal?        @db.Decimal(18, 2)
+
+    @@index([patientId])
+    @@index([insuranceCardId])
 }
 
 model SellItem {
@@ -290,6 +298,9 @@ model SellItem {
     quantity           Decimal         @db.Decimal(10, 2)
     sellPrice          Decimal         @db.Decimal(18, 2)
     totalAmount        Decimal         @db.Decimal(18, 2)
+    // Optional per-item split for insurance (PHARMACY)
+    insuranceCoveredPerUnit Decimal     @db.Decimal(18, 2) @default(0)
+    patientPricePerUnit     Decimal     @db.Decimal(18, 2) @default(0)
     createdAt         DateTime      @default(now())
     updatedAt         DateTime      @updatedAt
 }
@@ -671,6 +682,7 @@ model Patient {
   companyId          String
   address            PatientAddress[]
   insuranceCards     InsuranceCard[]
+  sells              Sell[]
 }
 
 model PatientAddress {
@@ -700,6 +712,7 @@ model InsuranceCard {
   patient       Patient  @relation(fields: [patientId], references: [id])
   insurance     Insurance  @relation(fields: [insuranceId], references: [id])
   insuranceDetails InsuranceDetail[]
+  sells            Sell[]
 }
 
 model InsuranceDetail {
@@ -729,6 +742,9 @@ model  CompanyTools {
   sellingPercentage   Int?
   companySignature    String?
   companyStamp        String?
+  bankName            String?
+  accountNumber       String?
+  accountHolderName   String?
 
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt

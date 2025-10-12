@@ -38,8 +38,10 @@ export class SellService {
         }
       : { companyId };
 
-    const skip = page && limit ? (page - 1) * limit : undefined;
-    const take = limit;
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+    const take = limitNum;
 
     const sells = await prisma.sell.findMany({
       where: queryOptions,
@@ -94,8 +96,8 @@ export class SellService {
     return {
       data: sells,
       totalItems,
-      currentPage: page || 1,
-      itemsPerPage: limit || sells.length,
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
       message: "Sales records retrieved successfully",
     };
   }
@@ -162,6 +164,9 @@ export class SellService {
     }
 
     return await prisma.$transaction(async (tx) => {
+      // Load company to check industry for PHARMACY gating
+      const company = await tx.company.findFirst({ where: { id: companyId } });
+      const companyIndustry = company?.industry ?? undefined;
       const client = await tx.client.findFirst({
         where: { id: data.clientId, companyId },
       });
@@ -179,7 +184,14 @@ export class SellService {
       const sellingPercentage = Number(companyTools?.sellingPercentage ?? 0);
 
       let totalAmount = 0;
-      const sellItems = [];
+      const sellItems: Array<{
+        itemId: string;
+        quantity: number;
+        sellPrice: number;
+        totalAmount: number;
+        insuranceCoveredPerUnit?: number;
+        patientPricePerUnit?: number;
+      }> = [];
       const stockUpdates = [];
 
       // Process each item
@@ -249,12 +261,90 @@ export class SellService {
         });
       }
 
+      // Compute insurance if applicable
+      let subtotal = 0;
+      let insuranceCoveredAmount = 0;
+      let patientPayableAmount = 0;
+      let insurancePercentageSnapshot: number | undefined;
+
+      // authoritative subtotal is the sum of item price * quantity (already adjusted)
+      subtotal = sellItems.reduce(
+        (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
+        0,
+      );
+
+      const isPharmacy = (companyIndustry ?? "").toUpperCase() === "PHARMACY";
+      let applyInsurance = false;
+      if (isPharmacy && data.insuranceCardId && data.patientId) {
+        // Validate card ownership and expiry, and same company
+        const insuranceCard = await tx.insuranceCard.findFirst({
+          where: {
+            id: data.insuranceCardId,
+            patientId: data.patientId,
+            companyId,
+          },
+          include: { insurance: true },
+        });
+        if (!insuranceCard) {
+          throw new AppError(
+            "Insurance card not found or not linked to patient/company",
+            400,
+          );
+        }
+        const now = new Date();
+        const isExpired =
+          Boolean(insuranceCard.expired) ||
+          (insuranceCard.expireDate
+            ? new Date(insuranceCard.expireDate) < now
+            : false);
+        if (!isExpired) {
+          applyInsurance = true;
+          insurancePercentageSnapshot = Number(
+            insuranceCard.insurance?.percentage ?? 0,
+          );
+        }
+      }
+
+      if (
+        applyInsurance &&
+        insurancePercentageSnapshot &&
+        insurancePercentageSnapshot > 0
+      ) {
+        const percentageFactor = insurancePercentageSnapshot / 100;
+        // compute per item split
+        for (const s of sellItems) {
+          const coveredPerUnit = Number(s.sellPrice) * percentageFactor;
+          const patientPerUnit = Number(s.sellPrice) - coveredPerUnit;
+          s.insuranceCoveredPerUnit = coveredPerUnit;
+          s.patientPricePerUnit = patientPerUnit;
+          insuranceCoveredAmount += coveredPerUnit * Number(s.quantity);
+        }
+        patientPayableAmount = subtotal - insuranceCoveredAmount;
+      } else {
+        insuranceCoveredAmount = 0;
+        patientPayableAmount = subtotal;
+        insurancePercentageSnapshot = applyInsurance
+          ? (insurancePercentageSnapshot ?? 0)
+          : undefined;
+      }
+
       // Create the sell record
       const sell = await tx.sell.create({
         data: {
           clientId: data.clientId,
           companyId,
           totalAmount,
+          // insurance fields snapshot (only persist for PHARMACY)
+          patientId: isPharmacy ? data.patientId : undefined,
+          insuranceCardId: isPharmacy ? data.insuranceCardId : undefined,
+          subtotal: isPharmacy ? subtotal : undefined,
+          insuranceCoveredAmount: isPharmacy
+            ? insuranceCoveredAmount
+            : undefined,
+          patientPayableAmount: isPharmacy ? patientPayableAmount : undefined,
+          insurancePercentage: isPharmacy
+            ? insurancePercentageSnapshot
+            : undefined,
           notes: data.notes,
           // Legacy fields for backward compatibility
           itemId:
@@ -279,6 +369,13 @@ export class SellService {
           data: {
             sellId: sell.id,
             ...sellItemData,
+            // only persist per-item insurance split for PHARMACY
+            insuranceCoveredPerUnit: isPharmacy
+              ? sellItemData.insuranceCoveredPerUnit
+              : undefined,
+            patientPricePerUnit: isPharmacy
+              ? sellItemData.patientPricePerUnit
+              : undefined,
           },
         });
       }
@@ -299,7 +396,7 @@ export class SellService {
         data: {
           clientId: data.clientId,
           companyId,
-          amount: totalAmount,
+          amount: isPharmacy ? patientPayableAmount : totalAmount,
           date: new Date(),
         },
       });
@@ -397,7 +494,14 @@ export class SellService {
         const sellingPercentage = Number(companyTools?.sellingPercentage ?? 0);
 
         let totalAmount = 0;
-        const sellItems = [];
+        const sellItems: Array<{
+          itemId: string;
+          quantity: number;
+          sellPrice: number;
+          totalAmount: number;
+          insuranceCoveredPerUnit?: number;
+          patientPricePerUnit?: number;
+        }> = [];
         const stockUpdates = [];
 
         // Process each item
@@ -467,12 +571,79 @@ export class SellService {
           });
         }
 
+        // Compute insurance if applicable
+        const company = await tx.company.findFirst({
+          where: { id: companyId },
+        });
+        const companyIndustry = company?.industry ?? undefined;
+        const isPharmacy = (companyIndustry ?? "").toUpperCase() === "PHARMACY";
+
+        const subtotal = sellItems.reduce(
+          (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
+          0,
+        );
+        let insuranceCoveredAmount = 0;
+        let patientPayableAmount = subtotal;
+        let insurancePercentageSnapshot: number | undefined;
+
+        if (
+          isPharmacy &&
+          data.insuranceCardId &&
+          (data.patientId || existingSell.patientId)
+        ) {
+          const patientIdToUse =
+            data.patientId ?? existingSell.patientId ?? undefined;
+          if (patientIdToUse) {
+            const insuranceCard = await tx.insuranceCard.findFirst({
+              where: {
+                id: data.insuranceCardId,
+                patientId: patientIdToUse,
+                companyId,
+              },
+              include: { insurance: true },
+            });
+            if (!insuranceCard) {
+              throw new AppError(
+                "Insurance card not found or not linked to patient/company",
+                400,
+              );
+            }
+            const now = new Date();
+            const isExpired =
+              Boolean(insuranceCard.expired) ||
+              (insuranceCard.expireDate
+                ? new Date(insuranceCard.expireDate) < now
+                : false);
+            if (!isExpired) {
+              insurancePercentageSnapshot = Number(
+                insuranceCard.insurance?.percentage ?? 0,
+              );
+              const percentageFactor = (insurancePercentageSnapshot ?? 0) / 100;
+              for (const s of sellItems) {
+                const coveredPerUnit = Number(s.sellPrice) * percentageFactor;
+                const patientPerUnit = Number(s.sellPrice) - coveredPerUnit;
+                s.insuranceCoveredPerUnit = coveredPerUnit;
+                s.patientPricePerUnit = patientPerUnit;
+                insuranceCoveredAmount += coveredPerUnit * Number(s.quantity);
+              }
+              patientPayableAmount = subtotal - insuranceCoveredAmount;
+            }
+          }
+        }
+
         // Create new sell items
         for (const sellItemData of sellItems) {
           await tx.sellItem.create({
             data: {
               sellId: id,
               ...sellItemData,
+              // only persist per-item insurance split for PHARMACY
+              insuranceCoveredPerUnit: isPharmacy
+                ? sellItemData.insuranceCoveredPerUnit
+                : undefined,
+              patientPricePerUnit: isPharmacy
+                ? sellItemData.patientPricePerUnit
+                : undefined,
             },
           });
         }
@@ -492,6 +663,21 @@ export class SellService {
         const updateData = {
           ...data,
           totalAmount,
+          // insurance fields snapshot (only persist for PHARMACY)
+          patientId: isPharmacy
+            ? (data.patientId ?? existingSell.patientId)
+            : undefined,
+          insuranceCardId: isPharmacy
+            ? (data.insuranceCardId ?? existingSell.insuranceCardId)
+            : undefined,
+          subtotal: isPharmacy ? subtotal : undefined,
+          insuranceCoveredAmount: isPharmacy
+            ? insuranceCoveredAmount
+            : undefined,
+          patientPayableAmount: isPharmacy ? patientPayableAmount : undefined,
+          insurancePercentage: isPharmacy
+            ? insurancePercentageSnapshot
+            : undefined,
           // Legacy fields for backward compatibility
           itemId:
             itemsToProcess.length === 1 ? itemsToProcess[0].itemId : undefined,

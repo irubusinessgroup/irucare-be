@@ -181,7 +181,6 @@ export class InventoryService {
         packSize: latestReceipt.packSize,
         approvedBy: latestApprovedBy,
         dateApproved: latestApprovalDate,
-        brandManufacturer: item.brandManufacturer,
         totalReceipts: item.stockReceipts.length,
       };
     });
@@ -366,7 +365,6 @@ export class InventoryService {
         uom: earliestExpiringReceipt.uom,
         approvedBy: latestApprovedBy,
         dateApproved: latestApprovalDate,
-        brandManufacturer: item.brandManufacturer,
       };
     });
 
@@ -565,7 +563,6 @@ export class InventoryService {
         uom: earliestExpiringReceipt.uom,
         approvedBy: latestApprovedBy,
         dateApproved: latestApprovalDate,
-        brandManufacturer: item.brandManufacturer,
       };
     });
 
