@@ -524,12 +524,32 @@ export interface CreateCompanyToolsDto {
   sellingPercentage?: number;
   companySignature?: string;
   companyStamp?: string;
-  bankName?: string;
-  accountNumber?: string;
-  accountHolderName?: string;
+  bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
 }
 
 export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
+
+// CompanyTools response types
+export interface BankAccountDto {
+  bankName?: string;
+  accountNumber?: string;
+}
+
+export interface CompanyToolsResponseDto {
+  id: string;
+  companyId: string;
+  sellingPercentage?: number | null;
+  companySignature?: string | null;
+  companyStamp?: string | null;
+  bankAccounts?: BankAccountDto[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+  company?: {
+    name: string;
+    logo?: string | null;
+    website?: string | null;
+  } | null;
+}
 
 export interface CreatePatientDto {
   name: string;
@@ -582,6 +602,10 @@ export interface CreateItemDto {
   productCode?: string;
   minLevel: number;
   maxLevel: number;
+  // Tax fields (optional from clients; coerced server-side)
+  isTaxable?: boolean | string;
+  taxCode?: "A" | "B";
+  taxRate?: number;
 }
 
 export interface UpdateItemDto {
@@ -591,6 +615,10 @@ export interface UpdateItemDto {
   productCode?: string;
   minLevel: number;
   maxLevel: number;
+  // Tax fields (optional from clients; coerced server-side)
+  isTaxable?: boolean | string;
+  taxCode?: "A" | "B";
+  taxRate?: number;
 }
 
 export interface CreateStockDto {
@@ -1201,6 +1229,8 @@ export interface ImportItemRow {
   description?: string;
   minLevel: number;
   maxLevel: number;
+  // Single tax column from import/template: "A" (0.0) or "B" (18.0)
+  taxCode?: "A" | "B" | string;
 }
 
 export interface ValidationError {

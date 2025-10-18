@@ -94,7 +94,6 @@ export class UserService extends BaseService {
           },
           process.env.JWT_SECRET!,
         );
-        console.log(userData.userRoles);
         const userRoles = userData.userRoles.map(
           (roleRecord) => roleRecord.name,
         );

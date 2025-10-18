@@ -12,7 +12,10 @@ import {
   Security,
   Tags,
 } from "tsoa";
-import { Request as ExpressRequest } from "express";
+import {
+  Request as ExpressRequest,
+  Response as ExpressResponse,
+} from "express";
 import { ItemService } from "../services/ItemService";
 import { CreateItemDto, UpdateItemDto } from "../utils/interfaces/common";
 import { checkRole } from "../middlewares";
@@ -28,11 +31,11 @@ export class ItemController {
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN),
     upload.any(),
-    appendBarcodeQrCode,
+    appendBarcodeQrCode
   )
   public async createItem(
     @Body() data: CreateItemDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId as string;
     return ItemService.createItem(data, companyId);
@@ -49,7 +52,7 @@ export class ItemController {
   public updateItem(
     @Path() id: string,
     @Body() body: UpdateItemDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId as string;
     return ItemService.updateItem(id, body, companyId);
@@ -68,7 +71,7 @@ export class ItemController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     return ItemService.getItems(req, searchq, limit, page);
   }
@@ -84,5 +87,24 @@ export class ItemController {
     }
 
     return ItemService.importItems(file, companyId);
+  }
+
+  @Get("/template/download")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public async downloadTemplate(@Request() req: ExpressRequest): Promise<void> {
+    const buffer = await ItemService.downloadTemplate(req);
+
+    const res = req.res as ExpressResponse;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=items-import-template.xlsx"
+    );
+
+    res.send(buffer);
+    return;
   }
 }
