@@ -11,13 +11,60 @@ import type { Request } from "express";
 import * as XLSX from "xlsx";
 
 export class ItemService {
-  private static readonly REQUIRED_COLUMNS = [
-    "itemFullName",
-    "productCode",
-    "categoryName",
-    "minLevel",
-    "maxLevel",
-  ];
+  // Normalize/coerce tax payload based on README_BACKEND_TAX.md rules
+  private static normalizeTaxFields(input: unknown): {
+    isTaxable: boolean;
+    taxCode: "A" | "B";
+    taxRate: number;
+  } {
+    const payload = (input || {}) as {
+      isTaxable?: boolean | string;
+      taxCode?: "A" | "B" | string;
+      taxRate?: number | string;
+    };
+
+    // Coerce boolean-like strings
+    const requestedIsTaxable: boolean | undefined =
+      typeof payload.isTaxable === "string"
+        ? payload.isTaxable.toLowerCase() === "true"
+        : payload.isTaxable;
+
+    if (requestedIsTaxable === true) {
+      return { isTaxable: true, taxCode: "B", taxRate: 18.0 };
+    }
+    if (requestedIsTaxable === false) {
+      return { isTaxable: false, taxCode: "A", taxRate: 0.0 };
+    }
+
+    // Fallbacks if only taxCode/taxRate provided (ensure consistency)
+    const normalizedCode = (payload.taxCode || "").toString().toUpperCase();
+    if (normalizedCode === "B") {
+      return { isTaxable: true, taxCode: "B", taxRate: 18.0 };
+    }
+    // Default non-taxable
+    return { isTaxable: false, taxCode: "A", taxRate: 0.0 };
+  }
+  private static getRequiredColumnsForIndustry(industry?: string): string[] {
+    const normalized = (industry || "").toUpperCase();
+    if (normalized === "PHARMACY") {
+      // PHARMACY: drug_code (maps to productCode), designation (maps to itemFullName)
+      return [
+        "itemFullName",
+        "productCode",
+        "categoryName",
+        "minLevel",
+        "maxLevel",
+      ];
+    }
+    // STOCK_AND_LOGISTICS or SBMS: productCode, itemFullName
+    return [
+      "itemFullName",
+      "productCode",
+      "categoryName",
+      "minLevel",
+      "maxLevel",
+    ];
+  }
 
   private static readonly COLUMN_MAPPINGS: Record<string, string> = {
     "item name": "itemFullName",
@@ -26,6 +73,7 @@ export class ItemService {
     category: "categoryName",
     "category name": "categoryName",
     "product code": "productCode",
+    productcode: "productCode",
     description: "description",
     "min level": "minLevel",
     "minimum level": "minLevel",
@@ -33,18 +81,27 @@ export class ItemService {
     "maximum level": "maxLevel",
     designation: "itemFullName",
     drug_code: "productCode",
+    // tax related synonym headers (single column preferred: tax → taxCode)
+    taxable: "isTaxable",
+    istaxable: "isTaxable",
+    "is taxable": "isTaxable",
+    taxcode: "taxCode",
+    "tax code": "taxCode",
+    tax: "taxCode",
+    rate: "taxRate",
+    "tax rate": "taxRate",
   };
 
   public static async importItems(
     file: Express.Multer.File,
-    companyId: string,
+    companyId: string
   ) {
     try {
       // Ensure file buffer is available (requires memory storage)
       if (!file || !file.buffer) {
         throw new AppError(
           "File buffer is missing. Ensure this route uses multer.memoryStorage().",
-          400,
+          400
         );
       }
 
@@ -63,7 +120,7 @@ export class ItemService {
       if (!worksheet) {
         throw new AppError(
           "Unable to read the first worksheet from Excel file",
-          400,
+          400
         );
       }
       const rawData: Array<Record<string, unknown>> =
@@ -78,7 +135,7 @@ export class ItemService {
           key === "categoryName" ||
           key === "productCode" ||
           key === "minLevel" ||
-          key === "maxLevel",
+          key === "maxLevel"
       );
 
       // If headers are in the first data row (__EMPTY pattern), use them as headers
@@ -91,13 +148,9 @@ export class ItemService {
             (val.toLowerCase().includes("item") ||
               val.toLowerCase().includes("category") ||
               val.toLowerCase().includes("product") ||
-              val.toLowerCase().includes("level")),
+              val.toLowerCase().includes("level"))
         )
       ) {
-        console.log(
-          "Headers detected in first data row, rebuilding data structure...",
-        );
-
         // Build proper column mapping from first row
         const headerRow = firstRow;
         const headerMapping: Record<string, string> = {};
@@ -132,6 +185,11 @@ export class ItemService {
             headerMapping[key] = "maxLevel";
           } else if (headerValue.includes("description")) {
             headerMapping[key] = "description";
+          } else if (
+            headerValue === "tax" ||
+            headerValue.includes("tax code")
+          ) {
+            headerMapping[key] = "taxCode"; // single tax column preferred
           }
         });
 
@@ -146,8 +204,6 @@ export class ItemService {
           });
           return newRow;
         });
-
-        console.log("Rebuilt data structure, sample row:", dataRows[0]);
       }
 
       if (dataRows.length === 0) {
@@ -160,19 +216,14 @@ export class ItemService {
       // Remove duplicates by productCode
       normalizedData = this.removeDuplicates(normalizedData);
 
-      console.log("Total rows after normalization:", normalizedData.length);
-      console.log("First row sample:", normalizedData[0]);
-
       // Validate data
       const { validItems, errors } = await this.validateItems(
         normalizedData,
-        companyId,
+        companyId
       );
 
-      console.log("Valid items:", validItems.length);
-      console.log("Errors:", errors.length);
       if (errors.length > 0) {
-        console.log("Sample errors:", errors.slice(0, 5));
+        console.error("Sample errors:", errors.slice(0, 5));
       }
 
       if (validItems.length === 0) {
@@ -192,7 +243,7 @@ export class ItemService {
       // Import valid items
       const importedItems = await this.bulkCreateOrUpdateItems(
         validItems,
-        companyId,
+        companyId
       );
       // Remove DB duplicates after import
       await ItemService.removeDbDuplicates(companyId);
@@ -228,7 +279,7 @@ export class ItemService {
   }
 
   private static normalizeData(
-    rawData: Array<Record<string, unknown>>,
+    rawData: Array<Record<string, unknown>>
   ): ImportItemRow[] {
     return rawData.map((row) => {
       const normalizedRow: Record<string, unknown> = {};
@@ -256,16 +307,13 @@ export class ItemService {
         normalizedRow["maxLevel"] = 500;
       }
 
-      // Debug log to see what we're getting
-      console.log("Normalized row:", normalizedRow);
-
       return normalizedRow as unknown as ImportItemRow;
     });
   }
 
   private static async validateItems(
     data: ImportItemRow[],
-    companyId: string,
+    companyId: string
   ): Promise<{ validItems: ImportItemRow[]; errors: ValidationError[] }> {
     const validItems: ImportItemRow[] = [];
     const errors: ValidationError[] = [];
@@ -279,13 +327,17 @@ export class ItemService {
       throw new AppError("Company not found", 404);
     }
 
+    const requiredColumns = this.getRequiredColumnsForIndustry(
+      company.industry || undefined
+    );
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowNumber = i + 2; // +2 because Excel is 1-indexed and has header row
       const rowErrors: ValidationError[] = [];
 
-      // Check required fields
-      this.REQUIRED_COLUMNS.forEach((field) => {
+      // Check required fields depending on industry
+      requiredColumns.forEach((field) => {
         const value = row[field as keyof ImportItemRow];
         if (
           value === undefined ||
@@ -359,7 +411,7 @@ export class ItemService {
   // Bulk create or update items by productCode
   private static async bulkCreateOrUpdateItems(
     items: ImportItemRow[],
-    companyId: string,
+    companyId: string
   ) {
     const importedItems = [];
     // Get all categories upfront
@@ -367,7 +419,7 @@ export class ItemService {
       where: { companyId },
     });
     const categoryMap = new Map(
-      categories.map((c) => [c.categoryName.toLowerCase().trim(), c]),
+      categories.map((c) => [c.categoryName.toLowerCase().trim(), c])
     );
     for (const item of items) {
       try {
@@ -405,6 +457,8 @@ export class ItemService {
               minLevel: item.minLevel,
               maxLevel: item.maxLevel,
               // Do not update productCode
+              // Normalize and apply tax fields if present
+              ...ItemService.normalizeTaxFields(item as unknown),
               companyId,
             },
             include: {
@@ -425,6 +479,8 @@ export class ItemService {
               minLevel: item.minLevel,
               maxLevel: item.maxLevel,
               itemCodeSku: itemCode,
+              // Normalize and apply tax fields if present
+              ...ItemService.normalizeTaxFields(item as unknown),
               companyId,
             },
             include: {
@@ -437,11 +493,78 @@ export class ItemService {
       } catch (error: unknown) {
         console.error(
           `Failed to create/update item: ${item.itemFullName}`,
-          error,
+          error
         );
       }
     }
     return importedItems;
+  }
+
+  public static async downloadTemplate(req?: Request) {
+    const companyId = req?.user?.company?.companyId;
+    let industry: string | undefined;
+    if (companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+      });
+      industry = company?.industry || undefined;
+    }
+    const normalized = (industry || "").toUpperCase();
+
+    const isPharmacy = normalized === "PHARMACY";
+    // Build headers and sample rows depending on industry
+    // Always include tax columns
+    const template = isPharmacy
+      ? [
+          {
+            designation: "Paracetamol 500mg tablets", // maps to itemFullName
+            categoryName: "Drugs",
+            drug_code: "PRC-500",
+            description: "Pain reliever",
+            minLevel: 10,
+            maxLevel: 100,
+            tax: "B (18.0)", // B (18.0)
+          },
+        ]
+      : [
+          {
+            itemFullName: "Sample Item 1",
+            categoryName: "General",
+            productCode: "PROD-001",
+            description: "Sample description",
+            minLevel: 10,
+            maxLevel: 100,
+            tax: "A (0.0)", // A (0.0)
+          },
+        ];
+
+    const worksheet = XLSX.utils.json_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Items");
+
+    // Set column widths
+    worksheet["!cols"] = isPharmacy
+      ? [
+          { wch: 30 }, // designation
+          { wch: 18 }, // categoryName
+          { wch: 16 }, // drug_code
+          { wch: 30 }, // description
+          { wch: 10 }, // minLevel
+          { wch: 10 }, // maxLevel
+          { wch: 8 }, // tax (A/B)
+        ]
+      : [
+          { wch: 30 }, // itemFullName
+          { wch: 18 }, // categoryName
+          { wch: 16 }, // productCode
+          { wch: 30 }, // description
+          { wch: 10 }, // minLevel
+          { wch: 10 }, // maxLevel
+          { wch: 8 }, // tax (A/B)
+        ];
+
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    return buffer;
   }
 
   public static async createItem(data: CreateItemDto, companyId: string) {
@@ -459,9 +582,13 @@ export class ItemService {
       throw new AppError("Company not found", 404);
     }
     const itemCode = await ItemCodeGenerator.generate(data.categoryId);
+    const tax = ItemService.normalizeTaxFields(data as unknown);
     const item = await prisma.items.create({
       data: {
         ...data,
+        isTaxable: tax.isTaxable,
+        taxCode: tax.taxCode,
+        taxRate: tax.taxRate,
         itemCodeSku: itemCode,
         companyId: companyId,
       },
@@ -490,7 +617,7 @@ export class ItemService {
 
     const totalStockQuantity = item.stockReceipts.reduce(
       (sum, s) => sum + parseFloat(s.quantityReceived.toString()),
-      0,
+      0
     );
 
     return {
@@ -505,7 +632,7 @@ export class ItemService {
   public static async updateItem(
     id: string,
     data: UpdateItemDto,
-    companyId: string,
+    companyId: string
   ) {
     const item = await prisma.items.findUnique({
       where: { id, companyId: companyId },
@@ -529,9 +656,15 @@ export class ItemService {
       }
     }
 
+    const tax = ItemService.normalizeTaxFields(data as unknown);
     const updatedItem = await prisma.items.update({
       where: { id, companyId: companyId },
-      data,
+      data: {
+        ...data,
+        isTaxable: tax.isTaxable,
+        taxCode: tax.taxCode,
+        taxRate: tax.taxRate,
+      },
       include: {
         category: true,
         company: true,
@@ -573,7 +706,7 @@ export class ItemService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -604,7 +737,17 @@ export class ItemService {
       include: {
         category: true,
         company: true,
-        stockReceipts: { include: { supplier: true } },
+        stockReceipts: {
+          include: {
+            supplier: true,
+            stocks: {
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+              },
+              select: { id: true, status: true },
+            },
+          },
+        },
       },
       skip,
       take,
@@ -614,7 +757,14 @@ export class ItemService {
     const totalItems = await prisma.items.count({ where: queryOptions });
 
     return {
-      data: items,
+      data: items.map((item) => {
+        const currentStock = item.stockReceipts.reduce((sum, receipt) => {
+          return sum + receipt.stocks.length;
+        }, 0);
+        return { ...item, currentStock } as unknown as typeof item & {
+          currentStock: number;
+        };
+      }),
       totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,

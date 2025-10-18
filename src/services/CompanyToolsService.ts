@@ -3,15 +3,39 @@ import AppError from "../utils/error";
 import type { Request } from "express";
 import { SellThroughRateService } from "./SellThroughRateService";
 
+type CompanyToolsRow = {
+  id: string;
+  companyId: string;
+  sellingPercentage: number | null;
+  companySignature: string | null;
+  companyStamp: string | null;
+  bankAccounts: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  company?: { name: string; logo?: string | null; website?: string | null };
+};
+
 export class CompanyToolsService {
+  private static mapCompanyTools(row: CompanyToolsRow) {
+    const raw = row?.bankAccounts ?? null;
+    const bankAccounts = Array.isArray(raw)
+      ? (raw as Array<Record<string, unknown>>).map((a) => ({
+          bankName:
+            typeof a.bankName === "string" ? (a.bankName as string) : undefined,
+          accountNumber:
+            typeof a.accountNumber === "string"
+              ? (a.accountNumber as string)
+              : undefined,
+        }))
+      : null;
+    return { ...row, bankAccounts };
+  }
   public static async createCompanyTools(
     data: {
       sellingPercentage?: number;
       companySignature?: string;
       companyStamp?: string;
-      bankName?: string;
-      accountNumber?: string;
-      accountHolderName?: string;
+      bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
     },
     companyId: string
   ) {
@@ -36,9 +60,11 @@ export class CompanyToolsService {
         sellingPercentage: data.sellingPercentage || 0,
         companySignature: data.companySignature,
         companyStamp: data.companyStamp,
-        bankName: data.bankName,
-        accountNumber: data.accountNumber,
-        accountHolderName: data.accountHolderName,
+        ...(Array.isArray(data.bankAccounts)
+          ? {
+              bankAccounts: data.bankAccounts,
+            }
+          : {}),
         company: { connect: { id: companyId } },
       },
       include: {
@@ -48,7 +74,10 @@ export class CompanyToolsService {
       },
     });
 
-    return { message: "Company tools created successfully", data: created };
+    return {
+      message: "Company tools created successfully",
+      data: CompanyToolsService.mapCompanyTools(created),
+    };
   }
 
   public static async getCompanyTools(id: string) {
@@ -62,7 +91,10 @@ export class CompanyToolsService {
     });
     if (!tools) throw new AppError("Company tools not found", 404);
 
-    return { message: "Company tools fetched successfully", data: tools };
+    return {
+      message: "Company tools fetched successfully",
+      data: CompanyToolsService.mapCompanyTools(tools),
+    };
   }
 
   public static async getCompanyToolsByCompanyId(companyId: string) {
@@ -77,7 +109,7 @@ export class CompanyToolsService {
 
     return {
       message: "Company tools fetched successfully",
-      data: tools,
+      data: tools ? CompanyToolsService.mapCompanyTools(tools) : null,
     };
   }
 
@@ -87,9 +119,7 @@ export class CompanyToolsService {
       sellingPercentage?: number;
       companySignature?: string;
       companyStamp?: string;
-      bankName?: string;
-      accountNumber?: string;
-      accountHolderName?: string;
+      bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
     },
     companyId: string
   ) {
@@ -117,16 +147,18 @@ export class CompanyToolsService {
       updateData.companyStamp = existing.companyStamp;
     }
 
-    if (data.bankName) {
-      updateData.bankName = data.bankName;
-    }
-
-    if (data.accountNumber) {
-      updateData.accountNumber = data.accountNumber;
-    }
-
-    if (data.accountHolderName) {
-      updateData.accountHolderName = data.accountHolderName;
+    if (Array.isArray(data.bankAccounts)) {
+      const normalized = data.bankAccounts
+        .filter((a) => a && (a.bankName?.trim() || a.accountNumber?.trim()))
+        .map((a) => ({
+          bankName:
+            typeof a.bankName === "string" ? a.bankName.trim() : undefined,
+          accountNumber:
+            typeof a.accountNumber === "string"
+              ? a.accountNumber.trim()
+              : undefined,
+        }));
+      updateData.bankAccounts = normalized;
     }
 
     const updated = await prisma.companyTools.update({
@@ -139,7 +171,10 @@ export class CompanyToolsService {
       },
     });
 
-    return { message: "Company tools updated successfully", data: updated };
+    return {
+      message: "Company tools updated successfully",
+      data: CompanyToolsService.mapCompanyTools(updated),
+    };
   }
 
   public static async deleteCompanyTools(id: string, companyId: string) {
@@ -182,7 +217,7 @@ export class CompanyToolsService {
     });
 
     return {
-      data: items,
+      data: items.map((it) => CompanyToolsService.mapCompanyTools(it)),
       totalItems,
       currentPage: page || 1,
       itemsPerPage: limit || items.length,

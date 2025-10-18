@@ -93,6 +93,10 @@ model Items {
   description        String?
   minLevel           Decimal         @db.Decimal(10, 2)
   maxLevel           Decimal         @db.Decimal(10, 2)
+  // Tax fields
+  isTaxable          Boolean         @default(false)
+  taxCode            String          @db.VarChar(1) @default("A")
+  taxRate            Decimal         @db.Decimal(5, 2) @default(0)
   createdAt         DateTime       @default(now()) 
   updatedAt         DateTime       @updatedAt
   stockReceipts      StockReceipts[]
@@ -742,9 +746,7 @@ model  CompanyTools {
   sellingPercentage   Int?
   companySignature    String?
   companyStamp        String?
-  bankName            String?
-  accountNumber       String?
-  accountHolderName   String?
+  bankAccounts        Json?
 
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt

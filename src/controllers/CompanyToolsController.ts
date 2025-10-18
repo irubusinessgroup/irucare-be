@@ -19,6 +19,7 @@ import { roles } from "../utils/roles";
 import {
   CreateCompanyToolsDto,
   UpdateCompanyToolsDto,
+  CompanyToolsResponseDto,
 } from "../utils/interfaces/common";
 import upload from "../utils/cloudinary";
 
@@ -30,25 +31,29 @@ export class CompanyToolsController {
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN),
     upload.any(),
-    appendCompanyToolsAttachments,
+    appendCompanyToolsAttachments
   )
   public async create(
     @Body() data: CreateCompanyToolsDto,
-    @Request() req: ExpressRequest,
-  ) {
+    @Request() req: ExpressRequest
+  ): Promise<{ message: string; data: CompanyToolsResponseDto }> {
     const companyId = req.user?.company?.companyId as string;
     return CompanyToolsService.createCompanyTools(data, companyId);
   }
 
   @Get("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public get(@Path() id: string) {
+  public get(
+    @Path() id: string
+  ): Promise<{ message: string; data: CompanyToolsResponseDto }> {
     return CompanyToolsService.getCompanyTools(id);
   }
 
   @Get("/company/current")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public getCurrentCompanyTools(@Request() req: ExpressRequest) {
+  public getCurrentCompanyTools(
+    @Request() req: ExpressRequest
+  ): Promise<{ message: string; data: CompanyToolsResponseDto | null }> {
     const companyId = req.user?.company?.companyId as string;
     return CompanyToolsService.getCompanyToolsByCompanyId(companyId);
   }
@@ -57,20 +62,23 @@ export class CompanyToolsController {
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN),
     upload.any(),
-    appendCompanyToolsAttachments,
+    appendCompanyToolsAttachments
   )
   public update(
     @Path() id: string,
     @Body() body: UpdateCompanyToolsDto,
-    @Request() req: ExpressRequest,
-  ) {
+    @Request() req: ExpressRequest
+  ): Promise<{ message: string; data: CompanyToolsResponseDto }> {
     const companyId = req.user?.company?.companyId as string;
     return CompanyToolsService.updateCompanyTools(id, body, companyId);
   }
 
   @Delete("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public delete(@Path() id: string, @Request() req: ExpressRequest) {
+  public delete(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<{ message: string }> {
     const companyId = req.user?.company?.companyId as string;
     return CompanyToolsService.deleteCompanyTools(id, companyId);
   }
@@ -80,8 +88,14 @@ export class CompanyToolsController {
   public list(
     @Request() req: ExpressRequest,
     @Query() limit?: number,
-    @Query() page?: number,
-  ) {
+    @Query() page?: number
+  ): Promise<{
+    data: CompanyToolsResponseDto[];
+    totalItems: number;
+    currentPage: number;
+    itemsPerPage: number;
+    message: string;
+  }> {
     return CompanyToolsService.getCompanyToolsList(req, limit, page);
   }
 
