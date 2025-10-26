@@ -37,7 +37,7 @@ export class CompanyToolsService {
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
     },
-    companyId: string
+    companyId: string,
   ) {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -51,7 +51,7 @@ export class CompanyToolsService {
     if (existing) {
       throw new AppError(
         "Company tools already exist. Please update instead.",
-        400
+        400,
       );
     }
 
@@ -121,7 +121,7 @@ export class CompanyToolsService {
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
     },
-    companyId: string
+    companyId: string,
   ) {
     const existing = await prisma.companyTools.findUnique({ where: { id } });
     if (!existing) throw new AppError("Company tools not found", 404);
@@ -192,7 +192,7 @@ export class CompanyToolsService {
   public static async getCompanyToolsList(
     req: Request,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);

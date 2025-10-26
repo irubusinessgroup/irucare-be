@@ -31,11 +31,11 @@ export class ItemController {
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN),
     upload.any(),
-    appendBarcodeQrCode
+    appendBarcodeQrCode,
   )
   public async createItem(
     @Body() data: CreateItemDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId as string;
     return ItemService.createItem(data, companyId);
@@ -52,7 +52,7 @@ export class ItemController {
   public updateItem(
     @Path() id: string,
     @Body() body: UpdateItemDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId as string;
     return ItemService.updateItem(id, body, companyId);
@@ -71,7 +71,7 @@ export class ItemController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return ItemService.getItems(req, searchq, limit, page);
   }
@@ -97,11 +97,11 @@ export class ItemController {
     const res = req.res as ExpressResponse;
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=items-import-template.xlsx"
+      "attachment; filename=items-import-template.xlsx",
     );
 
     res.send(buffer);

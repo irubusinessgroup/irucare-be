@@ -1187,6 +1187,82 @@ export interface UpdateTrialApplicationDto {
   trialAccountId?: string;
 }
 
+// Direct Invoice Interfaces
+export interface CreateDirectInvoiceDto {
+  clientId: string;
+  items: CreateDirectInvoiceItemDto[];
+  vatRate?: number;
+  dueDate: Date;
+  notes?: string;
+}
+
+export interface CreateDirectInvoiceItemDto {
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+  description?: string;
+}
+
+export interface UpdateDirectInvoiceDto {
+  clientId?: string;
+  items?: CreateDirectInvoiceItemDto[];
+  vatRate?: number;
+  dueDate?: Date;
+  notes?: string;
+  status?: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
+}
+
+export interface DirectInvoiceResponse {
+  id: string;
+  invoiceNumber: string;
+  clientId: string;
+  companyId: string;
+  subtotal: number;
+  vat: number;
+  vatRate: number;
+  grandTotal: number;
+  currency: string;
+  invoiceDate: Date;
+  dueDate: Date;
+  status: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
+  notes?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  client: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    address: string;
+  };
+  items: DirectInvoiceItemResponse[];
+}
+
+export interface DirectInvoiceItemResponse {
+  id: string;
+  invoiceId: string;
+  itemId: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  description?: string | null;
+  item: {
+    id: string;
+    itemCodeSku: string;
+    itemFullName: string;
+    description?: string | null;
+  };
+}
+
+export interface DirectInvoiceFilters {
+  page?: number;
+  limit?: number;
+  searchq?: string;
+  status?: string;
+  clientId?: string;
+  companyId: string;
+}
+
 export interface SubmitFeedbackDto {
   feedbackMonth: number;
   rating: number; // 1-5
@@ -1237,4 +1313,244 @@ export interface ValidationError {
   row: number;
   field: string;
   message: string;
+}
+
+// Appointment System Interfaces
+export type AppointmentType =
+  | "CONSULTATION"
+  | "FOLLOW_UP"
+  | "ROUTINE_CHECKUP"
+  | "SPECIALIST"
+  | "EMERGENCY"
+  | "PROCEDURE"
+  | "VACCINATION";
+
+export type AppointmentStatus =
+  | "SCHEDULED"
+  | "CONFIRMED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW"
+  | "RESCHEDULED";
+
+export type AppointmentNotificationType =
+  | "APPOINTMENT_SCHEDULED"
+  | "APPOINTMENT_CONFIRMED"
+  | "APPOINTMENT_CANCELLED"
+  | "APPOINTMENT_RESCHEDULED"
+  | "APPOINTMENT_REMINDER"
+  | "APPOINTMENT_COMPLETED";
+
+export interface TAppointment {
+  id: string;
+  patientId: string;
+  providerId: string;
+  companyId: string;
+  appointmentType: AppointmentType;
+  status: AppointmentStatus;
+  scheduledDate: Date;
+  duration: number;
+  reason: string;
+  notes?: string | null;
+  room?: string | null;
+  createdBy: string;
+  confirmedAt?: Date | null;
+  cancelledAt?: Date | null;
+  cancellationReason?: string | null;
+  noShowAt?: Date | null;
+  completedAt?: Date | null;
+  encounterId?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  // Relations
+  patient?: {
+    id: string;
+    name: string;
+    phone: string;
+    patientNO: string;
+  };
+  provider?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  createdByUser?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  company?: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CreateAppointmentDto {
+  patientId: string;
+  providerId: string;
+  appointmentType: AppointmentType;
+  scheduledDate: Date | string;
+  duration: number;
+  reason: string;
+  notes?: string;
+  room?: string;
+}
+
+export interface UpdateAppointmentDto {
+  appointmentType?: AppointmentType;
+  scheduledDate?: Date | string;
+  duration?: number;
+  reason?: string;
+  notes?: string;
+  room?: string;
+  status?: AppointmentStatus;
+  cancellationReason?: string;
+  encounterId?: string;
+}
+
+export interface AppointmentFilters {
+  page?: number;
+  limit?: number;
+  searchq?: string;
+  patientId?: string;
+  providerId?: string;
+  appointmentType?: AppointmentType;
+  status?: AppointmentStatus;
+  startDate?: string;
+  endDate?: string;
+  companyId: string;
+}
+
+export interface TAppointmentTimeSlot {
+  id: string;
+  providerId: string;
+  companyId: string;
+  date: Date;
+  startTime: Date;
+  endTime: Date;
+  duration: number;
+  isAvailable: boolean;
+  isBlocked: boolean;
+  blockReason?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  provider?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface CreateTimeSlotDto {
+  providerId: string;
+  date: Date | string;
+  startTime: Date | string;
+  endTime: Date | string;
+  duration: number;
+  isAvailable?: boolean;
+  isBlocked?: boolean;
+  blockReason?: string;
+}
+
+export interface TProviderAvailability {
+  id: string;
+  providerId: string;
+  companyId: string;
+  dayOfWeek: number;
+  startTime: Date;
+  endTime: Date;
+  isAvailable: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  provider?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface CreateProviderAvailabilityDto {
+  providerId: string;
+  dayOfWeek: number;
+  startTime: Date | string;
+  endTime: Date | string;
+  isAvailable?: boolean;
+}
+
+export interface TAppointmentNotification {
+  id: string;
+  appointmentId: string;
+  userId: string;
+  notificationType: AppointmentNotificationType;
+  message: string;
+  sentAt?: Date | null;
+  createdAt: Date;
+  appointment?: {
+    id: string;
+    scheduledDate: Date;
+    reason: string;
+  };
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface CreateAppointmentNotificationDto {
+  appointmentId: string;
+  userId: string;
+  notificationType: AppointmentNotificationType;
+  message: string;
+}
+
+export interface AvailableTimeSlot {
+  time: string;
+  available: boolean;
+  slotId?: string;
+}
+
+export interface AppointmentStatistics {
+  totalAppointments: number;
+  appointmentsByStatus: Record<AppointmentStatus, number>;
+  appointmentsByType: Record<AppointmentType, number>;
+  averageAppointmentDuration: number;
+  noShowRate: number;
+  monthlyTrends: Array<{
+    month: string;
+    count: number;
+  }>;
+  providerStatistics: Array<{
+    providerId: string;
+    providerName: string;
+    totalAppointments: number;
+    noShowRate: number;
+  }>;
+}
+
+export interface AppointmentActionDto {
+  reason?: string;
+  notes?: string;
+  encounterId?: string;
+  newDate?: Date | string;
+}
+
+export interface RescheduleAppointmentDto {
+  newDate: Date | string;
+  reason?: string;
+}
+
+export interface CancelAppointmentDto {
+  reason: string;
+}
+
+export interface CompleteAppointmentDto {
+  encounterId?: string;
+  notes?: string;
+}
+
+export interface NoShowAppointmentDto {
+  notes?: string;
 }
