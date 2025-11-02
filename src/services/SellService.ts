@@ -25,6 +25,11 @@ export class SellService {
               },
             },
             {
+              patient: {
+                name: { contains: searchq },
+              },
+            },
+            {
               item: {
                 itemFullName: { contains: searchq },
               },
@@ -54,6 +59,13 @@ export class SellService {
             id: true,
             name: true,
             email: true,
+            phone: true,
+          },
+        },
+        patient: {
+          select: {
+            id: true,
+            name: true,
             phone: true,
           },
         },
@@ -167,21 +179,49 @@ export class SellService {
       // Load company to check industry for PHARMACY gating
       const company = await tx.company.findFirst({ where: { id: companyId } });
       const companyIndustry = company?.industry ?? undefined;
-      const client = await tx.client.findFirst({
-        where: { id: data.clientId, companyId },
-      });
-      if (!client) {
-        throw new AppError(
-          "Client not found or doesn't belong to your company",
-          404,
-        );
+      const isPharmacy = (companyIndustry ?? "").toUpperCase() === "PHARMACY";
+
+      // For pharmacy companies, validate patient instead of client
+      if (isPharmacy) {
+        if (!data.patientId) {
+          throw new AppError(
+            "Patient ID is required for pharmacy companies",
+            400,
+          );
+        }
+        const patient = await tx.patient.findFirst({
+          where: { id: data.patientId, companyId },
+        });
+        if (!patient) {
+          throw new AppError(
+            "Patient not found or doesn't belong to your company",
+            404,
+          );
+        }
+      } else {
+        // For non-pharmacy companies, validate client
+        if (!data.clientId) {
+          throw new AppError(
+            "Client ID is required for non-pharmacy companies",
+            400,
+          );
+        }
+        const client = await tx.client.findFirst({
+          where: { id: data.clientId, companyId },
+        });
+        if (!client) {
+          throw new AppError(
+            "Client not found or doesn't belong to your company",
+            404,
+          );
+        }
       }
 
       // Fetch company tools to apply selling percentage markup
       const companyTools = await tx.companyTools.findFirst({
         where: { companyId },
       });
-      const sellingPercentage = Number(companyTools?.sellingPercentage ?? 0);
+      const markupPrice = Number(companyTools?.markupPrice ?? 0);
 
       let totalAmount = 0;
       const sellItems: Array<{
@@ -244,7 +284,7 @@ export class SellService {
         const stockIds = stockToUpdate.map((stock) => stock.id);
 
         const adjustedSellPrice =
-          Number(itemData.sellPrice) * (1 + sellingPercentage / 100);
+          Number(itemData.sellPrice) * (1 + markupPrice / 100);
         const itemTotalAmount = Number(itemData.quantity) * adjustedSellPrice;
         totalAmount += itemTotalAmount;
 
@@ -273,9 +313,10 @@ export class SellService {
         0,
       );
 
-      const isPharmacy = (companyIndustry ?? "").toUpperCase() === "PHARMACY";
+      const isPharmacyIndustry =
+        (companyIndustry ?? "").toUpperCase() === "PHARMACY";
       let applyInsurance = false;
-      if (isPharmacy && data.insuranceCardId && data.patientId) {
+      if (isPharmacyIndustry && data.insuranceCardId && data.patientId) {
         // Validate card ownership and expiry, and same company
         const insuranceCard = await tx.insuranceCard.findFirst({
           where: {
@@ -328,6 +369,12 @@ export class SellService {
           : undefined;
       }
 
+      console.log("Creating sell with data:", {
+        clientId: data.clientId,
+        isPharmacy,
+        patientId: data.patientId,
+      });
+
       // Create the sell record
       const sell = await tx.sell.create({
         data: {
@@ -335,14 +382,18 @@ export class SellService {
           companyId,
           totalAmount,
           // insurance fields snapshot (only persist for PHARMACY)
-          patientId: isPharmacy ? data.patientId : undefined,
-          insuranceCardId: isPharmacy ? data.insuranceCardId : undefined,
-          subtotal: isPharmacy ? subtotal : undefined,
-          insuranceCoveredAmount: isPharmacy
+          patientId: isPharmacyIndustry ? data.patientId : undefined,
+          insuranceCardId: isPharmacyIndustry
+            ? data.insuranceCardId
+            : undefined,
+          subtotal: isPharmacyIndustry ? subtotal : undefined,
+          insuranceCoveredAmount: isPharmacyIndustry
             ? insuranceCoveredAmount
             : undefined,
-          patientPayableAmount: isPharmacy ? patientPayableAmount : undefined,
-          insurancePercentage: isPharmacy
+          patientPayableAmount: isPharmacyIndustry
+            ? patientPayableAmount
+            : undefined,
+          insurancePercentage: isPharmacyIndustry
             ? insurancePercentageSnapshot
             : undefined,
           notes: data.notes,
@@ -360,6 +411,7 @@ export class SellService {
         },
         include: {
           client: { select: { id: true, name: true, email: true } },
+          patient: { select: { id: true, name: true, phone: true } },
         },
       });
 
@@ -370,10 +422,10 @@ export class SellService {
             sellId: sell.id,
             ...sellItemData,
             // only persist per-item insurance split for PHARMACY
-            insuranceCoveredPerUnit: isPharmacy
+            insuranceCoveredPerUnit: isPharmacyIndustry
               ? sellItemData.insuranceCoveredPerUnit
               : undefined,
-            patientPricePerUnit: isPharmacy
+            patientPricePerUnit: isPharmacyIndustry
               ? sellItemData.patientPricePerUnit
               : undefined,
           },
@@ -396,7 +448,7 @@ export class SellService {
         data: {
           clientId: data.clientId,
           companyId,
-          amount: isPharmacy ? patientPayableAmount : totalAmount,
+          amount: isPharmacyIndustry ? patientPayableAmount : totalAmount,
           date: new Date(),
         },
       });
@@ -406,6 +458,7 @@ export class SellService {
         where: { id: sell.id },
         include: {
           client: { select: { id: true, name: true, email: true } },
+          patient: { select: { id: true, name: true, phone: true } },
           sellItems: {
             include: {
               item: {
@@ -491,7 +544,7 @@ export class SellService {
         const companyTools = await tx.companyTools.findFirst({
           where: { companyId },
         });
-        const sellingPercentage = Number(companyTools?.sellingPercentage ?? 0);
+        const markupPrice = Number(companyTools?.markupPrice ?? 0);
 
         let totalAmount = 0;
         const sellItems: Array<{
@@ -554,7 +607,7 @@ export class SellService {
           const stockIds = stockToUpdate.map((stock) => stock.id);
 
           const adjustedSellPrice =
-            Number(itemData.sellPrice) * (1 + sellingPercentage / 100);
+            Number(itemData.sellPrice) * (1 + markupPrice / 100);
           const itemTotalAmount = Number(itemData.quantity) * adjustedSellPrice;
           totalAmount += itemTotalAmount;
 

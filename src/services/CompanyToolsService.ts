@@ -6,7 +6,8 @@ import { SellThroughRateService } from "./SellThroughRateService";
 type CompanyToolsRow = {
   id: string;
   companyId: string;
-  sellingPercentage: number | null;
+  markupPrice: number | null;
+  taxRate: number | null;
   companySignature: string | null;
   companyStamp: string | null;
   bankAccounts: unknown;
@@ -32,12 +33,13 @@ export class CompanyToolsService {
   }
   public static async createCompanyTools(
     data: {
-      sellingPercentage?: number;
+      markupPrice?: number;
+      taxRate?: number;
       companySignature?: string;
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
     },
-    companyId: string
+    companyId: string,
   ) {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -51,13 +53,14 @@ export class CompanyToolsService {
     if (existing) {
       throw new AppError(
         "Company tools already exist. Please update instead.",
-        400
+        400,
       );
     }
 
     const created = await prisma.companyTools.create({
       data: {
-        sellingPercentage: data.sellingPercentage || 0,
+        markupPrice: data.markupPrice || 0,
+        taxRate: data.taxRate || 0,
         companySignature: data.companySignature,
         companyStamp: data.companyStamp,
         ...(Array.isArray(data.bankAccounts)
@@ -116,12 +119,13 @@ export class CompanyToolsService {
   public static async updateCompanyTools(
     id: string,
     data: {
-      sellingPercentage?: number;
+      markupPrice?: number;
+      taxRate?: number;
       companySignature?: string;
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
     },
-    companyId: string
+    companyId: string,
   ) {
     const existing = await prisma.companyTools.findUnique({ where: { id } });
     if (!existing) throw new AppError("Company tools not found", 404);
@@ -131,8 +135,12 @@ export class CompanyToolsService {
 
     const updateData: Record<string, unknown> = {};
 
-    if (typeof data.sellingPercentage !== "undefined") {
-      updateData.sellingPercentage = data.sellingPercentage;
+    if (typeof data.markupPrice !== "undefined") {
+      updateData.markupPrice = data.markupPrice;
+    }
+
+    if (typeof data.taxRate !== "undefined") {
+      updateData.taxRate = data.taxRate;
     }
 
     if (data.companySignature) {
@@ -192,7 +200,7 @@ export class CompanyToolsService {
   public static async getCompanyToolsList(
     req: Request,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);

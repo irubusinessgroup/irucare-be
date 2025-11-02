@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invoice {{invoiceNumber}}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .invoice-container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #eee;
+      }
+      .company-info h1 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 24px;
+      }
+      .company-info p {
+        margin: 5px 0;
+        color: #666;
+      }
+      .logo {
+        max-width: 100px;
+        max-height: 100px;
+      }
+      .invoice-details {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+      }
+      .invoice-info,
+      .client-info {
+        flex: 1;
+      }
+      .invoice-info h3,
+      .client-info h3 {
+        margin-top: 0;
+        color: #2c3e50;
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 5px;
+      }
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+      .items-table th,
+      .items-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      .items-table th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        color: #2c3e50;
+      }
+      .items-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+      }
+      .totals {
+        margin-left: auto;
+        width: 300px;
+      }
+      .totals table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .totals td {
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+      }
+      .totals .total-row {
+        font-weight: bold;
+        font-size: 18px;
+        background-color: #2c3e50;
+        color: white;
+      }
+      .notes {
+        margin-top: 30px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #3498db;
+      }
+      .notes h4 {
+        margin-top: 0;
+        color: #2c3e50;
+      }
+      .footer {
+        margin-top: 30px;
+        text-align: center;
+        color: #666;
+        font-size: 14px;
+        border-top: 1px solid #eee;
+        padding-top: 20px;
+      }
+      @media (max-width: 600px) {
+        .header,
+        .invoice-details {
+          flex-direction: column;
+        }
+        .totals {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="invoice-container">
+      <div class="header">
+        <div class="company-info">
+          <h1>{{companyName}}</h1>
+          <p>{{companyEmail}}</p>
+          <p>{{companyPhone}}</p>
+        </div>
+        <img src="{{companyLogo}}" alt="Company Logo" class="logo" />
+      </div>
+
+      <div class="invoice-details">
+        <div class="invoice-info">
+          <h3>Invoice Details</h3>
+          <p><strong>Invoice Number:</strong> {{invoiceNumber}}</p>
+          <p><strong>Invoice Date:</strong> {{invoiceDate}}</p>
+          <p><strong>Due Date:</strong> {{dueDate}}</p>
+          <p><strong>Currency:</strong> {{currency}}</p>
+        </div>
+        <div class="client-info">
+          <h3>Bill To</h3>
+          <p><strong>{{clientName}}</strong></p>
+          <p>{{clientEmail}}</p>
+          <p>{{clientPhone}}</p>
+          <p>{{clientAddress}}</p>
+        </div>
+      </div>
+
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{items}}
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <table>
+          <tr>
+            <td>Subtotal:</td>
+            <td>{{currency}} {{subtotal}}</td>
+          </tr>
+          <tr>
+            <td>VAT ({{vatRate}}%):</td>
+            <td>{{currency}} {{vat}}</td>
+          </tr>
+          <tr class="total-row">
+            <td>Grand Total:</td>
+            <td>{{currency}} {{grandTotal}}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="notes">
+        <h4>Notes</h4>
+        <p>{{notes}}</p>
+      </div>
+
+      <div class="footer">
+        <p>Thank you for your business!</p>
+        <p>This invoice was generated automatically by {{companyName}}</p>
+      </div>
+    </div>
+  </body>
+</html>

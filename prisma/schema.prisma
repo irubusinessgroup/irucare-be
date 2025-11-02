@@ -19,7 +19,7 @@ model User {
   otp                String?
   otpExpiresAt       DateTime? 
   photo              String         @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
-  userRoles          UserRole[]
+  userRoles          UserRole[]  
   likes              Likes[]  
   testimonials       Testimony[]
   agents              Agents[]
@@ -29,6 +29,13 @@ model User {
   purchaseOrders     PurchaseOrder[]
   createdDeliveries   Delivery[]
   deliveryTracking    DeliveryTracking[]
+  // Appointment relations
+  providerAppointments Appointment[] @relation("AppointmentProvider")
+  createdAppointments  Appointment[] @relation("AppointmentCreatedBy")
+  appointmentTimeSlots AppointmentTimeSlot[] @relation("TimeSlotProvider")
+  providerAvailability ProviderAvailability[] @relation("ProviderAvailability")
+  appointmentNotifications AppointmentNotification[]
+  resetToken ResetToken?
 
 }
 
@@ -103,7 +110,8 @@ model Items {
   purchaseOrderItems PurchaseOrderItem[]
   sells             Sell[]  
   sellItems         SellItem[]
-  deliveries        DeliveryItem[] 
+  deliveries        DeliveryItem[]
+  directInvoiceItems DirectInvoiceItem[]
 }
 
 model StockReceipts {
@@ -151,6 +159,8 @@ status             String          @default("PENDING")
 companyId       String?
 sellId            String?
 sell              Sell?      @relation(fields: [sellId], references: [id])
+directInvoiceId   String?
+directInvoice      DirectInvoice? @relation(fields: [directInvoiceId], references: [id])
 deliveryItemId     String?       
 deliveryItem       DeliveryItem?  @relation(fields: [deliveryItemId], references: [id])
 }
@@ -260,13 +270,14 @@ model Client {
     sells             Sell[]
     purchaseOrders     PurchaseOrder[]
     transactions       Transaction[]
+    directInvoices     DirectInvoice[]
 }
 
 model Sell {
     id                 String         @id @default(uuid())
-    clientId           String
+    clientId           String?
     companyId          String
-    client             Client         @relation(fields: [clientId], references: [id])
+    client             Client?         @relation(fields: [clientId], references: [id])
     totalAmount        Decimal         @db.Decimal(18, 2)
     notes              String?
     createdAt         DateTime      @default(now())
@@ -311,12 +322,12 @@ model SellItem {
 
 model Transaction {
   id         String   @id @default(uuid())
-  clientId   String
+  clientId   String?
   companyId  String
   amount     Decimal  @db.Decimal(18, 2)
   date       DateTime
 
-  client     Client   @relation(fields: [clientId], references: [id])
+  client     Client?   @relation(fields: [clientId], references: [id])
   company    Company  @relation(fields: [companyId], references: [id])
 
   createdAt  DateTime @default(now())
@@ -656,6 +667,12 @@ model Company {
   warehouse          Warehouse[]
   transactions       Transaction[]
   subscription        Subscription[]
+  directInvoices      DirectInvoice[]
+  invoiceSequences    InvoiceSequence[]
+  // Appointment relations
+  appointments        Appointment[]
+  appointmentTimeSlots AppointmentTimeSlot[]
+  providerAvailability ProviderAvailability[]
 }
 
 model CompanyUser {
@@ -687,6 +704,7 @@ model Patient {
   address            PatientAddress[]
   insuranceCards     InsuranceCard[]
   sells              Sell[]
+  appointments       Appointment[]
 }
 
 model PatientAddress {
@@ -743,7 +761,8 @@ model Insurance {
 model  CompanyTools {
   id                  String         @id @default(uuid())
   companyId           String
-  sellingPercentage   Int?
+  markupPrice   Int?
+  taxRate             Float? 
   companySignature    String?
   companyStamp        String?
   bankAccounts        Json?
@@ -1057,4 +1076,211 @@ enum DemoStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+}
+
+enum DirectInvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model DirectInvoice {
+  id             String               @id @default(uuid())
+  invoiceNumber    String               @unique
+  clientId       String
+  companyId      String
+  subtotal       Decimal             @db.Decimal(15, 2) @default(0)
+  vat            Decimal             @db.Decimal(15, 2) @default(0)
+  vatRate        Decimal             @db.Decimal(5, 2) @default(0)
+  grandTotal     Decimal             @db.Decimal(15, 2) @default(0)
+  currency       String              @default("RWF")
+  invoiceDate    DateTime            @default(now())
+  dueDate        DateTime
+  status         DirectInvoiceStatus @default(DRAFT)
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  client         Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items          DirectInvoiceItem[]
+  stocks         Stock[]
+
+  @@index([invoiceNumber])
+  @@index([clientId])
+  @@index([companyId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@index([dueDate])
+}
+
+model DirectInvoiceItem {
+  id           String         @id @default(uuid())
+  invoiceId    String
+  itemId       String
+  quantity     Decimal        @db.Decimal(10, 3)
+  unitPrice    Decimal        @db.Decimal(15, 2)
+  totalPrice   Decimal        @db.Decimal(15, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  invoice      DirectInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item         Items          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([itemId])
+}
+
+model InvoiceSequence {
+  id             String   @id @default(uuid())
+  companyId      String
+  prefix         String   @default("INV")
+  currentNumber  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, prefix])
+}
+
+// Appointment System Models
+enum AppointmentType {
+  CONSULTATION
+  FOLLOW_UP
+  ROUTINE_CHECKUP
+  SPECIALIST
+  EMERGENCY
+  PROCEDURE
+  VACCINATION
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum AppointmentNotificationType {
+  APPOINTMENT_SCHEDULED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_RESCHEDULED
+  APPOINTMENT_REMINDER
+  APPOINTMENT_COMPLETED
+}
+
+model Appointment {
+  id                    String            @id @default(uuid())
+  patientId             String
+  providerId            String
+  companyId             String
+  appointmentType       AppointmentType
+  status                AppointmentStatus @default(SCHEDULED)
+  scheduledDate         DateTime
+  duration              Int               // minutes
+  reason                String
+  notes                 String?
+  room                  String?
+  createdBy             String
+  confirmedAt           DateTime?
+  cancelledAt           DateTime?
+  cancellationReason    String?
+  noShowAt              DateTime?
+  completedAt           DateTime?
+  encounterId           String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  // Relations
+  patient               Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider              User              @relation("AppointmentProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company               Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser         User              @relation("AppointmentCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  notifications         AppointmentNotification[]
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([createdBy])
+  @@index([companyId])
+}
+
+model AppointmentTimeSlot {
+  id            String   @id @default(uuid())
+  providerId    String
+  companyId     String
+  date          DateTime @db.Date
+  startTime     DateTime @db.Time
+  endTime       DateTime @db.Time
+  duration      Int      // minutes
+  isAvailable   Boolean  @default(true)
+  isBlocked     Boolean  @default(false)
+  blockReason   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  provider      User     @relation("TimeSlotProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, date, startTime, duration])
+  @@index([providerId, date])
+  @@index([isAvailable, isBlocked])
+}
+
+model ProviderAvailability {
+  id            String   @id @default(uuid())
+  providerId    String
+  companyId     String
+  dayOfWeek     Int      // 0=Sunday, 1=Monday, etc.
+  startTime     DateTime @db.Time
+  endTime       DateTime @db.Time
+  isAvailable   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  provider      User     @relation("ProviderAvailability", fields: [providerId], references: [id], onDelete: Cascade)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, dayOfWeek])
+  @@index([providerId])
+}
+
+model AppointmentNotification {
+  id                String                     @id @default(uuid())
+  appointmentId     String
+  userId            String
+  notificationType  AppointmentNotificationType
+  message           String
+  sentAt            DateTime?
+  createdAt         DateTime                   @default(now())
+
+  // Relations
+  appointment       Appointment                @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@index([userId])
+}
+
+model ResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
 }
