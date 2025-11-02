@@ -179,14 +179,79 @@ export class DirectInvoiceService {
       );
     }
 
+    // Fetch company tools to apply markup pricing
+    const companyTools = await prisma.companyTools.findFirst({
+      where: { companyId },
+    });
+    const markupPrice = Number(companyTools?.markupPrice ?? 0);
+
     // Generate invoice number
     const invoiceNumber = await this.generateInvoiceNumber(companyId);
 
-    // Calculate totals
-    const subtotal = data.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0,
-    );
+    // Check stock availability and reserve stock
+    const stockReservations: Array<{
+      stockIds: string[];
+      itemName: string;
+      adjustedPrice: number;
+    }> = [];
+
+    let subtotal = 0;
+
+    for (const itemData of data.items) {
+      const item = items.find((i) => i.id === itemData.itemId);
+      if (!item) continue;
+
+      // Apply markup to unit price
+      const adjustedPrice =
+        Number(itemData.unitPrice) * (1 + markupPrice / 100);
+      const itemTotal = Number(itemData.quantity) * adjustedPrice;
+      subtotal += itemTotal;
+
+      // Check stock availability
+      const availableStock = await prisma.stock.findMany({
+        where: {
+          stockReceipt: { itemId: itemData.itemId, companyId },
+          status: "AVAILABLE",
+        },
+        include: {
+          stockReceipt: {
+            select: {
+              id: true,
+              expiryDate: true,
+              dateReceived: true,
+            },
+          },
+        },
+        orderBy: [
+          { stockReceipt: { expiryDate: "asc" } },
+          { stockReceipt: { dateReceived: "asc" } },
+        ],
+      });
+
+      if (availableStock.length < itemData.quantity) {
+        throw new AppError(
+          `Insufficient stock for item ${item.itemFullName}. Available: ${availableStock.length}, Requested: ${itemData.quantity}`,
+          400,
+        );
+      }
+
+      if (availableStock.length === 0) {
+        throw new AppError(
+          `No available stock for item ${item.itemFullName}`,
+          400,
+        );
+      }
+
+      const stockToReserve = availableStock.slice(0, itemData.quantity);
+      const stockIds = stockToReserve.map((stock) => stock.id);
+
+      stockReservations.push({
+        stockIds,
+        itemName: item.itemFullName,
+        adjustedPrice,
+      });
+    }
+
     const vatRate = data.vatRate || 0;
     const vat = (subtotal * vatRate) / 100;
     const grandTotal = subtotal + vat;
@@ -208,21 +273,32 @@ export class DirectInvoiceService {
         },
       });
 
-      // Create invoice items
+      // Create invoice items with adjusted prices
       const invoiceItems = await Promise.all(
-        data.items.map((item) =>
-          tx.directInvoiceItem.create({
+        data.items.map((item, index) => {
+          const reservation = stockReservations[index];
+          return tx.directInvoiceItem.create({
             data: {
               invoiceId: newInvoice.id,
               itemId: item.itemId,
               quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              totalPrice: item.quantity * item.unitPrice,
-              description: item.description,
+              unitPrice: reservation.adjustedPrice,
+              totalPrice: item.quantity * reservation.adjustedPrice,
             },
-          }),
-        ),
+          });
+        }),
       );
+
+      // Reserve stock
+      for (const reservation of stockReservations) {
+        await tx.stock.updateMany({
+          where: { id: { in: reservation.stockIds } },
+          data: {
+            status: "RESERVED",
+            directInvoiceId: newInvoice.id,
+          },
+        });
+      }
 
       return { ...newInvoice, items: invoiceItems };
     });
@@ -274,10 +350,76 @@ export class DirectInvoiceService {
         );
       }
 
-      const subtotal = data.items.reduce(
-        (sum, item) => sum + item.quantity * item.unitPrice,
-        0,
-      );
+      // Fetch company tools to apply markup pricing
+      const companyTools = await prisma.companyTools.findFirst({
+        where: { companyId },
+      });
+      const markupPrice = Number(companyTools?.markupPrice ?? 0);
+
+      // Check stock availability and reserve stock
+      const stockReservations: Array<{
+        stockIds: string[];
+        itemName: string;
+        adjustedPrice: number;
+      }> = [];
+
+      let subtotal = 0;
+
+      for (const itemData of data.items) {
+        const item = items.find((i) => i.id === itemData.itemId);
+        if (!item) continue;
+
+        // Apply markup to unit price
+        const adjustedPrice =
+          Number(itemData.unitPrice) * (1 + markupPrice / 100);
+        const itemTotal = Number(itemData.quantity) * adjustedPrice;
+        subtotal += itemTotal;
+
+        // Check stock availability
+        const availableStock = await prisma.stock.findMany({
+          where: {
+            stockReceipt: { itemId: itemData.itemId, companyId },
+            status: "AVAILABLE",
+          },
+          include: {
+            stockReceipt: {
+              select: {
+                id: true,
+                expiryDate: true,
+                dateReceived: true,
+              },
+            },
+          },
+          orderBy: [
+            { stockReceipt: { expiryDate: "asc" } },
+            { stockReceipt: { dateReceived: "asc" } },
+          ],
+        });
+
+        if (availableStock.length < itemData.quantity) {
+          throw new AppError(
+            `Insufficient stock for item ${item.itemFullName}. Available: ${availableStock.length}, Requested: ${itemData.quantity}`,
+            400,
+          );
+        }
+
+        if (availableStock.length === 0) {
+          throw new AppError(
+            `No available stock for item ${item.itemFullName}`,
+            400,
+          );
+        }
+
+        const stockToReserve = availableStock.slice(0, itemData.quantity);
+        const stockIds = stockToReserve.map((stock) => stock.id);
+
+        stockReservations.push({
+          stockIds,
+          itemName: item.itemFullName,
+          adjustedPrice,
+        });
+      }
+
       const vatRate = data.vatRate ?? Number(existingInvoice.vatRate);
       const vat = (subtotal * vatRate) / 100;
       const grandTotal = subtotal + vat;
@@ -289,45 +431,67 @@ export class DirectInvoiceService {
         vatRate,
         grandTotal,
       };
-    }
 
-    // Update other fields
-    if (data.clientId) updateData.clientId = data.clientId;
-    if (data.dueDate) updateData.dueDate = data.dueDate;
-    if (data.notes !== undefined) updateData.notes = data.notes;
-    if (data.status) updateData.status = data.status;
+      await prisma.$transaction(async (tx) => {
+        // Release previously reserved stock
+        await tx.stock.updateMany({
+          where: { directInvoiceId: id },
+          data: {
+            status: "AVAILABLE",
+            directInvoiceId: null,
+          },
+        });
 
-    await prisma.$transaction(async (tx) => {
-      // Update invoice
-      await tx.directInvoice.update({
-        where: { id },
-        data: updateData,
-      });
+        // Update invoice
+        await tx.directInvoice.update({
+          where: { id },
+          data: updateData,
+        });
 
-      // Update items if provided
-      if (data.items) {
         // Delete existing items
         await tx.directInvoiceItem.deleteMany({
           where: { invoiceId: id },
         });
 
-        // Create new items
+        // Create new items with adjusted prices
         await Promise.all(
-          data.items.map((item) =>
-            tx.directInvoiceItem.create({
+          data.items!.map((item, index) => {
+            const reservation = stockReservations[index];
+            return tx.directInvoiceItem.create({
               data: {
                 invoiceId: id,
                 itemId: item.itemId,
                 quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                totalPrice: item.quantity * item.unitPrice,
-                description: item.description,
+                unitPrice: reservation.adjustedPrice,
+                totalPrice: item.quantity * reservation.adjustedPrice,
               },
-            }),
-          ),
+            });
+          }),
         );
-      }
-    });
+
+        // Reserve new stock
+        for (const reservation of stockReservations) {
+          await tx.stock.updateMany({
+            where: { id: { in: reservation.stockIds } },
+            data: {
+              status: "RESERVED",
+              directInvoiceId: id,
+            },
+          });
+        }
+      });
+    } else {
+      // Update other fields only
+      if (data.clientId) updateData.clientId = data.clientId;
+      if (data.dueDate) updateData.dueDate = data.dueDate;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.status) updateData.status = data.status;
+
+      await prisma.directInvoice.update({
+        where: { id },
+        data: updateData,
+      });
+    }
 
     // Fetch complete invoice with relations
     const completeInvoice = await this.getDirectInvoiceById(id, companyId);
@@ -355,8 +519,20 @@ export class DirectInvoiceService {
       throw new AppError("Only draft invoices can be deleted", 400);
     }
 
-    await prisma.directInvoice.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      // Release all reserved stock
+      await tx.stock.updateMany({
+        where: { directInvoiceId: id },
+        data: {
+          status: "AVAILABLE",
+          directInvoiceId: null,
+        },
+      });
+
+      // Delete the invoice (cascade will handle items)
+      await tx.directInvoice.delete({
+        where: { id },
+      });
     });
 
     return {
@@ -386,6 +562,9 @@ export class DirectInvoiceService {
       data: { status: "SENT" },
     });
 
+    // Send email notification
+    await this.sendInvoiceEmail(id, companyId);
+
     return {
       statusCode: 200,
       message: "Direct invoice sent successfully",
@@ -413,6 +592,9 @@ export class DirectInvoiceService {
       data: { status: "PAID" },
     });
 
+    // Convert invoice to sale and create transaction
+    await this.convertInvoiceToSale(id, companyId);
+
     return {
       statusCode: 200,
       message: "Direct invoice marked as paid",
@@ -435,9 +617,21 @@ export class DirectInvoiceService {
       throw new AppError("Paid invoices cannot be cancelled", 400);
     }
 
-    await prisma.directInvoice.update({
-      where: { id },
-      data: { status: "CANCELLED" },
+    await prisma.$transaction(async (tx) => {
+      // Release all reserved stock
+      await tx.stock.updateMany({
+        where: { directInvoiceId: id },
+        data: {
+          status: "AVAILABLE",
+          directInvoiceId: null,
+        },
+      });
+
+      // Update invoice status
+      await tx.directInvoice.update({
+        where: { id },
+        data: { status: "CANCELLED" },
+      });
     });
 
     return {
@@ -454,5 +648,176 @@ export class DirectInvoiceService {
     });
 
     return `${sequence.prefix}-${String(sequence.currentNumber).padStart(6, "0")}`;
+  }
+
+  private static async convertInvoiceToSale(
+    invoiceId: string,
+    companyId: string,
+  ): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      // Get invoice with items
+      const invoice = await tx.directInvoice.findFirst({
+        where: { id: invoiceId, companyId },
+        include: {
+          items: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  itemCodeSku: true,
+                  itemFullName: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invoice) {
+        throw new AppError("Invoice not found", 404);
+      }
+
+      // Create Sell record
+      const sell = await tx.sell.create({
+        data: {
+          clientId: invoice.clientId,
+          companyId: invoice.companyId,
+          totalAmount: invoice.grandTotal,
+          notes: invoice.notes,
+        },
+      });
+
+      // Create SellItem records
+      for (const invoiceItem of invoice.items) {
+        await tx.sellItem.create({
+          data: {
+            sellId: sell.id,
+            itemId: invoiceItem.itemId,
+            quantity: invoiceItem.quantity,
+            sellPrice: invoiceItem.unitPrice,
+            totalAmount: invoiceItem.totalPrice,
+          },
+        });
+      }
+
+      // Update stock status: RESERVED → SOLD
+      await tx.stock.updateMany({
+        where: { directInvoiceId: invoiceId },
+        data: {
+          status: "SOLD",
+          sellId: sell.id,
+          directInvoiceId: null,
+        },
+      });
+
+      // Create Transaction record
+      await tx.transaction.create({
+        data: {
+          clientId: invoice.clientId,
+          companyId: invoice.companyId,
+          amount: invoice.grandTotal,
+          date: new Date(),
+        },
+      });
+    });
+  }
+
+  private static async sendInvoiceEmail(
+    invoiceId: string,
+    companyId: string,
+  ): Promise<void> {
+    try {
+      // Get complete invoice with client and company details
+      const invoice = await prisma.directInvoice.findFirst({
+        where: { id: invoiceId, companyId },
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              address: true,
+            },
+          },
+          company: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phoneNumber: true,
+              logo: true,
+            },
+          },
+          items: {
+            include: {
+              item: {
+                select: {
+                  id: true,
+                  itemCodeSku: true,
+                  itemFullName: true,
+                  description: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invoice) {
+        throw new AppError("Invoice not found", 404);
+      }
+
+      // Import email utilities
+      const { sendEmail, renderTemplate } = await import("../utils/email");
+
+      // Render email template
+      const itemsHtml = invoice.items
+        .map(
+          (item) => `
+        <tr>
+          <td>
+            <strong>${item.item.itemFullName}</strong>
+            ${item.item.description ? `<br><small>${item.item.description}</small>` : ""}
+          </td>
+          <td>${item.quantity}</td>
+          <td>${invoice.currency} ${item.unitPrice.toFixed(2)}</td>
+          <td>${invoice.currency} ${item.totalPrice.toFixed(2)}</td>
+        </tr>
+      `,
+        )
+        .join("");
+
+      const html = renderTemplate("direct-invoice.html", {
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate.toLocaleDateString(),
+        dueDate: invoice.dueDate.toLocaleDateString(),
+        clientName: invoice.client.name,
+        clientEmail: invoice.client.email,
+        clientPhone: invoice.client.phone,
+        clientAddress: invoice.client.address,
+        companyName: invoice.company.name,
+        companyEmail: invoice.company.email,
+        companyPhone: invoice.company.phoneNumber,
+        companyLogo: invoice.company.logo || "",
+        subtotal: invoice.subtotal.toFixed(2),
+        vat: invoice.vat.toFixed(2),
+        vatRate: invoice.vatRate.toFixed(2),
+        grandTotal: invoice.grandTotal.toFixed(2),
+        currency: invoice.currency,
+        notes: invoice.notes || "",
+        items: itemsHtml,
+      });
+
+      // Send email
+      await sendEmail({
+        to: invoice.client.email,
+        subject: `Invoice ${invoice.invoiceNumber} from ${invoice.company.name}`,
+        html,
+      });
+    } catch (error) {
+      // Log error but don't fail the operation
+      console.error("Failed to send invoice email:", error);
+    }
   }
 }

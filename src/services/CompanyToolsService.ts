@@ -6,7 +6,8 @@ import { SellThroughRateService } from "./SellThroughRateService";
 type CompanyToolsRow = {
   id: string;
   companyId: string;
-  sellingPercentage: number | null;
+  markupPrice: number | null;
+  taxRate: number | null;
   companySignature: string | null;
   companyStamp: string | null;
   bankAccounts: unknown;
@@ -32,7 +33,8 @@ export class CompanyToolsService {
   }
   public static async createCompanyTools(
     data: {
-      sellingPercentage?: number;
+      markupPrice?: number;
+      taxRate?: number;
       companySignature?: string;
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
@@ -57,7 +59,8 @@ export class CompanyToolsService {
 
     const created = await prisma.companyTools.create({
       data: {
-        sellingPercentage: data.sellingPercentage || 0,
+        markupPrice: data.markupPrice || 0,
+        taxRate: data.taxRate || 0,
         companySignature: data.companySignature,
         companyStamp: data.companyStamp,
         ...(Array.isArray(data.bankAccounts)
@@ -116,7 +119,8 @@ export class CompanyToolsService {
   public static async updateCompanyTools(
     id: string,
     data: {
-      sellingPercentage?: number;
+      markupPrice?: number;
+      taxRate?: number;
       companySignature?: string;
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
@@ -131,8 +135,12 @@ export class CompanyToolsService {
 
     const updateData: Record<string, unknown> = {};
 
-    if (typeof data.sellingPercentage !== "undefined") {
-      updateData.sellingPercentage = data.sellingPercentage;
+    if (typeof data.markupPrice !== "undefined") {
+      updateData.markupPrice = data.markupPrice;
+    }
+
+    if (typeof data.taxRate !== "undefined") {
+      updateData.taxRate = data.taxRate;
     }
 
     if (data.companySignature) {

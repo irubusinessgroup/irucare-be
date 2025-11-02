@@ -49,7 +49,7 @@ export class AppointmentController {
     @Query() appointmentType?: AppointmentType,
     @Query() status?: AppointmentStatus,
     @Query() startDate?: string,
-    @Query() endDate?: string
+    @Query() endDate?: string,
   ): Promise<IPaged<TAppointment[]>> {
     const companyId = request.user?.company?.companyId;
     if (!companyId) {
@@ -75,7 +75,7 @@ export class AppointmentController {
   @Get("/{id}")
   public async getAppointmentById(
     @Path() id: string,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.getAppointmentById(id, request);
   }
@@ -83,7 +83,7 @@ export class AppointmentController {
   @Post("/")
   public async createAppointment(
     @Body() appointmentData: CreateAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.createAppointment(appointmentData, request);
   }
@@ -92,7 +92,7 @@ export class AppointmentController {
   public async updateAppointment(
     @Path() id: string,
     @Body() appointmentData: UpdateAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.updateAppointment(id, appointmentData, request);
   }
@@ -100,7 +100,7 @@ export class AppointmentController {
   @Delete("/{id}")
   public async deleteAppointment(
     @Path() id: string,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<null>> {
     return AppointmentService.deleteAppointment(id, request);
   }
@@ -108,7 +108,7 @@ export class AppointmentController {
   @Put("/{id}/confirm")
   public async confirmAppointment(
     @Path() id: string,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.confirmAppointment(id, request);
   }
@@ -117,7 +117,7 @@ export class AppointmentController {
   public async cancelAppointment(
     @Path() id: string,
     @Body() cancelData: CancelAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.cancelAppointment(id, cancelData, request);
   }
@@ -126,12 +126,12 @@ export class AppointmentController {
   public async rescheduleAppointment(
     @Path() id: string,
     @Body() rescheduleData: RescheduleAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.rescheduleAppointment(
       id,
       rescheduleData,
-      request
+      request,
     );
   }
 
@@ -139,7 +139,7 @@ export class AppointmentController {
   public async completeAppointment(
     @Path() id: string,
     @Body() completeData: CompleteAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.completeAppointment(id, completeData, request);
   }
@@ -148,7 +148,7 @@ export class AppointmentController {
   public async markNoShow(
     @Path() id: string,
     @Body() noShowData: NoShowAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ): Promise<IResponse<TAppointment>> {
     return AppointmentService.markNoShow(id, noShowData, request);
   }
@@ -158,20 +158,20 @@ export class AppointmentController {
     @Request() request: Req,
     @Query() providerId: string,
     @Query() date: string,
-    @Query() duration?: number
+    @Query() duration?: number,
   ): Promise<IResponse<AvailableTimeSlot[]>> {
     return AppointmentService.getAvailableTimeSlots(
       providerId,
       date,
       duration || 30,
-      request
+      request,
     );
   }
 
   @Get("/today")
   public async getTodayAppointments(
     @Request() request: Req,
-    @Query() providerId?: string
+    @Query() providerId?: string,
   ): Promise<IResponse<TAppointment[]>> {
     return AppointmentService.getTodayAppointments(request, providerId);
   }
@@ -179,7 +179,7 @@ export class AppointmentController {
   @Get("/upcoming")
   public async getUpcomingAppointments(
     @Request() request: Req,
-    @Query() days?: number
+    @Query() days?: number,
   ): Promise<IResponse<TAppointment[]>> {
     return AppointmentService.getUpcomingAppointments(request, days || 7);
   }
@@ -190,14 +190,14 @@ export class AppointmentController {
     @Query() startDate?: string,
     @Query() endDate?: string,
     @Query() providerId?: string,
-    @Query() appointmentType?: AppointmentType
+    @Query() appointmentType?: AppointmentType,
   ): Promise<IResponse<AppointmentStatistics>> {
     return AppointmentService.getAppointmentStatistics(
       request,
       startDate,
       endDate,
       providerId,
-      appointmentType
+      appointmentType,
     );
   }
 
@@ -206,7 +206,7 @@ export class AppointmentController {
     @Path() patientId: string,
     @Request() request: Req,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<IPaged<TAppointment[]>> {
     const companyId = request.user?.company?.companyId;
     if (!companyId) {
@@ -228,7 +228,7 @@ export class AppointmentController {
     @Path() providerId: string,
     @Request() request: Req,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<IPaged<TAppointment[]>> {
     const companyId = request.user?.company?.companyId;
     if (!companyId) {

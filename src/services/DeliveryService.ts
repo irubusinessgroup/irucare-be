@@ -1516,26 +1516,90 @@ export class DeliveryService {
             }
           }
 
-          // Mark exactly the received quantity as DELIVERED and release any surplus
+          // Delete supplier stock records for delivered items and release any surplus
           {
+            // Find supplier stocks linked to this delivery item
+            // Filter by stockReceipt companyId to ensure we only get supplier stocks
             const supplierRemaining = await tx.stock.findMany({
               where: {
                 deliveryItemId: deliveryItem.id,
                 status: { in: ["RESERVED", "IN_TRANSIT"] },
+                stockReceipt: {
+                  companyId: delivery.supplierCompanyId, // Only supplier's stocks
+                },
               },
-              select: { id: true },
+              select: {
+                id: true,
+                stockReceiptId: true,
+              },
             });
 
-            const toDeliverIds = supplierRemaining
+            const toDeleteIds = supplierRemaining
               .slice(0, quantityReceived)
               .map((s) => s.id);
-            if (toDeliverIds.length > 0) {
-              await tx.stock.updateMany({
-                where: { id: { in: toDeliverIds } },
-                data: { status: "DELIVERED" },
+
+            // Group stocks by stockReceiptId to update receipts
+            const stockReceiptCounts = new Map<string, number>();
+            supplierRemaining.slice(0, quantityReceived).forEach((stock) => {
+              const count = stockReceiptCounts.get(stock.stockReceiptId) || 0;
+              stockReceiptCounts.set(stock.stockReceiptId, count + 1);
+            });
+
+            // Get stock receipt details for cost calculation
+            // Only update stockReceipts that belong to the supplier company
+            if (stockReceiptCounts.size > 0) {
+              const stockReceiptIds = Array.from(stockReceiptCounts.keys());
+              const stockReceipts = await tx.stockReceipts.findMany({
+                where: {
+                  id: { in: stockReceiptIds },
+                  companyId: delivery.supplierCompanyId, // Ensure we only update supplier's receipts
+                },
+                select: {
+                  id: true,
+                  unitCost: true,
+                  quantityReceived: true,
+                  totalCost: true,
+                  companyId: true, // Add for verification
+                },
+              });
+
+              // Update each stock receipt
+              for (const receipt of stockReceipts) {
+                const stocksToDelete = stockReceiptCounts.get(receipt.id) || 0;
+                if (stocksToDelete > 0) {
+                  const unitCost = Number(receipt.unitCost);
+                  const costToDeduct = unitCost * stocksToDelete;
+                  const newQuantityReceived =
+                    Number(receipt.quantityReceived) - stocksToDelete;
+                  const newTotalCost = Number(receipt.totalCost) - costToDeduct;
+
+                  // Validate to prevent negative values
+                  if (newQuantityReceived < 0) {
+                    throw new AppError(
+                      `Cannot delete ${stocksToDelete} stocks. Only ${receipt.quantityReceived} available in stock receipt ${receipt.id}`,
+                      400,
+                    );
+                  }
+
+                  await tx.stockReceipts.update({
+                    where: { id: receipt.id },
+                    data: {
+                      quantityReceived: Math.max(0, newQuantityReceived),
+                      totalCost: Math.max(0, newTotalCost),
+                    },
+                  });
+                }
+              }
+            }
+
+            // Delete the supplier stock records
+            if (toDeleteIds.length > 0) {
+              await tx.stock.deleteMany({
+                where: { id: { in: toDeleteIds } },
               });
             }
 
+            // Release any surplus stock back to available
             const releaseIds = supplierRemaining
               .slice(quantityReceived)
               .map((s) => s.id);

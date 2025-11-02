@@ -35,6 +35,7 @@ model User {
   appointmentTimeSlots AppointmentTimeSlot[] @relation("TimeSlotProvider")
   providerAvailability ProviderAvailability[] @relation("ProviderAvailability")
   appointmentNotifications AppointmentNotification[]
+  resetToken ResetToken?
 
 }
 
@@ -158,6 +159,8 @@ status             String          @default("PENDING")
 companyId       String?
 sellId            String?
 sell              Sell?      @relation(fields: [sellId], references: [id])
+directInvoiceId   String?
+directInvoice      DirectInvoice? @relation(fields: [directInvoiceId], references: [id])
 deliveryItemId     String?       
 deliveryItem       DeliveryItem?  @relation(fields: [deliveryItemId], references: [id])
 }
@@ -272,9 +275,9 @@ model Client {
 
 model Sell {
     id                 String         @id @default(uuid())
-    clientId           String
+    clientId           String?
     companyId          String
-    client             Client         @relation(fields: [clientId], references: [id])
+    client             Client?         @relation(fields: [clientId], references: [id])
     totalAmount        Decimal         @db.Decimal(18, 2)
     notes              String?
     createdAt         DateTime      @default(now())
@@ -319,12 +322,12 @@ model SellItem {
 
 model Transaction {
   id         String   @id @default(uuid())
-  clientId   String
+  clientId   String?
   companyId  String
   amount     Decimal  @db.Decimal(18, 2)
   date       DateTime
 
-  client     Client   @relation(fields: [clientId], references: [id])
+  client     Client?   @relation(fields: [clientId], references: [id])
   company    Company  @relation(fields: [companyId], references: [id])
 
   createdAt  DateTime @default(now())
@@ -758,7 +761,8 @@ model Insurance {
 model  CompanyTools {
   id                  String         @id @default(uuid())
   companyId           String
-  sellingPercentage   Int?
+  markupPrice   Int?
+  taxRate             Float? 
   companySignature    String?
   companyStamp        String?
   bankAccounts        Json?
@@ -1102,6 +1106,7 @@ model DirectInvoice {
   client         Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
   company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
   items          DirectInvoiceItem[]
+  stocks         Stock[]
 
   @@index([invoiceNumber])
   @@index([clientId])
@@ -1118,7 +1123,6 @@ model DirectInvoiceItem {
   quantity     Decimal        @db.Decimal(10, 3)
   unitPrice    Decimal        @db.Decimal(15, 2)
   totalPrice   Decimal        @db.Decimal(15, 2)
-  description  String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -1266,4 +1270,17 @@ model AppointmentNotification {
 
   @@index([appointmentId])
   @@index([userId])
+}
+
+model ResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([expiresAt])
 }

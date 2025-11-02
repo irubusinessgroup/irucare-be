@@ -521,7 +521,8 @@ export interface CreateCompanyStaffDto {
 
 // CompanyTools DTOs
 export interface CreateCompanyToolsDto {
-  sellingPercentage?: number;
+  markupPrice?: number;
+  taxRate?: number;
   companySignature?: string;
   companyStamp?: string;
   bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
@@ -538,7 +539,7 @@ export interface BankAccountDto {
 export interface CompanyToolsResponseDto {
   id: string;
   companyId: string;
-  sellingPercentage?: number | null;
+  markupPrice?: number | null;
   companySignature?: string | null;
   companyStamp?: string | null;
   bankAccounts?: BankAccountDto[] | null;
@@ -869,7 +870,7 @@ export interface UpdateClientDto {
 }
 
 export interface CreateSellDto {
-  clientId: string;
+  clientId?: string; // Made optional to support pharmacy companies using patientId
   items: {
     itemId: string;
     quantity: number;
@@ -1200,7 +1201,6 @@ export interface CreateDirectInvoiceItemDto {
   itemId: string;
   quantity: number;
   unitPrice: number;
-  description?: string;
 }
 
 export interface UpdateDirectInvoiceDto {
@@ -1245,7 +1245,6 @@ export interface DirectInvoiceItemResponse {
   quantity: number;
   unitPrice: number;
   totalPrice: number;
-  description?: string | null;
   item: {
     id: string;
     itemCodeSku: string;

@@ -59,3 +59,8 @@ Thumbs.db
 
 # Prisma (if not already included)
 .prisma/
+
+# Backups
+backups/
+
+.cursor 
