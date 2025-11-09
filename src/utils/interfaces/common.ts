@@ -1192,7 +1192,6 @@ export interface UpdateTrialApplicationDto {
 export interface CreateDirectInvoiceDto {
   clientId: string;
   items: CreateDirectInvoiceItemDto[];
-  vatRate?: number;
   dueDate: Date;
   notes?: string;
 }
@@ -1206,7 +1205,6 @@ export interface CreateDirectInvoiceItemDto {
 export interface UpdateDirectInvoiceDto {
   clientId?: string;
   items?: CreateDirectInvoiceItemDto[];
-  vatRate?: number;
   dueDate?: Date;
   notes?: string;
   status?: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED";
@@ -1218,9 +1216,10 @@ export interface DirectInvoiceResponse {
   clientId: string;
   companyId: string;
   subtotal: number;
-  vat: number;
-  vatRate: number;
   grandTotal: number;
+  isTaxable?: boolean;
+  taxRate?: number | null;
+  taxAmount?: number | null;
   currency: string;
   invoiceDate: Date;
   dueDate: Date;

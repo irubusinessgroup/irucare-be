@@ -10,6 +10,7 @@ import { Prisma, ProcessingStatus } from "@prisma/client";
 import { DeliveryService } from "./DeliveryService";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Server as SocketIOServer } from "socket.io";
+import { countAvailableStock } from "../utils/stock-ops";
 
 type AuthRequest = Request & {
   user?: { company?: { companyId?: string } };
@@ -42,7 +43,7 @@ export class OrderProcessingService {
   private static async sendProcessingDraftNotification(
     purchaseOrder: PurchaseOrderForNotification,
     supplierCompanyId: string,
-    io: SocketIOServer,
+    io: SocketIOServer
   ): Promise<void> {
     if (!purchaseOrder?.companyId) {
       return;
@@ -64,7 +65,7 @@ export class OrderProcessingService {
         poNumber: purchaseOrder.poNumber,
         supplierCompany: supplierCompanyName,
         buyerCompany: purchaseOrder.company?.name,
-      },
+      }
     );
   }
 
@@ -72,7 +73,7 @@ export class OrderProcessingService {
   private static async sendCompletionNotification(
     purchaseOrder: PurchaseOrderForNotification,
     supplierCompanyId: string,
-    io: SocketIOServer,
+    io: SocketIOServer
   ): Promise<void> {
     if (!purchaseOrder?.companyId) {
       return;
@@ -94,7 +95,7 @@ export class OrderProcessingService {
         poNumber: purchaseOrder.poNumber,
         supplierCompany: supplierCompanyName,
         buyerCompany: purchaseOrder.company?.name,
-      },
+      }
     );
   }
 
@@ -102,7 +103,7 @@ export class OrderProcessingService {
   private static async sendApprovalNotification(
     purchaseOrder: PurchaseOrderForNotification,
     buyerCompanyId: string,
-    io: SocketIOServer,
+    io: SocketIOServer
   ): Promise<void> {
     if (!purchaseOrder?.suppliers?.supplierCompanyId) {
       return;
@@ -125,13 +126,13 @@ export class OrderProcessingService {
         buyerCompany: buyerCompanyName,
         supplierCompany: purchaseOrder.suppliers.supplierName,
         overallStatus: purchaseOrder.overallStatus,
-      },
+      }
     );
   }
   public static async createUpdateProcessingDraft(
     data: CreateProcessingEntryDto,
     req: AuthRequest,
-    io?: SocketIOServer,
+    io?: SocketIOServer
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -146,7 +147,7 @@ export class OrderProcessingService {
     if (po.overallStatus !== "NOT_YET") {
       throw new AppError(
         "Cannot edit this performa because the purchase order has progressed — the client may have already taken decisions",
-        400,
+        400
       );
     }
 
@@ -159,7 +160,7 @@ export class OrderProcessingService {
     if (!companyToId) {
       throw new AppError(
         "Cannot create processing entry: purchase order buyer is not a company",
-        400,
+        400
       );
     }
 
@@ -188,7 +189,7 @@ export class OrderProcessingService {
       if (!poItem || poItem.purchaseOrderId !== po.id)
         throw new AppError(
           `Purchase order item ${itemEntry.purchaseOrderItemId} not found for this PO`,
-          404,
+          404
         );
 
       const newIssued = itemEntry.quantityIssued
@@ -230,27 +231,17 @@ export class OrderProcessingService {
         }
 
         if (supplierItemIds.length > 0) {
-          availableStock = await prisma.stock.count({
-            where: {
-              stockReceipt: {
-                itemId: { in: supplierItemIds },
-                companyId: companyFromId,
-              },
-              status: "AVAILABLE",
-            },
+          availableStock = await countAvailableStock(prisma, {
+            itemIds: supplierItemIds,
+            companyId: companyFromId,
           });
         }
 
         // Fallback: directly use the PO item's itemId (in case same catalog is shared)
         if (availableStock === 0) {
-          availableStock = await prisma.stock.count({
-            where: {
-              stockReceipt: {
-                itemId: poItem.itemId,
-                companyId: companyFromId,
-              },
-              status: "AVAILABLE",
-            },
+          availableStock = await countAvailableStock(prisma, {
+            itemIds: poItem.itemId,
+            companyId: companyFromId,
           });
         }
 
@@ -258,7 +249,7 @@ export class OrderProcessingService {
           const itemName = poItem.item?.itemFullName || "selected item";
           throw new AppError(
             `Insufficient stock for item ${itemName}. Available: ${availableStock}, Required: ${newIssued}`,
-            400,
+            400
           );
         }
       }
@@ -291,7 +282,7 @@ export class OrderProcessingService {
           prisma.purchaseOrderItem.update({
             where: { id: poItem.id },
             data: updateData,
-          }),
+          })
         );
       }
     }
@@ -385,7 +376,7 @@ export class OrderProcessingService {
   public static async completeAndSend(
     id: string,
     req: AuthRequest,
-    io?: SocketIOServer,
+    io?: SocketIOServer
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -430,7 +421,7 @@ export class OrderProcessingService {
     poNumber: string,
     data: ApproveItemsDto,
     req: AuthRequest,
-    io?: SocketIOServer,
+    io?: SocketIOServer
   ) {
     const result = await prisma.$transaction(async (tx) => {
       const companyId = req.user?.company?.companyId;
@@ -466,10 +457,10 @@ export class OrderProcessingService {
 
       if (updatedPO) {
         const approvedItems = updatedPO.items.filter(
-          (i) => i.itemStatus === "APPROVED",
+          (i) => i.itemStatus === "APPROVED"
         );
         const rejectedItems = updatedPO.items.filter(
-          (i) => i.itemStatus === "REJECTED",
+          (i) => i.itemStatus === "REJECTED"
         );
         const totalItems = updatedPO.items.length;
 
@@ -519,7 +510,7 @@ export class OrderProcessingService {
 
           await DeliveryService.autoCreateDeliveryFromApprovedPO(
             poAfter.id,
-            supplierReq,
+            supplierReq
           );
         }
       }
@@ -846,7 +837,7 @@ export class OrderProcessingService {
           remainingQuantity,
           canDeliver: remainingQuantity > 0,
         };
-      }),
+      })
     );
 
     // Filter out items that have been fully delivered

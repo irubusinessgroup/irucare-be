@@ -15,7 +15,7 @@ interface BackupMetadata {
 
 export class BackupService {
   public static async createDatabaseBackup(
-    userId: string
+    userId: string,
   ): Promise<BackupMetadata> {
     try {
       // Get DATABASE_URL from environment
@@ -72,13 +72,13 @@ export class BackupService {
       // If pg_dump fails, try alternative method using Prisma introspection
       if (error instanceof Error && error.message.includes("pg_dump")) {
         console.warn(
-          "pg_dump not available, attempting alternative backup method"
+          "pg_dump not available, attempting alternative backup method",
         );
         return await this.createBackupViaPrisma(userId);
       }
       throw new AppError(
         `Failed to create backup: ${error instanceof Error ? error.message : "Unknown error"}`,
-        500
+        500,
       );
     }
   }
@@ -88,7 +88,7 @@ export class BackupService {
    * This is a fallback if pg_dump is not available
    */
   private static async createBackupViaPrisma(
-    userId: string
+    userId: string,
   ): Promise<BackupMetadata> {
     try {
       await import("../utils/client");
@@ -117,7 +117,7 @@ export class BackupService {
       await fs.writeFile(
         filePath,
         JSON.stringify(backupData, null, 2),
-        "utf-8"
+        "utf-8",
       );
 
       const stats = await fs.stat(filePath);
@@ -132,7 +132,7 @@ export class BackupService {
     } catch (error) {
       throw new AppError(
         `Failed to create backup via Prisma: ${error instanceof Error ? error.message : "Unknown error"}`,
-        500
+        500,
       );
     }
   }

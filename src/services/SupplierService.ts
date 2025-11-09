@@ -8,12 +8,14 @@ import {
   IResponse,
   IPaged,
 } from "../utils/interfaces/common";
+import { assertCompanyExists } from "../utils/validators";
 
 export class SupplierService {
   static async createSupplier(
     data: CreateSupplierRequest,
     companyId: string,
   ): Promise<IResponse<SupplierResponse>> {
+    await assertCompanyExists(companyId);
     // Normalize optional foreign keys to avoid empty-string FK violations
     const normalizedSupplierCompanyId =
       data.supplierCompanyId?.trim() || undefined;
@@ -36,12 +38,7 @@ export class SupplierService {
 
     // Validate supplier company if provided (treat empty string as undefined)
     if (normalizedSupplierCompanyId) {
-      const supplierCompany = await prisma.company.findUnique({
-        where: { id: normalizedSupplierCompanyId },
-      });
-      if (!supplierCompany) {
-        throw new AppError("Supplier company not found", 404);
-      }
+      await assertCompanyExists(normalizedSupplierCompanyId);
     }
 
     const supplier = await prisma.suppliers.create({
@@ -106,6 +103,10 @@ export class SupplierService {
     // Normalize optional foreign keys
     const normalizedSupplierCompanyId =
       data.supplierCompanyId?.trim() || undefined;
+
+    if (normalizedSupplierCompanyId) {
+      await assertCompanyExists(normalizedSupplierCompanyId);
+    }
 
     const existingSupplier = await prisma.suppliers.findUnique({
       where: { id },
