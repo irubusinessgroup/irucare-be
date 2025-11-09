@@ -11,6 +11,13 @@ import {
 import { Prisma, DeliveryStatus } from "@prisma/client";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Server as SocketIOServer } from "socket.io";
+import {
+  selectAvailableStock,
+  reserveStockUnits,
+  markStockStatusForDelivery,
+  createBuyerStockFromDeliveryItem,
+  markStockSold,
+} from "../utils/stock-ops";
 
 type AuthRequest = Request & {
   user?: {
@@ -302,8 +309,6 @@ export class DeliveryService {
     // Reserve stock for delivery (supplier side)
     for (const item of po.items) {
       const quantityToReserve = Number(item.quantityIssued || item.quantity);
-
-      // Find available stock units for this item
       const supplierCompanyId = po.suppliers.supplierCompanyId!;
       const sku = item.item.itemCodeSku;
 
@@ -316,47 +321,31 @@ export class DeliveryService {
         supplierItemIds = supplierItems.map((i) => i.id);
       }
 
-      const availableStock = await prisma.stock.findMany({
-        where: {
-          stockReceipt: {
-            itemId:
-              supplierItemIds.length > 0
-                ? { in: supplierItemIds }
-                : item.itemId,
-            companyId: supplierCompanyId,
-          },
-          status: "AVAILABLE",
-        },
+      const selected = await selectAvailableStock(prisma, {
+        itemIds:
+          supplierItemIds.length > 0
+            ? supplierItemIds
+            : (item.itemId as unknown as string),
+        companyId: supplierCompanyId,
         take: quantityToReserve,
+        strategy: "FIFO",
       });
-
-      if (availableStock.length < quantityToReserve) {
+      if (selected.length < quantityToReserve) {
         throw new AppError(
-          `Insufficient stock to reserve for delivery of ${item.item.itemFullName}. Available: ${availableStock.length}, Required: ${quantityToReserve}`,
+          `Insufficient stock to reserve for delivery of ${item.item.itemFullName}. Available: ${selected.length}, Required: ${quantityToReserve}`,
           400,
         );
       }
 
-      // Get the delivery item to link with stock
       const deliveryItem = await prisma.deliveryItem.findFirst({
-        where: {
-          deliveryId: delivery.id,
-          purchaseOrderItemId: item.id,
-        },
+        where: { deliveryId: delivery.id, purchaseOrderItemId: item.id },
       });
-
       if (!deliveryItem) continue;
 
-      // Reserve stock units for delivery and link to delivery item
-      for (const stockUnit of availableStock) {
-        await prisma.stock.update({
-          where: { id: stockUnit.id },
-          data: {
-            status: "RESERVED",
-            deliveryItemId: deliveryItem.id,
-          },
-        });
-      }
+      await reserveStockUnits(prisma, {
+        stockIds: selected.map((s) => s.id),
+        link: { deliveryItemId: deliveryItem.id },
+      });
     }
 
     // Post-create check: ensure only one delivery exists for this PO
@@ -540,16 +529,12 @@ export class DeliveryService {
     if (data.items && data.items.length > 0) {
       for (const item of data.items) {
         const quantityToReserve = Number(item.quantityToDeliver);
-
-        // Get item ID from purchase order item
         const poItem = await prisma.purchaseOrderItem.findUnique({
           where: { id: item.purchaseOrderItemId },
           include: { item: { select: { itemCodeSku: true } } },
         });
-
         if (!poItem) continue;
 
-        // Find available stock units for this item (both from PO and direct additions)
         let supplierItemIds: string[] = [];
         const sku = poItem.item?.itemCodeSku;
         if (sku) {
@@ -560,47 +545,34 @@ export class DeliveryService {
           supplierItemIds = supplierItems.map((i) => i.id);
         }
 
-        const availableStock = await prisma.stock.findMany({
-          where: {
-            stockReceipt: {
-              itemId:
-                supplierItemIds.length > 0
-                  ? { in: supplierItemIds }
-                  : poItem.itemId,
-              companyId: companyId,
-            },
-            status: "AVAILABLE",
-          },
+        const selected = await selectAvailableStock(prisma, {
+          itemIds:
+            supplierItemIds.length > 0
+              ? supplierItemIds
+              : (poItem.itemId as unknown as string),
+          companyId: companyId,
           take: quantityToReserve,
+          strategy: "FIFO",
         });
-
-        if (availableStock.length < quantityToReserve) {
+        if (selected.length < quantityToReserve) {
           throw new AppError(
-            `Insufficient stock for delivery. Available: ${availableStock.length}, Required: ${quantityToReserve}`,
+            `Insufficient stock for delivery. Available: ${selected.length}, Required: ${quantityToReserve}`,
             400,
           );
         }
 
-        // Get the delivery item to link with stock
         const deliveryItem = await prisma.deliveryItem.findFirst({
           where: {
             deliveryId: delivery.id,
             purchaseOrderItemId: item.purchaseOrderItemId,
           },
         });
-
         if (!deliveryItem) continue;
 
-        // Reserve stock units for delivery and link to delivery item
-        for (const stockUnit of availableStock) {
-          await prisma.stock.update({
-            where: { id: stockUnit.id },
-            data: {
-              status: "RESERVED",
-              deliveryItemId: deliveryItem.id,
-            },
-          });
-        }
+        await reserveStockUnits(prisma, {
+          stockIds: selected.map((s) => s.id),
+          link: { deliveryItemId: deliveryItem.id },
+        });
       }
     }
 
@@ -707,44 +679,31 @@ export class DeliveryService {
     // Reserve stock for direct deliveries
     for (const item of data.items!) {
       const quantityToReserve = Number(item.quantityToDeliver);
-
-      const availableStock = await prisma.stock.findMany({
-        where: {
-          stockReceipt: {
-            itemId: item.itemId,
-            companyId: companyId,
-          },
-          status: "AVAILABLE",
-        },
+      if (!item.itemId) {
+        throw new Error("Missing itemId");
+      }
+      const selected = await selectAvailableStock(prisma, {
+        itemIds: item.itemId,
+        companyId: companyId,
         take: quantityToReserve,
+        strategy: "FIFO",
       });
-
-      if (availableStock.length < quantityToReserve) {
+      if (selected.length < quantityToReserve) {
         throw new AppError(
-          `Insufficient stock to reserve for delivery. Available: ${availableStock.length}, Required: ${quantityToReserve}`,
+          `Insufficient stock to reserve for delivery. Available: ${selected.length}, Required: ${quantityToReserve}`,
           400,
         );
       }
 
       const deliveryItem = await prisma.deliveryItem.findFirst({
-        where: {
-          deliveryId: delivery.id,
-          itemId: item.itemId, // Use itemId for direct deliveries
-        },
+        where: { deliveryId: delivery.id, itemId: item.itemId },
       });
-
       if (!deliveryItem) continue;
 
-      // Reserve stock units
-      for (const stockUnit of availableStock) {
-        await prisma.stock.update({
-          where: { id: stockUnit.id },
-          data: {
-            status: "RESERVED",
-            deliveryItemId: deliveryItem.id,
-          },
-        });
-      }
+      await reserveStockUnits(prisma, {
+        stockIds: selected.map((s) => s.id),
+        link: { deliveryItemId: deliveryItem.id },
+      });
     }
 
     return {
@@ -887,19 +846,11 @@ export class DeliveryService {
     // Auto-set dates based on status
     if (newStatus === "IN_TRANSIT" && !delivery.dispatchDate) {
       updateData.dispatchDate = new Date();
-
-      // Mark reserved stock as in transit (supplier side)
       if (delivery.supplierCompanyId === companyId) {
-        await prisma.stock.updateMany({
-          where: {
-            deliveryItem: {
-              deliveryId: deliveryId,
-            },
-            status: "RESERVED",
-          },
-          data: {
-            status: "IN_TRANSIT",
-          },
+        await markStockStatusForDelivery(prisma, {
+          deliveryId,
+          from: "RESERVED",
+          to: "IN_TRANSIT",
         });
       }
     }
@@ -1344,6 +1295,13 @@ export class DeliveryService {
 
         // Update delivery items with received quantities
         let allItemsFullyDelivered = true;
+        const supplierSellItems: Array<{
+          itemId: string;
+          quantity: number;
+          sellPrice: number;
+          totalAmount: number;
+        }> = [];
+        const stockIdsToMarkSold: string[] = [];
 
         for (const confirmItem of data.items) {
           const deliveryItem = delivery.deliveryItems.find(
@@ -1384,8 +1342,6 @@ export class DeliveryService {
           });
 
           // Resolve buyer-owned itemId
-          // - For PO-based deliveries, purchaseOrderItem.itemId should already belong to the buyer
-          // - For direct deliveries, deliveryItem.itemId is supplier's item id; map via SKU to buyer's item
           let buyerItemId: string | null = null;
           if (deliveryItem.purchaseOrderItem?.itemId) {
             buyerItemId = deliveryItem.purchaseOrderItem.itemId;
@@ -1434,50 +1390,50 @@ export class DeliveryService {
               deliveryItem.purchaseOrderItem?.expiryDate ||
               null;
 
-            // Create or update stock receipt for buyer
-            const stockReceipt = await tx.stockReceipts.upsert({
-              where: {
-                // Create a unique identifier for this receipt
-                id: `${deliveryId}-${buyerItemId}-${resolvedExpiry?.toISOString() || "no-expiry"}`,
-              },
-              update: {
-                quantityReceived: {
-                  increment: quantityReceived,
-                },
-                totalCost: {
-                  increment: resolvedUnitCost * quantityReceived,
-                },
-                dateReceived: data.actualDeliveryDate || new Date(),
-              },
-              create: {
-                id: `${deliveryId}-${buyerItemId}-${resolvedExpiry?.toISOString() || "no-expiry"}`,
-                itemId: buyerItemId,
+            await createBuyerStockFromDeliveryItem(tx, {
+              delivery: {
+                id: deliveryId,
+                buyerCompanyId: delivery.buyerCompanyId,
                 purchaseOrderId: delivery.purchaseOrderId,
-                purchaseOrderItemId: deliveryItem.purchaseOrderItemId,
-                supplierId: delivery.purchaseOrder?.supplierId,
-                companyId: delivery.buyerCompanyId,
-                dateReceived: data.actualDeliveryDate || new Date(),
-                quantityReceived,
-                unitCost: resolvedUnitCost,
-                totalCost: resolvedUnitCost * quantityReceived,
-                packSize: deliveryItem.purchaseOrderItem?.packSize,
-                expiryDate: resolvedExpiry,
-                uom: "UNITS",
-                tempReq: "ROOM_TEMP",
-                currency: "RWF",
-                condition: "GOOD",
-                warehouseId: null,
-                receiptType: "DELIVERY",
+                supplierCompanyId: delivery.supplierCompanyId,
               },
+              deliveryItem: {
+                id: deliveryItem.id,
+                purchaseOrderItemId: deliveryItem.purchaseOrderItemId,
+                actualUnitPrice: deliveryItem.actualUnitPrice,
+                purchaseOrderItem: deliveryItem.purchaseOrderItem,
+              },
+              buyerItemId,
+              quantityReceived,
+              unitCost: resolvedUnitCost,
+              expiryDate: resolvedExpiry,
             });
 
-            // Create individual stock units for buyer
-            await tx.stock.createMany({
-              data: Array.from({ length: quantityReceived }, () => ({
-                stockReceiptId: stockReceipt.id,
-                status: "AVAILABLE",
-              })),
-            });
+            // Prepare data for supplier's sell record
+            // Resolve supplier itemId from stockReceipt or fallback to deliveryItem.itemId
+            let supplierItemIdForSell: string | null = null;
+            if (deliveryItem.itemId) {
+              supplierItemIdForSell = deliveryItem.itemId;
+            } else if (deliveryItem.stocks && deliveryItem.stocks.length > 0) {
+              const receivedStocks = deliveryItem.stocks.filter(
+                (s) => s.status === "RESERVED" || s.status === "IN_TRANSIT",
+              );
+              // Take exactly the quantityReceived first entries
+              const toUse = receivedStocks.slice(0, quantityReceived);
+              if (toUse.length > 0) {
+                supplierItemIdForSell = toUse[0]?.stockReceipt?.itemId || null;
+                // Collect stock IDs to mark as SOLD later
+                stockIdsToMarkSold.push(...toUse.map((s) => s.id));
+              }
+            }
+            if (supplierItemIdForSell) {
+              supplierSellItems.push({
+                itemId: supplierItemIdForSell,
+                quantity: quantityReceived,
+                sellPrice: resolvedUnitCost,
+                totalAmount: resolvedUnitCost * quantityReceived,
+              });
+            }
           }
 
           // Process damaged/rejected items (return to supplier or mark as damaged)
@@ -1516,103 +1472,73 @@ export class DeliveryService {
             }
           }
 
-          // Delete supplier stock records for delivered items and release any surplus
-          {
-            // Find supplier stocks linked to this delivery item
-            // Filter by stockReceipt companyId to ensure we only get supplier stocks
-            const supplierRemaining = await tx.stock.findMany({
-              where: {
-                deliveryItemId: deliveryItem.id,
-                status: { in: ["RESERVED", "IN_TRANSIT"] },
-                stockReceipt: {
-                  companyId: delivery.supplierCompanyId, // Only supplier's stocks
-                },
-              },
-              select: {
-                id: true,
-                stockReceiptId: true,
-              },
-            });
-
-            const toDeleteIds = supplierRemaining
-              .slice(0, quantityReceived)
-              .map((s) => s.id);
-
-            // Group stocks by stockReceiptId to update receipts
-            const stockReceiptCounts = new Map<string, number>();
-            supplierRemaining.slice(0, quantityReceived).forEach((stock) => {
-              const count = stockReceiptCounts.get(stock.stockReceiptId) || 0;
-              stockReceiptCounts.set(stock.stockReceiptId, count + 1);
-            });
-
-            // Get stock receipt details for cost calculation
-            // Only update stockReceipts that belong to the supplier company
-            if (stockReceiptCounts.size > 0) {
-              const stockReceiptIds = Array.from(stockReceiptCounts.keys());
-              const stockReceipts = await tx.stockReceipts.findMany({
-                where: {
-                  id: { in: stockReceiptIds },
-                  companyId: delivery.supplierCompanyId, // Ensure we only update supplier's receipts
-                },
-                select: {
-                  id: true,
-                  unitCost: true,
-                  quantityReceived: true,
-                  totalCost: true,
-                  companyId: true, // Add for verification
-                },
-              });
-
-              // Update each stock receipt
-              for (const receipt of stockReceipts) {
-                const stocksToDelete = stockReceiptCounts.get(receipt.id) || 0;
-                if (stocksToDelete > 0) {
-                  const unitCost = Number(receipt.unitCost);
-                  const costToDeduct = unitCost * stocksToDelete;
-                  const newQuantityReceived =
-                    Number(receipt.quantityReceived) - stocksToDelete;
-                  const newTotalCost = Number(receipt.totalCost) - costToDeduct;
-
-                  // Validate to prevent negative values
-                  if (newQuantityReceived < 0) {
-                    throw new AppError(
-                      `Cannot delete ${stocksToDelete} stocks. Only ${receipt.quantityReceived} available in stock receipt ${receipt.id}`,
-                      400,
-                    );
-                  }
-
-                  await tx.stockReceipts.update({
-                    where: { id: receipt.id },
-                    data: {
-                      quantityReceived: Math.max(0, newQuantityReceived),
-                      totalCost: Math.max(0, newTotalCost),
-                    },
-                  });
-                }
-              }
-            }
-
-            // Delete the supplier stock records
-            if (toDeleteIds.length > 0) {
-              await tx.stock.deleteMany({
-                where: { id: { in: toDeleteIds } },
-              });
-            }
-
-            // Release any surplus stock back to available
-            const releaseIds = supplierRemaining
-              .slice(quantityReceived)
-              .map((s) => s.id);
-            if (releaseIds.length > 0) {
-              await tx.stock.updateMany({
-                where: { id: { in: releaseIds } },
-                data: { status: "AVAILABLE", deliveryItemId: null },
-              });
-            }
-          }
+          // Note: we no longer delete supplier stocks for delivered items.
+          // We will mark the exact used stock units as SOLD after creating the sell.
         }
 
-        // Note: Supplier stock adjustments are handled per-item above to match received quantities.
+        // CREATE SELL RECORD FOR SUPPLIER
+        if (supplierSellItems.length > 0) {
+          // Get or create a client record for the buyer company in supplier's system
+          let supplierClient = await tx.client.findFirst({
+            where: {
+              companyId: delivery.supplierCompanyId,
+              // Use buyer company ID as a unique identifier
+              email: `company-${delivery.buyerCompanyId}@system.internal`,
+            },
+          });
+
+          if (!supplierClient) {
+            // Get buyer company name
+            const buyerCompany = await tx.company.findUnique({
+              where: { id: delivery.buyerCompanyId },
+              select: { name: true, email: true },
+            });
+
+            supplierClient = await tx.client.create({
+              data: {
+                companyId: delivery.supplierCompanyId,
+                name: buyerCompany?.name || "Buyer Company",
+                email: `company-${delivery.buyerCompanyId}@system.internal`,
+                phone: "", // Optional
+                address: "", // Optional
+              },
+            });
+          }
+
+          const totalAmount = supplierSellItems.reduce(
+            (sum, item) => sum + item.totalAmount,
+            0,
+          );
+
+          // Create the sell record for supplier
+          const supplierSell = await tx.sell.create({
+            data: {
+              clientId: supplierClient.id,
+              companyId: delivery.supplierCompanyId,
+              totalAmount,
+              notes: `Auto-generated from delivery ${delivery.deliveryNumber} to ${supplierClient.name}`,
+            },
+          });
+
+          // Create sell items for supplier
+          for (const sellItem of supplierSellItems) {
+            await tx.sellItem.create({
+              data: {
+                sellId: supplierSell.id,
+                ...sellItem,
+                taxAmount: 0, // Add required taxAmount field with default value
+              },
+            });
+          }
+
+          // Mark the exact supplier stock units as SOLD and link to the sell
+          if (stockIdsToMarkSold.length > 0) {
+            await markStockSold(tx, {
+              stockIds: stockIdsToMarkSold,
+              sellId: supplierSell.id,
+            });
+          }
+        }
 
         // Determine delivery status
         const newStatus = allItemsFullyDelivered
@@ -1658,7 +1584,6 @@ export class DeliveryService {
         // Send notification to supplier after successful confirmation
         if (io) {
           try {
-            // Get delivery details with company information for notification
             const deliveryWithDetails = await prisma.delivery.findUnique({
               where: { id: deliveryId },
               include: {
@@ -1689,7 +1614,6 @@ export class DeliveryService {
               "Error sending delivery acceptance notification:",
               error,
             );
-            // Don't throw error here - notification failure shouldn't break the main flow
           }
         }
 

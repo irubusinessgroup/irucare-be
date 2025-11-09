@@ -11,6 +11,8 @@ type CompanyToolsRow = {
   companySignature: string | null;
   companyStamp: string | null;
   bankAccounts: unknown;
+  businessTin: string | null;
+  taxReportingFrequency: string | null;
   createdAt: Date;
   updatedAt: Date;
   company?: { name: string; logo?: string | null; website?: string | null };
@@ -31,6 +33,7 @@ export class CompanyToolsService {
       : null;
     return { ...row, bankAccounts };
   }
+
   public static async createCompanyTools(
     data: {
       markupPrice?: number;
@@ -38,8 +41,10 @@ export class CompanyToolsService {
       companySignature?: string;
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
+      businessTin?: string;
+      taxReportingFrequency?: string;
     },
-    companyId: string,
+    companyId: string
   ) {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -53,7 +58,18 @@ export class CompanyToolsService {
     if (existing) {
       throw new AppError(
         "Company tools already exist. Please update instead.",
-        400,
+        400
+      );
+    }
+
+    // Validate tax reporting frequency
+    if (
+      data.taxReportingFrequency &&
+      !["Monthly", "Quarterly"].includes(data.taxReportingFrequency)
+    ) {
+      throw new AppError(
+        "Tax reporting frequency must be either 'Monthly' or 'Quarterly'",
+        400
       );
     }
 
@@ -63,6 +79,8 @@ export class CompanyToolsService {
         taxRate: data.taxRate || 0,
         companySignature: data.companySignature,
         companyStamp: data.companyStamp,
+        businessTin: data.businessTin,
+        taxReportingFrequency: data.taxReportingFrequency,
         ...(Array.isArray(data.bankAccounts)
           ? {
               bankAccounts: data.bankAccounts,
@@ -124,13 +142,26 @@ export class CompanyToolsService {
       companySignature?: string;
       companyStamp?: string;
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
+      businessTin?: string;
+      taxReportingFrequency?: string;
     },
-    companyId: string,
+    companyId: string
   ) {
     const existing = await prisma.companyTools.findUnique({ where: { id } });
     if (!existing) throw new AppError("Company tools not found", 404);
     if (existing.companyId !== companyId) {
       throw new AppError("You are not authorized to update this resource", 403);
+    }
+
+    // Validate tax reporting frequency
+    if (
+      data.taxReportingFrequency &&
+      !["Monthly", "Quarterly"].includes(data.taxReportingFrequency)
+    ) {
+      throw new AppError(
+        "Tax reporting frequency must be either 'Monthly' or 'Quarterly'",
+        400
+      );
     }
 
     const updateData: Record<string, unknown> = {};
@@ -153,6 +184,14 @@ export class CompanyToolsService {
       updateData.companyStamp = data.companyStamp;
     } else if (existing.companyStamp) {
       updateData.companyStamp = existing.companyStamp;
+    }
+
+    if (typeof data.businessTin !== "undefined") {
+      updateData.businessTin = data.businessTin?.trim() || null;
+    }
+
+    if (typeof data.taxReportingFrequency !== "undefined") {
+      updateData.taxReportingFrequency = data.taxReportingFrequency || null;
     }
 
     if (Array.isArray(data.bankAccounts)) {
@@ -200,7 +239,7 @@ export class CompanyToolsService {
   public static async getCompanyToolsList(
     req: Request,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);

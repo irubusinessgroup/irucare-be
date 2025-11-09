@@ -277,8 +277,10 @@ model Sell {
     id                 String         @id @default(uuid())
     clientId           String?
     companyId          String
+     company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
     client             Client?         @relation(fields: [clientId], references: [id])
     totalAmount        Decimal         @db.Decimal(18, 2)
+    taxAmount          Decimal?        @db.Decimal(18, 2)
     notes              String?
     createdAt         DateTime      @default(now())
     updatedAt         DateTime      @updatedAt
@@ -313,6 +315,7 @@ model SellItem {
     quantity           Decimal         @db.Decimal(10, 2)
     sellPrice          Decimal         @db.Decimal(18, 2)
     totalAmount        Decimal         @db.Decimal(18, 2)
+    taxAmount          Decimal         @db.Decimal(18, 2)
     // Optional per-item split for insurance (PHARMACY)
     insuranceCoveredPerUnit Decimal     @db.Decimal(18, 2) @default(0)
     patientPricePerUnit     Decimal     @db.Decimal(18, 2) @default(0)
@@ -669,6 +672,7 @@ model Company {
   subscription        Subscription[]
   directInvoices      DirectInvoice[]
   invoiceSequences    InvoiceSequence[]
+  sell                Sell[]
   // Appointment relations
   appointments        Appointment[]
   appointmentTimeSlots AppointmentTimeSlot[]
@@ -766,6 +770,8 @@ model  CompanyTools {
   companySignature    String?
   companyStamp        String?
   bankAccounts        Json?
+    businessTin           String?        
+  taxReportingFrequency String? 
 
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
@@ -1092,8 +1098,6 @@ model DirectInvoice {
   clientId       String
   companyId      String
   subtotal       Decimal             @db.Decimal(15, 2) @default(0)
-  vat            Decimal             @db.Decimal(15, 2) @default(0)
-  vatRate        Decimal             @db.Decimal(5, 2) @default(0)
   grandTotal     Decimal             @db.Decimal(15, 2) @default(0)
   currency       String              @default("RWF")
   invoiceDate    DateTime            @default(now())
@@ -1123,6 +1127,9 @@ model DirectInvoiceItem {
   quantity     Decimal        @db.Decimal(10, 3)
   unitPrice    Decimal        @db.Decimal(15, 2)
   totalPrice   Decimal        @db.Decimal(15, 2)
+  isTaxable    Boolean        @default(false)
+  taxRate      Decimal        @db.Decimal(5, 2) @default(0)
+  taxAmount    Decimal        @db.Decimal(15, 2) @default(0)
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 

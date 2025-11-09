@@ -7,6 +7,13 @@ import {
 } from "../utils/interfaces/common";
 import { StockCalculations } from "../utils/calculations";
 import type { Request } from "express";
+import { getCompanyIdOrThrow, getUserIdOrThrow } from "../utils/request";
+import {
+  assertCompanyExists,
+  getItemOrThrow,
+  getSupplierOrThrow,
+  getWarehouseOrThrow,
+} from "../utils/validators";
 
 export class StockService {
   static async createStockReceipt(data: CreateStockDto, companyId: string) {
@@ -44,7 +51,7 @@ export class StockService {
 
   static async createManualStockReceipt(
     data: CreateManualStockReceiptDto,
-    companyId: string,
+    companyId: string
   ) {
     const manualPoNumber = data.manualPoNumber?.trim();
     if (!manualPoNumber) {
@@ -52,21 +59,11 @@ export class StockService {
     }
 
     // Validate item, supplier, warehouse belong to company
-    const [item, supplier, warehouse] = await Promise.all([
-      prisma.items.findUnique({ where: { id: data.itemId, companyId } }),
-      prisma.suppliers.findUnique({
-        where: { id: data.supplierId, companyId },
-      }),
-      prisma.warehouse.findUnique({
-        where: { id: data.warehouseId, companyId },
-      }),
+    const [item] = await Promise.all([
+      getItemOrThrow(data.itemId, companyId),
+      getSupplierOrThrow(data.supplierId, companyId),
+      getWarehouseOrThrow(data.warehouseId, companyId),
     ]);
-
-    if (!item) throw new AppError("Item not found or not in your company", 404);
-    if (!supplier)
-      throw new AppError("Supplier not found or not in your company", 404);
-    if (!warehouse)
-      throw new AppError("Warehouse not found or not in your company", 404);
 
     const quantityReceived = data.quantityReceived;
     const unitCost = data.unitCost;
@@ -157,7 +154,7 @@ export class StockService {
           () => ({
             stockReceiptId: stockReceiptId,
             status: "AVAILABLE",
-          }),
+          })
         );
 
         await tx.stock.createMany({
@@ -200,7 +197,7 @@ export class StockService {
           () => ({
             stockReceiptId: stockReceiptId,
             status: "AVAILABLE",
-          }),
+          })
         );
 
         await tx.stock.createMany({
@@ -219,7 +216,7 @@ export class StockService {
   static async updateStockReceipt(
     id: string,
     data: UpdateStockDto,
-    companyId: string,
+    companyId: string
   ) {
     return await prisma.$transaction(async (tx) => {
       const existingEntry = await tx.stockReceipts.findUnique({
@@ -237,33 +234,17 @@ export class StockService {
       }
 
       if (data.itemId) {
-        const item = await tx.items.findUnique({
-          where: { id: data.itemId, companyId },
-        });
-        if (!item) {
-          throw new AppError(
-            "Item not found or doesn't belong to your company",
-            404,
-          );
-        }
+        await getItemOrThrow(String(data.itemId), companyId);
       }
 
       if (data.supplierId) {
-        const supplier = await tx.suppliers.findUnique({
-          where: { id: data.supplierId, companyId },
-        });
-        if (!supplier) {
-          throw new AppError(
-            "Supplier not found or doesn't belong to your company",
-            404,
-          );
-        }
+        await getSupplierOrThrow(String(data.supplierId), companyId);
       }
 
       const totalCost = StockCalculations.calculateTotalCost(
         data.quantityReceived ??
           parseFloat(existingEntry.quantityReceived.toString()),
-        data.unitCost ?? parseFloat(existingEntry.unitCost.toString()),
+        data.unitCost ?? parseFloat(existingEntry.unitCost.toString())
       );
 
       let stockAdjustment: Array<{
@@ -288,7 +269,7 @@ export class StockService {
           if (availableCount < decreaseBy) {
             throw new AppError(
               `Cannot reduce quantity by ${decreaseBy}. Only ${availableCount} available units exist.`,
-              400,
+              400
             );
           }
 
@@ -383,7 +364,7 @@ export class StockService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     try {
       const companyId = req.user?.company?.companyId;
@@ -439,21 +420,21 @@ export class StockService {
       const stockWithStatus = await Promise.all(
         stock.map(async (stockItem) => {
           const expiryStatus = StockCalculations.calculateDaysToExpiry(
-            stockItem.expiryDate ?? undefined,
+            stockItem.expiryDate ?? undefined
           );
           const totalStockQuantity = StockCalculations.calculateTotalCost(
             parseFloat(stockItem.quantityReceived.toString()),
-            parseFloat(stockItem.unitCost.toString()),
+            parseFloat(stockItem.unitCost.toString())
           );
           return {
             ...stockItem,
             expiryStatus,
             totalStockQuantity,
             isApproved: stockItem.approvals.some(
-              (a) => a.approvalStatus === "APPROVED",
+              (a) => a.approvalStatus === "APPROVED"
             ),
           };
-        }),
+        })
       );
 
       return {
@@ -470,7 +451,7 @@ export class StockService {
 
   private static async validateReferences(
     data: CreateStockDto,
-    companyId: string,
+    companyId: string
   ): Promise<{
     itemId: string;
     supplierId: string;
@@ -513,7 +494,7 @@ export class StockService {
 
     const received = poItem.stockReceipts.reduce(
       (sum, sr) => sum + sr.quantityReceived.toNumber(),
-      0,
+      0
     );
     const remaining = poItem.quantity.toNumber() - received;
 

@@ -193,7 +193,7 @@ export class ResetService {
         },
         {
           timeout: 60000, // 60 seconds timeout for large deletions
-        }
+        },
       );
 
       return {
@@ -203,7 +203,7 @@ export class ResetService {
     } catch (error) {
       throw new AppError(
         error instanceof Error ? error.message : "Failed to reset company data",
-        500
+        500,
       );
     }
   }
@@ -226,7 +226,7 @@ export class ResetService {
       }
 
       const hasAdminRole = user.userRoles.some(
-        (role) => role.name === roles.ADMIN
+        (role) => role.name === roles.ADMIN,
       );
 
       if (!hasAdminRole) {
@@ -264,7 +264,7 @@ export class ResetService {
         error instanceof Error
           ? error.message
           : "Failed to generate reset token",
-        500
+        500,
       );
     }
   }
@@ -272,7 +272,7 @@ export class ResetService {
   public static async validateResetToken(
     userId: string,
     token: string,
-    password: string
+    password: string,
   ): Promise<boolean> {
     try {
       // Get user with roles
@@ -290,7 +290,7 @@ export class ResetService {
 
       // Verify ADMIN role
       const hasAdminRole = user.userRoles.some(
-        (role) => role.name === roles.ADMIN
+        (role) => role.name === roles.ADMIN,
       );
 
       if (!hasAdminRole) {
@@ -307,7 +307,7 @@ export class ResetService {
       if (!user.resetToken) {
         throw new AppError(
           "Reset token not found. Generate a new token first.",
-          404
+          404,
         );
       }
 
@@ -335,7 +335,7 @@ export class ResetService {
         error instanceof Error
           ? error.message
           : "Failed to validate reset token",
-        500
+        500,
       );
     }
   }
@@ -343,7 +343,7 @@ export class ResetService {
   public static async factoryReset(
     userId: string,
     resetType: "COMPLETE" | "PARTIAL",
-    backupPath: string
+    backupPath: string,
   ): Promise<{
     message: string;
     requiresSetup: boolean;
@@ -455,7 +455,7 @@ export class ResetService {
           },
           {
             timeout: 120000, // 2 minutes timeout
-          }
+          },
         );
       } else {
         await prisma.$transaction(
@@ -547,7 +547,7 @@ export class ResetService {
           },
           {
             timeout: 120000,
-          }
+          },
         );
       }
 
@@ -564,7 +564,7 @@ export class ResetService {
         error instanceof Error
           ? error.message
           : "Failed to perform factory reset",
-        500
+        500,
       );
     }
   }
@@ -582,7 +582,7 @@ export class ResetService {
 
       if (currentUser) {
         const hasAdminRole = currentUser.userRoles.some(
-          (role) => role.name === roles.ADMIN
+          (role) => role.name === roles.ADMIN,
         );
 
         if (!hasAdminRole) {

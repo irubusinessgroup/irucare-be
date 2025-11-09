@@ -46,7 +46,7 @@ export class ResetController extends Controller {
   @Security("jwt")
   @Middlewares(checkRole(roles.ADMIN))
   public async generateResetToken(
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<ResetTokenResponseDto> {
     const userId = req.user?.id;
 
@@ -62,11 +62,11 @@ export class ResetController extends Controller {
   @Middlewares(
     checkRole(roles.ADMIN),
     validateResetToken,
-    validate(factoryResetRequestSchema)
+    validate(factoryResetRequestSchema),
   )
   public async factoryReset(
     @Request() req: ExpressRequest,
-    @Body() body: FactoryResetRequestDto
+    @Body() body: FactoryResetRequestDto,
   ): Promise<ResetResponseDto> {
     // @ts-ignore
     const userId = req.user?.id;
@@ -81,7 +81,7 @@ export class ResetController extends Controller {
     const result = await ResetService.factoryReset(
       userId,
       body.resetType,
-      backup.path
+      backup.path,
     );
 
     return {

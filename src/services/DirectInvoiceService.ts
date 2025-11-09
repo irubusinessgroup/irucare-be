@@ -8,10 +8,12 @@ import {
   IPaged,
   IResponse,
 } from "../utils/interfaces/common";
+import { applyMarkup } from "../utils/pricing";
+import { selectAvailableStock, reserveStockUnits } from "../utils/stock-ops";
 
 export class DirectInvoiceService {
   static async getAllDirectInvoices(
-    filters: DirectInvoiceFilters,
+    filters: DirectInvoiceFilters
   ): Promise<IPaged<DirectInvoiceResponse[]>> {
     const {
       page = 1,
@@ -57,6 +59,18 @@ export class DirectInvoiceService {
               address: true,
             },
           },
+          company: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phoneNumber: true,
+              TIN: true,
+              province: true,
+              district: true,
+              sector: true,
+            },
+          },
           items: {
             include: {
               item: {
@@ -78,14 +92,15 @@ export class DirectInvoiceService {
       data: invoices.map((invoice) => ({
         ...invoice,
         subtotal: Number(invoice.subtotal),
-        vat: Number(invoice.vat),
-        vatRate: Number(invoice.vatRate),
         grandTotal: Number(invoice.grandTotal),
         items: invoice.items.map((item) => ({
           ...item,
           quantity: Number(item.quantity),
           unitPrice: Number(item.unitPrice),
           totalPrice: Number(item.totalPrice),
+          isTaxable: item.isTaxable,
+          taxRate: Number(item.taxRate),
+          taxAmount: Number(item.taxAmount),
         })),
       })),
       totalItems,
@@ -98,7 +113,7 @@ export class DirectInvoiceService {
 
   static async getDirectInvoiceById(
     id: string,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<DirectInvoiceResponse>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -110,6 +125,18 @@ export class DirectInvoiceService {
             email: true,
             phone: true,
             address: true,
+          },
+        },
+        company: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phoneNumber: true,
+            TIN: true,
+            province: true,
+            district: true,
+            sector: true,
           },
         },
         items: {
@@ -137,14 +164,15 @@ export class DirectInvoiceService {
       data: {
         ...invoice,
         subtotal: Number(invoice.subtotal),
-        vat: Number(invoice.vat),
-        vatRate: Number(invoice.vatRate),
         grandTotal: Number(invoice.grandTotal),
         items: invoice.items.map((item) => ({
           ...item,
           quantity: Number(item.quantity),
           unitPrice: Number(item.unitPrice),
           totalPrice: Number(item.totalPrice),
+          isTaxable: item.isTaxable,
+          taxRate: Number(item.taxRate),
+          taxAmount: Number(item.taxAmount),
         })),
       },
     };
@@ -152,7 +180,7 @@ export class DirectInvoiceService {
 
   static async createDirectInvoice(
     data: CreateDirectInvoiceDto,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<DirectInvoiceResponse>> {
     // Validate client exists and belongs to company
     const client = await prisma.client.findFirst({
@@ -162,7 +190,7 @@ export class DirectInvoiceService {
     if (!client) {
       throw new AppError(
         "Client not found or doesn't belong to your company",
-        404,
+        404
       );
     }
 
@@ -175,7 +203,7 @@ export class DirectInvoiceService {
     if (items.length !== itemIds.length) {
       throw new AppError(
         "One or more items not found or don't belong to your company",
-        404,
+        404
       );
     }
 
@@ -196,54 +224,49 @@ export class DirectInvoiceService {
     }> = [];
 
     let subtotal = 0;
+    let totalTax = 0;
 
     for (const itemData of data.items) {
       const item = items.find((i) => i.id === itemData.itemId);
       if (!item) continue;
 
       // Apply markup to unit price
-      const adjustedPrice =
-        Number(itemData.unitPrice) * (1 + markupPrice / 100);
-      const itemTotal = Number(itemData.quantity) * adjustedPrice;
-      subtotal += itemTotal;
+      const adjustedPrice = applyMarkup(
+        Number(itemData.unitPrice),
+        markupPrice
+      );
+      const itemSubtotal = Number(itemData.quantity) * adjustedPrice;
+
+      let itemTax = 0;
+      if (item.isTaxable) {
+        itemTax = itemSubtotal * (Number(item.taxRate) / 100);
+      }
+      subtotal += itemSubtotal;
+      totalTax += itemTax;
 
       // Check stock availability
-      const availableStock = await prisma.stock.findMany({
-        where: {
-          stockReceipt: { itemId: itemData.itemId, companyId },
-          status: "AVAILABLE",
-        },
-        include: {
-          stockReceipt: {
-            select: {
-              id: true,
-              expiryDate: true,
-              dateReceived: true,
-            },
-          },
-        },
-        orderBy: [
-          { stockReceipt: { expiryDate: "asc" } },
-          { stockReceipt: { dateReceived: "asc" } },
-        ],
+      const selected = await selectAvailableStock(prisma, {
+        itemIds: itemData.itemId,
+        companyId,
+        take: itemData.quantity,
+        strategy: "FIFO",
       });
 
-      if (availableStock.length < itemData.quantity) {
+      if (selected.length < itemData.quantity) {
         throw new AppError(
-          `Insufficient stock for item ${item.itemFullName}. Available: ${availableStock.length}, Requested: ${itemData.quantity}`,
-          400,
+          `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
+          400
         );
       }
 
-      if (availableStock.length === 0) {
+      if (selected.length === 0) {
         throw new AppError(
           `No available stock for item ${item.itemFullName}`,
-          400,
+          400
         );
       }
 
-      const stockToReserve = availableStock.slice(0, itemData.quantity);
-      const stockIds = stockToReserve.map((stock) => stock.id);
+      const stockIds = selected.map((s) => s.id);
 
       stockReservations.push({
         stockIds,
@@ -252,9 +275,7 @@ export class DirectInvoiceService {
       });
     }
 
-    const vatRate = data.vatRate || 0;
-    const vat = (subtotal * vatRate) / 100;
-    const grandTotal = subtotal + vat;
+    const grandTotal = subtotal + totalTax;
 
     const invoice = await prisma.$transaction(async (tx) => {
       // Create invoice
@@ -264,8 +285,6 @@ export class DirectInvoiceService {
           clientId: data.clientId,
           companyId,
           subtotal,
-          vat,
-          vatRate,
           grandTotal,
           dueDate: data.dueDate,
           notes: data.notes,
@@ -277,6 +296,12 @@ export class DirectInvoiceService {
       const invoiceItems = await Promise.all(
         data.items.map((item, index) => {
           const reservation = stockReservations[index];
+          const itemDetails = items.find((i) => i.id === item.itemId);
+          const itemSubtotal = item.quantity * reservation.adjustedPrice;
+          let itemTax = 0;
+          if (itemDetails?.isTaxable) {
+            itemTax = itemSubtotal * (Number(itemDetails.taxRate) / 100);
+          }
           return tx.directInvoiceItem.create({
             data: {
               invoiceId: newInvoice.id,
@@ -284,19 +309,19 @@ export class DirectInvoiceService {
               quantity: item.quantity,
               unitPrice: reservation.adjustedPrice,
               totalPrice: item.quantity * reservation.adjustedPrice,
+              isTaxable: itemDetails?.isTaxable || false,
+              taxRate: itemDetails ? Number(itemDetails.taxRate) : 0,
+              taxAmount: itemTax,
             },
           });
-        }),
+        })
       );
 
       // Reserve stock
       for (const reservation of stockReservations) {
-        await tx.stock.updateMany({
-          where: { id: { in: reservation.stockIds } },
-          data: {
-            status: "RESERVED",
-            directInvoiceId: newInvoice.id,
-          },
+        await reserveStockUnits(tx, {
+          stockIds: reservation.stockIds,
+          link: { directInvoiceId: newInvoice.id },
         });
       }
 
@@ -306,7 +331,7 @@ export class DirectInvoiceService {
     // Fetch complete invoice with relations
     const completeInvoice = await this.getDirectInvoiceById(
       invoice.id,
-      companyId,
+      companyId
     );
 
     return {
@@ -319,7 +344,7 @@ export class DirectInvoiceService {
   static async updateDirectInvoice(
     id: string,
     data: UpdateDirectInvoiceDto,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<DirectInvoiceResponse>> {
     const existingInvoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -346,7 +371,7 @@ export class DirectInvoiceService {
       if (items.length !== itemIds.length) {
         throw new AppError(
           "One or more items not found or don't belong to your company",
-          404,
+          404
         );
       }
 
@@ -364,54 +389,50 @@ export class DirectInvoiceService {
       }> = [];
 
       let subtotal = 0;
+      let totalTax = 0;
 
       for (const itemData of data.items) {
         const item = items.find((i) => i.id === itemData.itemId);
         if (!item) continue;
 
         // Apply markup to unit price
-        const adjustedPrice =
-          Number(itemData.unitPrice) * (1 + markupPrice / 100);
-        const itemTotal = Number(itemData.quantity) * adjustedPrice;
-        subtotal += itemTotal;
+        const adjustedPrice = applyMarkup(
+          Number(itemData.unitPrice),
+          markupPrice
+        );
+        const itemSubtotal = Number(itemData.quantity) * adjustedPrice;
+
+        let itemTax = 0;
+        if (item.isTaxable) {
+          itemTax = itemSubtotal * (Number(item.taxRate) / 100);
+        }
+
+        subtotal += itemSubtotal;
+        totalTax += itemTax;
 
         // Check stock availability
-        const availableStock = await prisma.stock.findMany({
-          where: {
-            stockReceipt: { itemId: itemData.itemId, companyId },
-            status: "AVAILABLE",
-          },
-          include: {
-            stockReceipt: {
-              select: {
-                id: true,
-                expiryDate: true,
-                dateReceived: true,
-              },
-            },
-          },
-          orderBy: [
-            { stockReceipt: { expiryDate: "asc" } },
-            { stockReceipt: { dateReceived: "asc" } },
-          ],
+        const selected = await selectAvailableStock(prisma, {
+          itemIds: itemData.itemId,
+          companyId,
+          take: itemData.quantity,
+          strategy: "FIFO",
         });
 
-        if (availableStock.length < itemData.quantity) {
+        if (selected.length < itemData.quantity) {
           throw new AppError(
-            `Insufficient stock for item ${item.itemFullName}. Available: ${availableStock.length}, Requested: ${itemData.quantity}`,
-            400,
+            `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
+            400
           );
         }
 
-        if (availableStock.length === 0) {
+        if (selected.length === 0) {
           throw new AppError(
             `No available stock for item ${item.itemFullName}`,
-            400,
+            400
           );
         }
 
-        const stockToReserve = availableStock.slice(0, itemData.quantity);
-        const stockIds = stockToReserve.map((stock) => stock.id);
+        const stockIds = selected.map((s) => s.id);
 
         stockReservations.push({
           stockIds,
@@ -420,15 +441,12 @@ export class DirectInvoiceService {
         });
       }
 
-      const vatRate = data.vatRate ?? Number(existingInvoice.vatRate);
-      const vat = (subtotal * vatRate) / 100;
-      const grandTotal = subtotal + vat;
+      const grandTotal = subtotal + totalTax;
 
       updateData = {
         ...updateData,
         subtotal,
-        vat,
-        vatRate,
+        taxAmount: totalTax,
         grandTotal,
       };
 
@@ -466,17 +484,14 @@ export class DirectInvoiceService {
                 totalPrice: item.quantity * reservation.adjustedPrice,
               },
             });
-          }),
+          })
         );
 
         // Reserve new stock
         for (const reservation of stockReservations) {
-          await tx.stock.updateMany({
-            where: { id: { in: reservation.stockIds } },
-            data: {
-              status: "RESERVED",
-              directInvoiceId: id,
-            },
+          await reserveStockUnits(tx, {
+            stockIds: reservation.stockIds,
+            link: { directInvoiceId: id },
           });
         }
       });
@@ -505,7 +520,7 @@ export class DirectInvoiceService {
 
   static async deleteDirectInvoice(
     id: string,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -543,7 +558,7 @@ export class DirectInvoiceService {
 
   static async sendDirectInvoice(
     id: string,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -573,7 +588,7 @@ export class DirectInvoiceService {
 
   static async markDirectInvoiceAsPaid(
     id: string,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -603,7 +618,7 @@ export class DirectInvoiceService {
 
   static async cancelDirectInvoice(
     id: string,
-    companyId: string,
+    companyId: string
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -652,7 +667,7 @@ export class DirectInvoiceService {
 
   private static async convertInvoiceToSale(
     invoiceId: string,
-    companyId: string,
+    companyId: string
   ): Promise<void> {
     await prisma.$transaction(async (tx) => {
       // Get invoice with items
@@ -696,6 +711,7 @@ export class DirectInvoiceService {
             quantity: invoiceItem.quantity,
             sellPrice: invoiceItem.unitPrice,
             totalAmount: invoiceItem.totalPrice,
+            taxAmount: invoiceItem.taxAmount,
           },
         });
       }
@@ -724,7 +740,7 @@ export class DirectInvoiceService {
 
   private static async sendInvoiceEmail(
     invoiceId: string,
-    companyId: string,
+    companyId: string
   ): Promise<void> {
     try {
       // Get complete invoice with client and company details
@@ -784,7 +800,7 @@ export class DirectInvoiceService {
           <td>${invoice.currency} ${item.unitPrice.toFixed(2)}</td>
           <td>${invoice.currency} ${item.totalPrice.toFixed(2)}</td>
         </tr>
-      `,
+      `
         )
         .join("");
 
@@ -801,8 +817,6 @@ export class DirectInvoiceService {
         companyPhone: invoice.company.phoneNumber,
         companyLogo: invoice.company.logo || "",
         subtotal: invoice.subtotal.toFixed(2),
-        vat: invoice.vat.toFixed(2),
-        vatRate: invoice.vatRate.toFixed(2),
         grandTotal: invoice.grandTotal.toFixed(2),
         currency: invoice.currency,
         notes: invoice.notes || "",
