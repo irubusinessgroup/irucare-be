@@ -13,7 +13,7 @@ import { selectAvailableStock, reserveStockUnits } from "../utils/stock-ops";
 
 export class DirectInvoiceService {
   static async getAllDirectInvoices(
-    filters: DirectInvoiceFilters
+    filters: DirectInvoiceFilters,
   ): Promise<IPaged<DirectInvoiceResponse[]>> {
     const {
       page = 1,
@@ -113,7 +113,7 @@ export class DirectInvoiceService {
 
   static async getDirectInvoiceById(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<DirectInvoiceResponse>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -180,7 +180,7 @@ export class DirectInvoiceService {
 
   static async createDirectInvoice(
     data: CreateDirectInvoiceDto,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<DirectInvoiceResponse>> {
     // Validate client exists and belongs to company
     const client = await prisma.client.findFirst({
@@ -190,7 +190,7 @@ export class DirectInvoiceService {
     if (!client) {
       throw new AppError(
         "Client not found or doesn't belong to your company",
-        404
+        404,
       );
     }
 
@@ -203,7 +203,7 @@ export class DirectInvoiceService {
     if (items.length !== itemIds.length) {
       throw new AppError(
         "One or more items not found or don't belong to your company",
-        404
+        404,
       );
     }
 
@@ -233,7 +233,7 @@ export class DirectInvoiceService {
       // Apply markup to unit price
       const adjustedPrice = applyMarkup(
         Number(itemData.unitPrice),
-        markupPrice
+        markupPrice,
       );
       const itemSubtotal = Number(itemData.quantity) * adjustedPrice;
 
@@ -255,14 +255,14 @@ export class DirectInvoiceService {
       if (selected.length < itemData.quantity) {
         throw new AppError(
           `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-          400
+          400,
         );
       }
 
       if (selected.length === 0) {
         throw new AppError(
           `No available stock for item ${item.itemFullName}`,
-          400
+          400,
         );
       }
 
@@ -314,7 +314,7 @@ export class DirectInvoiceService {
               taxAmount: itemTax,
             },
           });
-        })
+        }),
       );
 
       // Reserve stock
@@ -331,7 +331,7 @@ export class DirectInvoiceService {
     // Fetch complete invoice with relations
     const completeInvoice = await this.getDirectInvoiceById(
       invoice.id,
-      companyId
+      companyId,
     );
 
     return {
@@ -344,7 +344,7 @@ export class DirectInvoiceService {
   static async updateDirectInvoice(
     id: string,
     data: UpdateDirectInvoiceDto,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<DirectInvoiceResponse>> {
     const existingInvoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -371,7 +371,7 @@ export class DirectInvoiceService {
       if (items.length !== itemIds.length) {
         throw new AppError(
           "One or more items not found or don't belong to your company",
-          404
+          404,
         );
       }
 
@@ -398,7 +398,7 @@ export class DirectInvoiceService {
         // Apply markup to unit price
         const adjustedPrice = applyMarkup(
           Number(itemData.unitPrice),
-          markupPrice
+          markupPrice,
         );
         const itemSubtotal = Number(itemData.quantity) * adjustedPrice;
 
@@ -421,14 +421,14 @@ export class DirectInvoiceService {
         if (selected.length < itemData.quantity) {
           throw new AppError(
             `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-            400
+            400,
           );
         }
 
         if (selected.length === 0) {
           throw new AppError(
             `No available stock for item ${item.itemFullName}`,
-            400
+            400,
           );
         }
 
@@ -484,7 +484,7 @@ export class DirectInvoiceService {
                 totalPrice: item.quantity * reservation.adjustedPrice,
               },
             });
-          })
+          }),
         );
 
         // Reserve new stock
@@ -520,7 +520,7 @@ export class DirectInvoiceService {
 
   static async deleteDirectInvoice(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -558,7 +558,7 @@ export class DirectInvoiceService {
 
   static async sendDirectInvoice(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -588,7 +588,7 @@ export class DirectInvoiceService {
 
   static async markDirectInvoiceAsPaid(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -618,7 +618,7 @@ export class DirectInvoiceService {
 
   static async cancelDirectInvoice(
     id: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<null>> {
     const invoice = await prisma.directInvoice.findFirst({
       where: { id, companyId },
@@ -667,7 +667,7 @@ export class DirectInvoiceService {
 
   private static async convertInvoiceToSale(
     invoiceId: string,
-    companyId: string
+    companyId: string,
   ): Promise<void> {
     await prisma.$transaction(async (tx) => {
       // Get invoice with items
@@ -740,7 +740,7 @@ export class DirectInvoiceService {
 
   private static async sendInvoiceEmail(
     invoiceId: string,
-    companyId: string
+    companyId: string,
   ): Promise<void> {
     try {
       // Get complete invoice with client and company details
@@ -800,7 +800,7 @@ export class DirectInvoiceService {
           <td>${invoice.currency} ${item.unitPrice.toFixed(2)}</td>
           <td>${invoice.currency} ${item.totalPrice.toFixed(2)}</td>
         </tr>
-      `
+      `,
         )
         .join("");
 

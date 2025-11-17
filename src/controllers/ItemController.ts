@@ -107,4 +107,15 @@ export class ItemController {
     res.send(buffer);
     return;
   }
+
+  @Get("/medications")
+  public getMedications(
+    @Request() req: ExpressRequest,
+    @Query() searchq?: string,
+    @Query() limit?: number,
+    @Query() page?: number,
+  ) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.getMedications(req, companyId, searchq, limit, page);
+  }
 }
