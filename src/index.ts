@@ -16,6 +16,7 @@ import { NotificationService } from "./services/NotificationService";
 import cron from "node-cron";
 import { PaymentService } from "./services/PaymentService";
 import { SubscriptionService } from "./services/SubscriptionService";
+import { AppointmentReminderService } from "./services/AppointmentReminderService";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "./utils/jwt";
@@ -210,6 +211,37 @@ cron.schedule("0 0 * * *", async () => {
     await SubscriptionService.runScheduledSubscriptionTasks(io);
   } catch (err) {
     console.error("Error running subscription scheduled tasks:", err);
+  }
+});
+
+// Schedule appointment reminders to run every 5 minutes
+cron.schedule("*/5 * * * *", async () => {
+  console.log("Checking for appointment reminders...");
+  try {
+    const { prisma } = await import("./utils/client");
+    const now = new Date();
+
+    // Get pending reminders that are due
+    const pendingReminders = await prisma.appointmentReminder.findMany({
+      where: {
+        status: "PENDING",
+        reminderTime: { lte: now },
+      },
+      take: 50, // Process 50 at a time
+    });
+
+    console.log(`Found ${pendingReminders.length} reminders to send`);
+
+    // Send reminders
+    for (const reminder of pendingReminders) {
+      try {
+        await AppointmentReminderService.sendReminder(reminder.id, io);
+      } catch (error) {
+        console.error(`Error sending reminder ${reminder.id}:`, error);
+      }
+    }
+  } catch (err) {
+    console.error("Error running appointment reminder tasks:", err);
   }
 });
 

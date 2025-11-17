@@ -29,13 +29,21 @@ model User {
   purchaseOrders     PurchaseOrder[]
   createdDeliveries   Delivery[]
   deliveryTracking    DeliveryTracking[]
-  // Appointment relations
-  providerAppointments Appointment[] @relation("AppointmentProvider")
+ 
   createdAppointments  Appointment[] @relation("AppointmentCreatedBy")
   appointmentTimeSlots AppointmentTimeSlot[] @relation("TimeSlotProvider")
   providerAvailability ProviderAvailability[] @relation("ProviderAvailability")
   appointmentNotifications AppointmentNotification[]
   resetToken ResetToken?
+
+  encountersCreated        Encounter[]         @relation("EncounterCreatedBy")
+  emrsCreated              EMR[]               @relation("EMRCreatedBy")
+  prescriptionsCreated     Prescription[]      @relation("PrescriptionCreatedBy")
+  prescriptionsFulfilled   Prescription[]      @relation("PrescriptionPharmacist")
+  labOrdersCreated         LabOrder[]          @relation("LabOrderCreatedBy")
+  clinicBillingsCreated    ClinicBilling[]     @relation("ClinicBillingCreatedBy")
+  insuranceClaimsCreated   InsuranceClaim[]    @relation("InsuranceClaimCreatedBy")
+  auditLogs                AuditLog[]
 
 }
 
@@ -112,6 +120,7 @@ model Items {
   sellItems         SellItem[]
   deliveries        DeliveryItem[]
   directInvoiceItems DirectInvoiceItem[]
+  prescriptions      Prescription[]
 }
 
 model StockReceipts {
@@ -677,6 +686,7 @@ model Company {
   appointments        Appointment[]
   appointmentTimeSlots AppointmentTimeSlot[]
   providerAvailability ProviderAvailability[]
+  provider Provider[]
 }
 
 model CompanyUser {
@@ -709,6 +719,14 @@ model Patient {
   insuranceCards     InsuranceCard[]
   sells              Sell[]
   appointments       Appointment[]
+  // Clinic module back-relations
+  encounters         Encounter[]
+  emrRecords         EMR[]
+  prescriptions      Prescription[]
+  labOrders          LabOrder[]
+  clinicBillings     ClinicBilling[]
+  insuranceClaims  InsuranceClaim[]
+   referrals     Referral[]
 }
 
 model PatientAddress {
@@ -739,6 +757,7 @@ model InsuranceCard {
   insurance     Insurance  @relation(fields: [insuranceId], references: [id])
   insuranceDetails InsuranceDetail[]
   sells            Sell[]
+  insuranceClaims  InsuranceClaim[]
 }
 
 model InsuranceDetail {
@@ -893,6 +912,7 @@ model Warehouse {
   stockReceipts             StockReceipts[]
   companyId         String
   company            Company      @relation(fields: [companyId], references: [id])
+  prescriptions      Prescription[]
 }
 
 model Plan {
@@ -1205,12 +1225,15 @@ model Appointment {
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
 
-  // Relations
   patient               Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  provider              User              @relation("AppointmentProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  provider              Provider               @relation("AppointmentProvider", fields: [providerId], references: [id], onDelete: Cascade)
   company               Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdByUser         User              @relation("AppointmentCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
   notifications         AppointmentNotification[]
+  reminders             AppointmentReminder[]
+  reminderSettings      Json?             // {"methods": ["SMS", "EMAIL"], "times": [24, 2]} // hours before
+
+  encounters            Encounter[]
 
   @@index([patientId])
   @@index([providerId])
@@ -1234,7 +1257,6 @@ model AppointmentTimeSlot {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
   provider      User     @relation("TimeSlotProvider", fields: [providerId], references: [id], onDelete: Cascade)
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -1254,7 +1276,6 @@ model ProviderAvailability {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
   provider      User     @relation("ProviderAvailability", fields: [providerId], references: [id], onDelete: Cascade)
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
@@ -1271,12 +1292,28 @@ model AppointmentNotification {
   sentAt            DateTime?
   createdAt         DateTime                   @default(now())
 
-  // Relations
   appointment       Appointment                @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   user              User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([appointmentId])
   @@index([userId])
+}
+
+model AppointmentReminder {
+  id            String   @id @default(uuid())
+  appointmentId String
+  reminderTime  DateTime
+  reminderMethod String  // SMS, EMAIL, PUSH
+  status        String   @default("PENDING") // PENDING, SENT, FAILED
+  sentAt        DateTime?
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+  @@index([reminderTime])
+  @@index([status])
 }
 
 model ResetToken {
@@ -1290,4 +1327,358 @@ model ResetToken {
 
   @@index([token])
   @@index([expiresAt])
+}
+
+enum EncounterStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EMRRecordType {
+  NOTE
+  DIAGNOSIS
+  VITALS
+  RESULT
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum LabOrderStatus {
+  ORDERED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum BillingStatus {
+  DRAFT
+  SENT
+  PAID
+  CANCELLED
+}
+
+model Encounter {
+  id            String          @id @default(uuid())
+  patientId     String
+  providerId    String
+  appointmentId String?
+  status        EncounterStatus @default(IN_PROGRESS)
+  notes         String?
+  createdBy     String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  patient       Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider      Provider             @relation("EncounterProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  appointment   Appointment?    @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  createdByUser User            @relation("EncounterCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  emrRecords    EMR[]
+  prescriptions Prescription[]
+  labOrders     LabOrder[]
+  billings      ClinicBilling[]
+  insuranceClaims InsuranceClaim[]
+  referrals     Referral[]
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([appointmentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model EMR {
+  id            String        @id @default(uuid())
+  patientId     String
+  encounterId   String?
+  recordType    EMRRecordType
+  title         String?
+  content       String?
+  data          Json?
+  isConfidential Boolean      @default(false)
+  createdBy     String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter     Encounter?    @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdByUser User          @relation("EMRCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([encounterId])
+  @@index([recordType])
+  @@index([createdAt])
+}
+
+model Prescription {
+  id             String             @id @default(uuid())
+  patientId      String
+  providerId     String
+  encounterId    String?
+  items          Json               // array of items per contract
+  status         PrescriptionStatus @default(ACTIVE)
+  prescribedDate DateTime           @default(now())
+  refillsAllowed Int                @default(0)
+  refillsUsed    Int                @default(0)
+  pharmacyNotes  String?
+  validationWarnings Json?          // array of validation warnings
+  itemId         String?            // Link to Items table for medication
+  pharmacistId   String?            // User who fulfilled the prescription
+  fulfilledDate DateTime?
+  quantityDispensed Int?
+  pickedUpDate   DateTime?
+  pickedUpBy     String?
+  warehouseId    String?
+  createdBy      String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  patient        Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider       Provider                @relation("PrescriptionProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  encounter      Encounter?         @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdByUser  User               @relation("PrescriptionCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  item           Items?             @relation(fields: [itemId], references: [id])
+  pharmacist     User?              @relation("PrescriptionPharmacist", fields: [pharmacistId], references: [id])
+  warehouse      Warehouse?         @relation(fields: [warehouseId], references: [id])
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([encounterId])
+  @@index([status])
+  @@index([prescribedDate])
+  @@index([itemId])
+}
+
+model LabOrder {
+  id                 String         @id @default(uuid())
+  patientId          String
+  providerId         String
+  encounterId        String?
+  orderType          String?
+  tests              Json           // array of tests per contract
+  status             LabOrderStatus @default(ORDERED)
+  orderedDate        DateTime       @default(now())
+  scheduledDate      DateTime?
+  collectedDate      DateTime?
+  completedDate      DateTime?
+  results            Json?
+  specialInstructions String?
+  createdBy          String
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  patient            Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider           Provider            @relation("LabOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  encounter          Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdByUser      User           @relation("LabOrderCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([providerId])
+  @@index([encounterId])
+  @@index([status])
+  @@index([orderedDate])
+  @@index([scheduledDate])
+}
+
+model ClinicBilling {
+  id             String        @id @default(uuid())
+  patientId      String
+  encounterId    String?
+  invoiceNumber  String        @unique
+  billingType    String?
+  services       Json          // array of service lines
+  subtotal       Float         @default(0)
+  taxAmount      Float         @default(0)
+  discountAmount Float         @default(0)
+  totalAmount    Float         @default(0)
+  currency       String        @default("USD")
+  invoiceDate    DateTime      @default(now())
+  dueDate        DateTime?
+  paidDate       DateTime?
+  paymentMethod  String?
+  paymentGateway String?
+  transactionId String?
+  paymentReceiptUrl String?
+  status         BillingStatus @default(DRAFT)
+  notes          String?
+  createdBy      String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter      Encounter?    @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdByUser  User          @relation("ClinicBillingCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  payments       BillingPayment[]
+  insuranceClaims InsuranceClaim[]
+
+  @@index([patientId])
+  @@index([encounterId])
+  @@index([status])
+  @@index([invoiceDate])
+  @@index([dueDate])
+}
+
+model BillingPayment {
+  id                String        @id @default(uuid())
+  billingId         String
+  amount            Decimal       @db.Decimal(10, 2)
+  paymentMethod     PaymentMethod
+  paymentGateway    String?
+  transactionId     String?
+  paymentReceiptUrl String?
+  status            String        @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  billing           ClinicBilling @relation(fields: [billingId], references: [id], onDelete: Cascade)
+
+  @@index([billingId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model Provider {
+  id            String   @id @default(uuid())
+  name          String
+  email         String
+  specialty     String?
+  licenseNumber String?
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  labOrdersAsProvider      LabOrder[]          @relation("LabOrderProvider")
+  prescriptionsAsProvider  Prescription[]      @relation("PrescriptionProvider")
+  encountersAsProvider     Encounter[]         @relation("EncounterProvider")
+  providerAppointments Appointment[] @relation("AppointmentProvider")
+  referralsAsReferring     Referral[]          @relation("ReferringProvider")
+  referralsAsReferredTo    Referral[]          @relation("ReferredToProvider")
+  schedules                ProviderSchedule[]
+  scheduleBlocks           ProviderScheduleBlock[]
+  
+  @@index([companyId])
+  @@index([email, companyId])
+}
+
+model InsuranceClaim {
+  id              String   @id @default(uuid())
+  patientId       String
+  insuranceCardId String
+  encounterId     String?
+  billingId       String?
+  claimNumber     String   @unique
+  status          String   @default("DRAFT") // DRAFT, SUBMITTED, PENDING, APPROVED, REJECTED, PARTIAL, PAID
+  diagnosisCodes  String[]
+  procedureCodes  String[]
+  totalAmount     Decimal  @db.Decimal(10, 2)
+  approvedAmount  Decimal? @db.Decimal(10, 2)
+  rejectedAmount  Decimal? @db.Decimal(10, 2)
+  claimFileUrl    String?
+  responseFileUrl String?
+  submittedDate   DateTime?
+  responseDate    DateTime?
+  notes           String?
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  insuranceCard   InsuranceCard  @relation(fields: [insuranceCardId], references: [id], onDelete: Cascade)
+  encounter       Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  billing         ClinicBilling? @relation(fields: [billingId], references: [id], onDelete: SetNull)
+  createdByUser   User          @relation("InsuranceClaimCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([insuranceCardId])
+  @@index([encounterId])
+  @@index([billingId])
+  @@index([status])
+  @@index([claimNumber])
+  @@index([submittedDate])
+}
+
+model Referral {
+  id                    String   @id @default(uuid())
+  patientId             String
+  encounterId           String?
+  referringProviderId   String
+  referredToProviderId  String
+  referralType          String?  // SPECIALIST, LAB, IMAGING, HOSPITAL, etc.
+  reason                String
+  priority              String?  @default("ROUTINE") // ROUTINE, URGENT, STAT
+  status                String   @default("PENDING") // PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+  referralDate          DateTime @default(now())
+  appointmentDate       DateTime?
+  responseNotes         String?
+  completedDate         DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  patient               Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter             Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  referringProvider     Provider  @relation("ReferringProvider", fields: [referringProviderId], references: [id], onDelete: Cascade)
+  referredToProvider    Provider  @relation("ReferredToProvider", fields: [referredToProviderId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([encounterId])
+  @@index([referringProviderId])
+  @@index([referredToProviderId])
+  @@index([status])
+  @@index([referralDate])
+}
+
+model ProviderSchedule {
+  id            String   @id @default(uuid())
+  providerId    String
+  dayOfWeek     Int      // 0=Sunday, 6=Saturday
+  startTime     DateTime @db.Time
+  endTime       DateTime @db.Time
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, dayOfWeek])
+  @@index([providerId])
+  @@index([dayOfWeek, isActive])
+}
+
+model ProviderScheduleBlock {
+  id            String   @id @default(uuid())
+  providerId    String
+  startDate     DateTime
+  endDate       DateTime
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([startDate, endDate])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  entityType  String   // APPOINTMENT, ENCOUNTER, PRESCRIPTION, etc.
+  entityId    String
+  action      String   // CREATE, UPDATE, DELETE, VIEW
+  changes     Json?    // Before/after data
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
 }

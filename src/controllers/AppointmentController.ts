@@ -14,6 +14,10 @@ import {
 } from "tsoa";
 import { AppointmentService } from "../services/AppointmentService";
 import {
+  AppointmentReminderService,
+  ConfigureRemindersDto,
+} from "../services/AppointmentReminderService";
+import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
   AppointmentFilters,
@@ -243,5 +247,26 @@ export class AppointmentController {
     };
 
     return AppointmentService.getAllAppointments(request, filters);
+  }
+
+  @Post("/{id}/reminders")
+  public async configureReminders(
+    @Path() id: string,
+    @Body() body: ConfigureRemindersDto,
+  ) {
+    return AppointmentReminderService.configureReminders(id, body);
+  }
+
+  @Get("/{id}/reminders")
+  public async getReminders(@Path() id: string) {
+    return AppointmentReminderService.getReminders(id);
+  }
+
+  @Get("/reminders/pending")
+  public async getPendingReminders(
+    @Query() page?: number,
+    @Query() limit?: number,
+  ) {
+    return AppointmentReminderService.getPendingReminders(page, limit);
   }
 }

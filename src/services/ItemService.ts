@@ -809,4 +809,79 @@ export class ItemService {
     }
     return { message: "Duplicate items removed" };
   }
+
+  /**
+   * Get medications filtered by medication category
+   */
+  public static async getMedications(
+    req: Request,
+    companyId: string,
+    searchq?: string,
+    limit?: number,
+    page?: number,
+  ) {
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Find medication category (could be named "Medication", "Drug", "Pharmacy", etc.)
+    const medicationCategories = await prisma.itemCategories.findMany({
+      where: {
+        companyId,
+        OR: [
+          { categoryName: { contains: "Medication", mode: "insensitive" } },
+          { categoryName: { contains: "Drug", mode: "insensitive" } },
+          { categoryName: { contains: "Pharmacy", mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const categoryIds = medicationCategories.map((c) => c.id);
+
+    const where: Record<string, unknown> = {
+      companyId,
+      deletedAt: null,
+    };
+
+    if (categoryIds.length > 0) {
+      where.categoryId = { in: categoryIds };
+    }
+
+    if (searchq) {
+      where.OR = [
+        { itemFullName: { contains: searchq, mode: "insensitive" } },
+        { description: { contains: searchq, mode: "insensitive" } },
+        { productCode: { contains: searchq, mode: "insensitive" } },
+        { itemCodeSku: { contains: searchq, mode: "insensitive" } },
+      ];
+    }
+
+    const [data, totalItems] = await Promise.all([
+      prisma.items.findMany({
+        where,
+        skip,
+        take: limitNum,
+        orderBy: { itemFullName: "asc" },
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryName: true,
+            },
+          },
+        },
+      }),
+      prisma.items.count({ where }),
+    ]);
+
+    return {
+      data,
+      totalItems,
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
+      statusCode: 200,
+      message: "Medications retrieved successfully",
+    };
+  }
 }

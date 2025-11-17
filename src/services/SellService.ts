@@ -10,7 +10,7 @@ export class SellService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -200,7 +200,7 @@ export class SellService {
         if (!data.patientId) {
           throw new AppError(
             "Patient ID is required for pharmacy companies",
-            400
+            400,
           );
         }
         const patient = await tx.patient.findFirst({
@@ -209,7 +209,7 @@ export class SellService {
         if (!patient) {
           throw new AppError(
             "Patient not found or doesn't belong to your company",
-            404
+            404,
           );
         }
       } else {
@@ -217,7 +217,7 @@ export class SellService {
         if (!data.clientId) {
           throw new AppError(
             "Client ID is required for non-pharmacy companies",
-            400
+            400,
           );
         }
         const client = await tx.client.findFirst({
@@ -226,7 +226,7 @@ export class SellService {
         if (!client) {
           throw new AppError(
             "Client not found or doesn't belong to your company",
-            404
+            404,
           );
         }
       }
@@ -258,7 +258,7 @@ export class SellService {
         if (!item) {
           throw new AppError(
             `Item not found or doesn't belong to your company: ${itemData.itemId}`,
-            404
+            404,
           );
         }
 
@@ -272,14 +272,14 @@ export class SellService {
         if (selected.length < itemData.quantity) {
           throw new AppError(
             `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-            400
+            400,
           );
         }
 
         if (selected.length === 0) {
           throw new AppError(
             `No available stock for item ${item.itemFullName}`,
-            400
+            400,
           );
         }
 
@@ -287,7 +287,7 @@ export class SellService {
 
         const adjustedSellPrice = applyMarkup(
           Number(itemData.sellPrice),
-          markupPrice
+          markupPrice,
         );
 
         const itemNetAmount = Number(itemData.quantity) * adjustedSellPrice;
@@ -321,7 +321,7 @@ export class SellService {
       // authoritative subtotal is the sum of item price * quantity (already adjusted)
       subtotal = sellItems.reduce(
         (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
-        0
+        0,
       );
 
       const isPharmacyIndustry =
@@ -340,7 +340,7 @@ export class SellService {
         if (!insuranceCard) {
           throw new AppError(
             "Insurance card not found or not linked to patient/company",
-            400
+            400,
           );
         }
         const now = new Date();
@@ -352,7 +352,7 @@ export class SellService {
         if (!isExpired) {
           applyInsurance = true;
           insurancePercentageSnapshot = Number(
-            insuranceCard.insurance?.percentage ?? 0
+            insuranceCard.insurance?.percentage ?? 0,
           );
         }
       }
@@ -487,7 +487,7 @@ export class SellService {
   public static async updateSell(
     id: string,
     data: UpdateSellDto,
-    req: Request
+    req: Request,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -514,7 +514,7 @@ export class SellService {
         if (!client) {
           throw new AppError(
             "Client not found or doesn't belong to your company",
-            404
+            404,
           );
         }
       }
@@ -576,7 +576,7 @@ export class SellService {
           if (!item) {
             throw new AppError(
               `Item not found or doesn't belong to your company: ${itemData.itemId}`,
-              404
+              404,
             );
           }
 
@@ -590,14 +590,14 @@ export class SellService {
           if (selected.length < itemData.quantity) {
             throw new AppError(
               `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-              400
+              400,
             );
           }
 
           if (selected.length === 0) {
             throw new AppError(
               `No available stock for item ${item.itemFullName}`,
-              400
+              400,
             );
           }
 
@@ -605,7 +605,7 @@ export class SellService {
 
           const adjustedSellPrice = applyMarkup(
             Number(itemData.sellPrice),
-            markupPrice
+            markupPrice,
           );
           const itemNetAmount = Number(itemData.quantity) * adjustedSellPrice;
           const itemTaxAmount = item.isTaxable
@@ -639,7 +639,7 @@ export class SellService {
 
         const subtotal = sellItems.reduce(
           (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
-          0
+          0,
         );
         let insuranceCoveredAmount = 0;
         let patientPayableAmount = subtotal;
@@ -664,7 +664,7 @@ export class SellService {
             if (!insuranceCard) {
               throw new AppError(
                 "Insurance card not found or not linked to patient/company",
-                400
+                400,
               );
             }
             const now = new Date();
@@ -675,7 +675,7 @@ export class SellService {
                 : false);
             if (!isExpired) {
               insurancePercentageSnapshot = Number(
-                insuranceCard.insurance?.percentage ?? 0
+                insuranceCard.insurance?.percentage ?? 0,
               );
               const percentageFactor = (insurancePercentageSnapshot ?? 0) / 100;
               for (const s of sellItems) {
@@ -796,7 +796,7 @@ export class SellService {
           if (!itemCheck) {
             throw new AppError(
               "Item not found or doesn't belong to your company",
-              404
+              404,
             );
           }
         }
@@ -821,7 +821,7 @@ export class SellService {
             if (selected.length < newQuantity) {
               throw new AppError(
                 `Insufficient stock. Available: ${selected.length}, Requested: ${newQuantity}`,
-                400
+                400,
               );
             }
 

@@ -25,7 +25,7 @@ export class AppointmentService {
   // Create appointment
   public static async createAppointment(
     data: CreateAppointmentDto,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     const companyId = req.user?.company?.companyId;
     const userId = req.user?.id;
@@ -59,9 +59,8 @@ export class AppointmentService {
     }
 
     // Check if provider exists and is available
-    const provider = await prisma.user.findFirst({
-      where: { id: data.providerId },
-      include: { userRoles: true },
+    const provider = await prisma.provider.findFirst({
+      where: { id: data.providerId, companyId },
     });
     if (!provider) {
       throw new AppError("Provider not found", 404);
@@ -72,7 +71,7 @@ export class AppointmentService {
       data.providerId,
       new Date(data.scheduledDate),
       data.duration,
-      companyId,
+      companyId
     );
     if (conflict) {
       throw new AppError("Time slot conflict", 409);
@@ -105,9 +104,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -131,7 +130,7 @@ export class AppointmentService {
     await this.sendAppointmentNotification(
       io,
       appointment,
-      "APPOINTMENT_SCHEDULED",
+      "APPOINTMENT_SCHEDULED"
     );
 
     return {
@@ -144,7 +143,7 @@ export class AppointmentService {
   // Get all appointments with filtering and pagination
   public static async getAllAppointments(
     req: Request,
-    filters: AppointmentFilters,
+    filters: AppointmentFilters
   ): Promise<IPaged<TAppointment[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -171,8 +170,7 @@ export class AppointmentService {
         { notes: { contains: searchq } },
         { room: { contains: searchq } },
         { patient: { name: { contains: searchq } } },
-        { provider: { firstName: { contains: searchq } } },
-        { provider: { lastName: { contains: searchq } } },
+        { provider: { name: { contains: searchq } } },
       ];
     }
 
@@ -204,9 +202,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -243,7 +241,7 @@ export class AppointmentService {
   // Get appointment by ID
   public static async getAppointmentById(
     id: string,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -264,9 +262,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -300,7 +298,7 @@ export class AppointmentService {
   public static async updateAppointment(
     id: string,
     data: UpdateAppointmentDto,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -327,7 +325,7 @@ export class AppointmentService {
         scheduledDate,
         duration,
         companyId,
-        id, // exclude current appointment
+        id // exclude current appointment
       );
       if (conflict) {
         throw new AppError("Time slot conflict", 409);
@@ -364,9 +362,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -395,7 +393,7 @@ export class AppointmentService {
   // Delete appointment (soft delete by updating status)
   public static async deleteAppointment(
     id: string,
-    req: Request,
+    req: Request
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -429,13 +427,13 @@ export class AppointmentService {
   // Confirm appointment
   public static async confirmAppointment(
     id: string,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     return this.updateAppointmentStatus(
       id,
       "CONFIRMED",
       { confirmedAt: new Date() },
-      req,
+      req
     );
   }
 
@@ -443,7 +441,7 @@ export class AppointmentService {
   public static async cancelAppointment(
     id: string,
     data: CancelAppointmentDto,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     return this.updateAppointmentStatus(
       id,
@@ -452,7 +450,7 @@ export class AppointmentService {
         cancelledAt: new Date(),
         cancellationReason: data.reason,
       },
-      req,
+      req
     );
   }
 
@@ -460,7 +458,7 @@ export class AppointmentService {
   public static async rescheduleAppointment(
     id: string,
     data: RescheduleAppointmentDto,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -481,7 +479,7 @@ export class AppointmentService {
       new Date(data.newDate),
       appointment.duration,
       companyId,
-      id,
+      id
     );
     if (conflict) {
       throw new AppError("Time slot conflict", 409);
@@ -509,9 +507,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -535,7 +533,7 @@ export class AppointmentService {
     await this.sendAppointmentNotification(
       io,
       updatedAppointment,
-      "APPOINTMENT_RESCHEDULED",
+      "APPOINTMENT_RESCHEDULED"
     );
 
     return {
@@ -549,7 +547,7 @@ export class AppointmentService {
   public static async completeAppointment(
     id: string,
     data: CompleteAppointmentDto,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     return this.updateAppointmentStatus(
       id,
@@ -561,7 +559,7 @@ export class AppointmentService {
           ? `${req.body.notes || ""}\nCompleted: ${data.notes}`.trim()
           : req.body.notes,
       },
-      req,
+      req
     );
   }
 
@@ -569,7 +567,7 @@ export class AppointmentService {
   public static async markNoShow(
     id: string,
     data: NoShowAppointmentDto,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     return this.updateAppointmentStatus(
       id,
@@ -580,7 +578,7 @@ export class AppointmentService {
           ? `${req.body.notes || ""}\nNo-show: ${data.notes}`.trim()
           : req.body.notes,
       },
-      req,
+      req
     );
   }
 
@@ -589,7 +587,7 @@ export class AppointmentService {
     providerId: string,
     date: string,
     duration: number = 30,
-    req: Request,
+    req: Request
   ): Promise<IResponse<AvailableTimeSlot[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -599,31 +597,63 @@ export class AppointmentService {
     const targetDate = new Date(date);
     const dayOfWeek = targetDate.getDay();
 
-    // Get provider's availability for this day
-    const availability = await prisma.providerAvailability.findFirst({
+    // First try to get from ProviderSchedule (new system)
+    const schedule = await prisma.providerSchedule.findFirst({
       where: {
         providerId,
-        companyId,
         dayOfWeek,
-        isAvailable: true,
+        isActive: true,
       },
     });
 
-    if (!availability) {
-      return {
-        statusCode: 200,
-        message: "No availability found for this day",
-        data: [],
+    // Fallback to ProviderAvailability (legacy system)
+    let timeRange: { startTime: Date; endTime: Date } | null = null;
+
+    if (schedule) {
+      timeRange = {
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+      };
+    } else {
+      const availability = await prisma.providerAvailability.findFirst({
+        where: {
+          providerId,
+          companyId,
+          dayOfWeek,
+          isAvailable: true,
+        },
+      });
+
+      if (!availability) {
+        return {
+          statusCode: 200,
+          message: "No availability found for this day",
+          data: [],
+        };
+      }
+
+      timeRange = {
+        startTime: availability.startTime,
+        endTime: availability.endTime,
       };
     }
+
+    // Check for blocked time slots
+    const blocks = await prisma.providerScheduleBlock.findMany({
+      where: {
+        providerId,
+        startDate: { lte: new Date(`${date}T23:59:59`) },
+        endDate: { gte: new Date(`${date}T00:00:00`) },
+      },
+    });
 
     // Generate time slots
     const slots: AvailableTimeSlot[] = [];
     const startTime = new Date(
-      `${date}T${availability.startTime.toTimeString().slice(0, 8)}`,
+      `${date}T${timeRange.startTime.toTimeString().slice(0, 8)}`
     );
     const endTime = new Date(
-      `${date}T${availability.endTime.toTimeString().slice(0, 8)}`,
+      `${date}T${timeRange.endTime.toTimeString().slice(0, 8)}`
     );
 
     let currentTime = new Date(startTime);
@@ -632,18 +662,31 @@ export class AppointmentService {
       const slotEndTime = new Date(currentTime.getTime() + duration * 60000);
 
       if (slotEndTime <= endTime) {
-        // Check if this slot is available
-        const isAvailable = await this.checkTimeSlotAvailability(
-          providerId,
-          currentTime,
-          duration,
-          companyId,
+        // Check if this slot is blocked
+        const isBlocked = blocks.some(
+          (block) =>
+            currentTime >= block.startDate && currentTime < block.endDate
         );
 
-        slots.push({
-          time: currentTime.toTimeString().slice(0, 5),
-          available: isAvailable,
-        });
+        if (!isBlocked) {
+          // Check if this slot conflicts with existing appointments
+          const isAvailable = await this.checkTimeSlotAvailability(
+            providerId,
+            currentTime,
+            duration,
+            companyId
+          );
+
+          slots.push({
+            time: currentTime.toTimeString().slice(0, 5),
+            available: isAvailable,
+          });
+        } else {
+          slots.push({
+            time: currentTime.toTimeString().slice(0, 5),
+            available: false,
+          });
+        }
       }
 
       currentTime = new Date(currentTime.getTime() + 15 * 60000); // 15-minute intervals
@@ -659,7 +702,7 @@ export class AppointmentService {
   // Get today's appointments
   public static async getTodayAppointments(
     req: Request,
-    providerId?: string,
+    providerId?: string
   ): Promise<IResponse<TAppointment[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -696,9 +739,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -728,7 +771,7 @@ export class AppointmentService {
   // Get upcoming appointments
   public static async getUpcomingAppointments(
     req: Request,
-    days: number = 7,
+    days: number = 7
   ): Promise<IResponse<TAppointment[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -761,9 +804,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -796,7 +839,7 @@ export class AppointmentService {
     startDate?: string,
     endDate?: string,
     providerId?: string,
-    appointmentType?: AppointmentType,
+    appointmentType?: AppointmentType
   ): Promise<IResponse<AppointmentStatistics>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -858,7 +901,7 @@ export class AppointmentService {
     scheduledDate: Date,
     duration: number,
     companyId: string,
-    excludeAppointmentId?: string,
+    excludeAppointmentId?: string
   ): Promise<boolean> {
     const startTime = new Date(scheduledDate);
     const endTime = new Date(startTime.getTime() + duration * 60000);
@@ -908,7 +951,7 @@ export class AppointmentService {
     providerId: string,
     startTime: Date,
     duration: number,
-    companyId: string,
+    companyId: string
   ): Promise<boolean> {
     const endTime = new Date(startTime.getTime() + duration * 60000);
 
@@ -951,7 +994,7 @@ export class AppointmentService {
     id: string,
     status: AppointmentStatus,
     additionalData: Record<string, unknown>,
-    req: Request,
+    req: Request
   ): Promise<IResponse<TAppointment>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -980,7 +1023,7 @@ export class AppointmentService {
     if (!validTransitions[appointment.status].includes(status)) {
       throw new AppError(
         `Invalid status transition from ${appointment.status} to ${status}`,
-        400,
+        400
       );
     }
 
@@ -1003,9 +1046,9 @@ export class AppointmentService {
         provider: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             email: true,
+            specialty: true,
           },
         },
         createdByUser: {
@@ -1029,7 +1072,7 @@ export class AppointmentService {
     await this.sendAppointmentNotification(
       io,
       updatedAppointment,
-      `APPOINTMENT_${status}`,
+      `APPOINTMENT_${status}`
     );
 
     return {
@@ -1042,7 +1085,7 @@ export class AppointmentService {
   private static async sendAppointmentNotification(
     io: SocketIOServer,
     appointment: TAppointment,
-    notificationType: string,
+    notificationType: string
   ): Promise<void> {
     try {
       // Send to patient
@@ -1050,11 +1093,11 @@ export class AppointmentService {
         io,
         appointment.patientId,
         `Appointment ${notificationType.replace("APPOINTMENT_", "").toLowerCase()}`,
-        `Your appointment with ${appointment.provider?.firstName} ${appointment.provider?.lastName} has been ${notificationType.replace("APPOINTMENT_", "").toLowerCase()}`,
+        `Your appointment with ${appointment.provider?.name}  has been ${notificationType.replace("APPOINTMENT_", "").toLowerCase()}`,
         "info",
         `/appointments/${appointment.id}`,
         "appointment",
-        appointment.id,
+        appointment.id
       );
 
       // Send to provider
@@ -1066,7 +1109,7 @@ export class AppointmentService {
         "info",
         `/appointments/${appointment.id}`,
         "appointment",
-        appointment.id,
+        appointment.id
       );
     } catch (error) {
       console.error("Error sending appointment notification:", error);
@@ -1074,7 +1117,7 @@ export class AppointmentService {
   }
 
   private static async getAppointmentsByStatus(
-    whereClause: Prisma.AppointmentWhereInput,
+    whereClause: Prisma.AppointmentWhereInput
   ): Promise<Record<AppointmentStatus, number>> {
     const statuses = await prisma.appointment.groupBy({
       by: ["status"],
@@ -1100,7 +1143,7 @@ export class AppointmentService {
   }
 
   private static async getAppointmentsByType(
-    whereClause: Prisma.AppointmentWhereInput,
+    whereClause: Prisma.AppointmentWhereInput
   ): Promise<Record<AppointmentType, number>> {
     const types = await prisma.appointment.groupBy({
       by: ["appointmentType"],
@@ -1127,7 +1170,7 @@ export class AppointmentService {
   }
 
   private static async getAverageAppointmentDuration(
-    whereClause: Prisma.AppointmentWhereInput,
+    whereClause: Prisma.AppointmentWhereInput
   ): Promise<number> {
     const result = await prisma.appointment.aggregate({
       where: whereClause,
@@ -1138,7 +1181,7 @@ export class AppointmentService {
   }
 
   private static async getMonthlyTrends(
-    whereClause: Prisma.AppointmentWhereInput,
+    whereClause: Prisma.AppointmentWhereInput
   ): Promise<Array<{ month: string; count: number }>> {
     const trends = await prisma.appointment.groupBy({
       by: ["scheduledDate"],
@@ -1161,7 +1204,7 @@ export class AppointmentService {
   }
 
   private static async getProviderStatistics(
-    whereClause: Prisma.AppointmentWhereInput,
+    whereClause: Prisma.AppointmentWhereInput
   ): Promise<
     Array<{
       providerId: string;
@@ -1186,23 +1229,84 @@ export class AppointmentService {
           },
         });
 
-        const user = await prisma.user.findUnique({
+        const providerData = await prisma.provider.findUnique({
           where: { id: provider.providerId },
-          select: { firstName: true, lastName: true },
+          select: { name: true },
         });
 
         return {
           providerId: provider.providerId,
-          providerName: user ? `${user.firstName} ${user.lastName}` : "Unknown",
+          providerName: providerData?.name || "Unknown",
           totalAppointments: provider._count.providerId,
           noShowRate:
             provider._count.providerId > 0
               ? noShowCount / provider._count.providerId
               : 0,
         };
-      }),
+      })
     );
 
     return result;
+  }
+
+  // Configure reminders for appointment
+  public static async configureReminders(
+    id: string,
+    reminderSettings: {
+      methods: ("SMS" | "EMAIL" | "PUSH")[];
+      times: number[];
+    }
+  ): Promise<IResponse<TAppointment>> {
+    const appointment = await prisma.appointment.findUnique({
+      where: { id },
+    });
+
+    if (!appointment) {
+      throw new AppError("Appointment not found", 404);
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: {
+        reminderSettings: reminderSettings as unknown as object,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            patientNO: true,
+          },
+        },
+        provider: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            specialty: true,
+          },
+        },
+        createdByUser: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return {
+      statusCode: 200,
+      message: "Reminder settings updated successfully",
+      data: updated,
+    };
   }
 }

@@ -1370,8 +1370,7 @@ export interface TAppointment {
   };
   provider?: {
     id: string;
-    firstName: string;
-    lastName: string;
+    name: string;
     email: string;
   };
   createdByUser?: {
@@ -1551,4 +1550,139 @@ export interface CompleteAppointmentDto {
 
 export interface NoShowAppointmentDto {
   notes?: string;
+}
+
+export interface CreateEncounterDto {
+  patientId: string;
+  providerId: string;
+  appointmentId?: string;
+  notes?: string;
+}
+
+export interface UpdateEncounterDto {
+  notes?: string;
+}
+
+// EMR
+export type EMRRecordType = "NOTE" | "DIAGNOSIS" | "VITALS" | "RESULT";
+
+export interface CreateEMRDto {
+  patientId: string;
+  encounterId?: string;
+  recordType: EMRRecordType;
+  title?: string;
+  content?: string;
+  data?: unknown;
+  isConfidential?: boolean;
+}
+
+export interface UpdateEMRDto {
+  title?: string;
+  content?: string;
+  data?: unknown;
+  isConfidential?: boolean;
+}
+
+// Prescriptions
+export interface PrescriptionItem {
+  drugCode: string;
+  drugName: string;
+  dose: string;
+  frequency: string;
+  duration: string;
+  quantity?: number;
+}
+
+export interface CreatePrescriptionDto {
+  patientId: string;
+  providerId: string;
+  encounterId?: string;
+  items: PrescriptionItem[];
+  refillsAllowed?: number;
+  readonly pharmacyNotes?: string;
+  itemId?: string; // Link to Items table for medication
+}
+
+export interface UpdatePrescriptionDto {
+  items?: PrescriptionItem[];
+  refillsAllowed?: number;
+  pharmacyNotes?: string;
+  status?: "ACTIVE" | "COMPLETED" | "CANCELLED";
+}
+
+// Lab Orders
+export interface LabOrderTest {
+  code: string;
+  name: string;
+  specimen?: string;
+  notes?: string;
+}
+
+export interface LabResultItem {
+  code: string;
+  name: string;
+  value: string | number | null;
+  unit?: string;
+  refRange?: string;
+  flag?: "LOW" | "HIGH" | "CRITICAL" | "NORMAL";
+}
+
+export interface CreateLabOrderDto {
+  patientId: string;
+  providerId: string;
+  encounterId?: string;
+  orderType?: string;
+  tests: LabOrderTest[];
+  specialInstructions?: string;
+}
+
+export interface UpdateLabOrderDto {
+  tests?: LabOrderTest[];
+  specialInstructions?: string;
+  status?: "ORDERED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+}
+
+// Clinic Billing
+export interface BillingServiceLineInput {
+  code: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  itemId?: string; // Link to Items table for clinical supplies
+}
+
+export interface CreateClinicBillingDto {
+  patientId: string;
+  encounterId?: string;
+  billingType?: string;
+  services: BillingServiceLineInput[];
+  taxAmount?: number;
+  discountAmount?: number;
+  currency?: string;
+  dueDate?: string;
+  notes?: string;
+}
+
+export interface UpdateClinicBillingDto {
+  services?: BillingServiceLineInput[];
+  taxAmount?: number;
+  discountAmount?: number;
+  currency?: string;
+  dueDate?: string;
+  notes?: string;
+  status?: "DRAFT" | "SENT" | "PAID" | "CANCELLED";
+}
+
+export interface CreateProviderDto {
+  name: string;
+  email: string;
+  specialty?: string;
+  licenseNumber?: string;
+}
+
+export interface UpdateProviderDto {
+  name?: string;
+  email?: string;
+  specialty?: string;
+  licenseNumber?: string;
 }
