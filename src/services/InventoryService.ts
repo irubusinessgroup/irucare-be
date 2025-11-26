@@ -8,7 +8,7 @@ export class InventoryService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -21,7 +21,7 @@ export class InventoryService {
           OR: [
             { itemFullName: { contains: searchq } },
             { itemCodeSku: { contains: searchq } },
-            { brandManufacturer: { contains: searchq } },
+            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : {};
@@ -121,7 +121,7 @@ export class InventoryService {
         (total, receipt) => {
           return total + Number(receipt.quantityReceived);
         },
-        0,
+        0
       );
 
       let totalCost = 0;
@@ -154,7 +154,7 @@ export class InventoryService {
             ? receipt.expiryDate
             : earliest;
         },
-        null as Date | null,
+        null as Date | null
       );
 
       return {
@@ -205,7 +205,7 @@ export class InventoryService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -222,7 +222,7 @@ export class InventoryService {
           OR: [
             { itemFullName: { contains: searchq } },
             { itemCodeSku: { contains: searchq } },
-            { brandManufacturer: { contains: searchq } },
+            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : {};
@@ -304,7 +304,7 @@ export class InventoryService {
 
       const expiryDate = new Date(earliestExpiringReceipt.expiryDate!);
       const daysUntilExpiry = Math.ceil(
-        (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+        (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       let urgencyLevel = "LOW";
@@ -342,7 +342,7 @@ export class InventoryService {
         (total, receipt) => {
           return total + Number(receipt.quantityReceived);
         },
-        0,
+        0
       );
 
       return {
@@ -406,7 +406,7 @@ export class InventoryService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -422,7 +422,7 @@ export class InventoryService {
           OR: [
             { itemFullName: { contains: searchq } },
             { itemCodeSku: { contains: searchq } },
-            { brandManufacturer: { contains: searchq } },
+            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : {};
@@ -503,7 +503,7 @@ export class InventoryService {
       const nowLocal = new Date();
       const expiryDate = new Date(earliestExpiringReceipt.expiryDate!);
       const daysUntilExpiry = Math.ceil(
-        (expiryDate.getTime() - nowLocal.getTime()) / (1000 * 60 * 60 * 24),
+        (expiryDate.getTime() - nowLocal.getTime()) / (1000 * 60 * 60 * 24)
       );
 
       let urgencyLevel = "LOW";
@@ -541,7 +541,7 @@ export class InventoryService {
         (total, receipt) => {
           return total + Number(receipt.quantityReceived);
         },
-        0,
+        0
       );
 
       return {
@@ -619,7 +619,7 @@ export class InventoryService {
       reason: string;
       specialHandlingNotes?: string;
       remarksNotes?: string;
-    },
+    }
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -641,7 +641,7 @@ export class InventoryService {
     if (!item) {
       throw new AppError(
         "Item not found or doesn't belong to your company",
-        404,
+        404
       );
     }
 
@@ -680,8 +680,10 @@ export class InventoryService {
           data: {
             stockReceiptId: stockReceipt.id,
             status: "AVAILABLE",
+            quantity: 1,
+            quantityAvailable: 1,
           },
-        }),
+        })
     );
 
     await Promise.all(stockPromises);

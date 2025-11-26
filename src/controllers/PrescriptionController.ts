@@ -6,6 +6,7 @@ import {
   Path,
   Post,
   Put,
+  Query,
   Request,
   Route,
   Security,
@@ -13,14 +14,10 @@ import {
 } from "tsoa";
 import type { Request as ExpressRequest } from "express";
 import { PrescriptionService } from "../services/PrescriptionService";
-import type { PrescriptionStatus } from "../services/PrescriptionService";
 import {
-  PrescriptionFulfillmentService,
-  FulfillPrescriptionDto,
-  PickupPrescriptionDto,
-} from "../services/PrescriptionFulfillmentService";
-import type {
   CreatePrescriptionDto,
+  DispensePrescriptionDto,
+  PrescriptionStatus,
   UpdatePrescriptionDto,
 } from "../utils/interfaces/common";
 
@@ -29,78 +26,94 @@ import type {
 @Security("jwt")
 export class PrescriptionController extends Controller {
   @Get("/")
-  public list(@Request() req: ExpressRequest) {
-    const { page, limit, patientId, providerId, encounterId, status } =
-      req.query;
-    const statusParam = status as string | undefined as
-      | PrescriptionStatus
-      | undefined;
-    return PrescriptionService.list(
-      page ? Number(page) : undefined,
-      limit ? Number(limit) : undefined,
-      {
-        patientId: patientId as string | undefined,
-        providerId: providerId as string | undefined,
-        encounterId: encounterId as string | undefined,
-        status: statusParam,
-      },
-    );
+  public list(@Request() req: ExpressRequest): Promise<any> {
+    const {
+      page,
+      limit,
+      patientId,
+      providerId,
+      encounterId,
+      status,
+      startDate,
+      endDate,
+    } = req.query;
+    return PrescriptionService.list(req, page as any, limit as any, {
+      patientId: patientId as string,
+      providerId: providerId as string,
+      encounterId: encounterId as string,
+      status: status as PrescriptionStatus,
+      startDate: startDate as string,
+      endDate: endDate as string,
+    });
   }
 
   @Get("/{id}")
-  public get(id: string) {
-    return PrescriptionService.getById(id);
+  public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+    return PrescriptionService.getById(id, req);
   }
 
   @Post("/")
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreatePrescriptionDto,
-  ) {
+    @Body() body: CreatePrescriptionDto
+  ): Promise<any> {
     return PrescriptionService.create(req, body);
   }
 
   @Put("/{id}")
-  public update(id: string, @Body() body: UpdatePrescriptionDto) {
-    return PrescriptionService.update(id, body);
+  public update(
+    @Path() id: string,
+    @Body() body: UpdatePrescriptionDto,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
+    return PrescriptionService.update(id, body, req);
   }
 
   @Delete("/{id}")
-  public remove(id: string) {
-    return PrescriptionService.remove(id);
+  public remove(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+    return PrescriptionService.remove(id, req);
   }
 
-  @Put("/{id}/refill")
-  public refill(id: string) {
-    return PrescriptionService.refill(id);
-  }
-
-  @Put("/{id}/complete")
-  public complete(id: string) {
-    return PrescriptionService.complete(id);
-  }
-
-  @Put("/{id}/cancel")
-  public cancel(id: string) {
-    return PrescriptionService.cancel(id);
-  }
-
-  @Post("/{id}/fulfill")
-  public fulfill(
+  @Post("/{id}/dispense")
+  public dispense(
     @Path() id: string,
-    @Request() req: ExpressRequest,
-    @Body() body: FulfillPrescriptionDto,
-  ) {
-    return PrescriptionFulfillmentService.fulfill(req, id, body);
-  }
-
-  @Get("/{id}/fulfillment")
-  public getFulfillment(@Path() id: string) {
-    return PrescriptionFulfillmentService.getFulfillment(id);
+    @Body() body: DispensePrescriptionDto,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
+    return PrescriptionService.dispense(id, body, req);
   }
 
   @Put("/{id}/pickup")
-  public pickup(@Path() id: string, @Body() body: PickupPrescriptionDto) {
-    return PrescriptionFulfillmentService.pickup(id, body);
+  public pickup(
+    @Path() id: string,
+    @Body() body: { pickedUpBy: string },
+    @Request() req: ExpressRequest
+  ): Promise<any> {
+    return PrescriptionService.pickup(id, body.pickedUpBy, req);
+  }
+
+  @Put("/{id}/refill")
+  public refill(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+    return PrescriptionService.refill(id, req);
+  }
+
+  @Put("/{id}/complete")
+  public complete(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+    return PrescriptionService.complete(id, req);
+  }
+
+  @Put("/{id}/cancel")
+  public cancel(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+    return PrescriptionService.cancel(id, req);
+  }
+
+  @Get("/patient/{patientId}/history")
+  public patientHistory(
+    @Path() patientId: string,
+    @Request() req: ExpressRequest,
+    @Query() page?: number,
+    @Query() limit?: number
+  ): Promise<any> {
+    return PrescriptionService.getPatientHistory(patientId, req, page, limit);
   }
 }

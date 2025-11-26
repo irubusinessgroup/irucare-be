@@ -12,7 +12,7 @@ export class ClinicalReportService {
     req: Request,
     providerId?: string,
     startDate?: string,
-    endDate?: string,
+    endDate?: string
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -58,7 +58,7 @@ export class ClinicalReportService {
       prisma.prescription.count({
         where: {
           providerId: providerId || undefined,
-          prescribedDate:
+          prescribedAt:
             startDate || endDate
               ? {
                   gte: startDate ? new Date(startDate) : undefined,
@@ -70,7 +70,7 @@ export class ClinicalReportService {
       prisma.labOrder.count({
         where: {
           providerId: providerId || undefined,
-          orderedDate:
+          orderedAt:
             startDate || endDate
               ? {
                   gte: startDate ? new Date(startDate) : undefined,
@@ -134,31 +134,31 @@ export class ClinicalReportService {
     req: Request,
     startDate?: string,
     endDate?: string,
-    diagnosis?: string,
+    diagnosis?: string
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
-    const whereClause: Prisma.EMRWhereInput = {
-      recordType: "DIAGNOSIS",
+    const whereClause: Prisma.DiagnosisWhereInput = {
+      companyId,
     };
 
     if (startDate || endDate) {
-      whereClause.createdAt = {};
-      if (startDate) whereClause.createdAt.gte = new Date(startDate);
-      if (endDate) whereClause.createdAt.lte = new Date(endDate);
+      whereClause.diagnosedAt = {};
+      if (startDate) whereClause.diagnosedAt.gte = new Date(startDate);
+      if (endDate) whereClause.diagnosedAt.lte = new Date(endDate);
     }
 
     if (diagnosis) {
       whereClause.OR = [
-        { content: { contains: diagnosis } },
-        { title: { contains: diagnosis } },
+        { diagnosisName: { contains: diagnosis, mode: "insensitive" } },
+        { icdCode: { contains: diagnosis, mode: "insensitive" } },
       ];
     }
 
-    const diagnoses = await prisma.eMR.findMany({
+    const diagnoses = await prisma.diagnosis.findMany({
       where: whereClause,
       include: {
         patient: {
@@ -179,8 +179,8 @@ export class ClinicalReportService {
 
     // Group by diagnosis
     const diagnosisGroups: Record<string, number> = {};
-    diagnoses.forEach((emr) => {
-      const diag = emr.title || emr.content || "Unknown";
+    diagnoses.forEach((d) => {
+      const diag = d.diagnosisName || "Unknown";
       diagnosisGroups[diag] = (diagnosisGroups[diag] || 0) + 1;
     });
 
@@ -203,7 +203,7 @@ export class ClinicalReportService {
     req: Request,
     startDate?: string,
     endDate?: string,
-    groupBy?: "service" | "provider" | "month",
+    groupBy?: "service" | "provider" | "month"
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -273,7 +273,7 @@ export class ClinicalReportService {
 
     const totalRevenue = billings.reduce(
       (sum, b) => sum + Number(b.totalAmount),
-      0,
+      0
     );
 
     return {
@@ -294,42 +294,42 @@ export class ClinicalReportService {
   public static async getLabUtilization(
     req: Request,
     startDate?: string,
-    endDate?: string,
+    endDate?: string
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
-    const whereClause: Prisma.LabOrderWhereInput = {};
+    const whereClause: Prisma.LabOrderWhereInput = { companyId };
 
     if (startDate || endDate) {
-      whereClause.orderedDate = {};
-      if (startDate) whereClause.orderedDate.gte = new Date(startDate);
-      if (endDate) whereClause.orderedDate.lte = new Date(endDate);
+      whereClause.orderedAt = {};
+      if (startDate) whereClause.orderedAt.gte = new Date(startDate);
+      if (endDate) whereClause.orderedAt.lte = new Date(endDate);
     }
 
     const labOrders = await prisma.labOrder.findMany({
       where: whereClause,
       select: {
         id: true,
-        orderType: true,
-        tests: true,
+        test: {
+          select: {
+            testName: true,
+            testCode: true,
+          },
+        },
         status: true,
-        orderedDate: true,
+        orderedAt: true,
       },
     });
 
     // Extract test names from orders
     const testCounts: Record<string, number> = {};
     labOrders.forEach((order) => {
-      const tests = order.tests as Array<{ name?: string; code?: string }>;
-      if (Array.isArray(tests)) {
-        tests.forEach((test) => {
-          const testName = test.name || test.code || "Unknown";
-          testCounts[testName] = (testCounts[testName] || 0) + 1;
-        });
-      }
+      const testName =
+        order.test?.testName || order.test?.testCode || "Unknown";
+      testCounts[testName] = (testCounts[testName] || 0) + 1;
     });
 
     // Sort by count
@@ -339,7 +339,7 @@ export class ClinicalReportService {
 
     const totalOrders = labOrders.length;
     const completedOrders = labOrders.filter(
-      (o) => o.status === "COMPLETED",
+      (o) => o.status === "COMPLETED"
     ).length;
     const utilizationRate = totalOrders > 0 ? completedOrders / totalOrders : 0;
 
@@ -365,19 +365,19 @@ export class ClinicalReportService {
   public static async getPrescriptionCompliance(
     req: Request,
     startDate?: string,
-    endDate?: string,
+    endDate?: string
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
-    const whereClause: Prisma.PrescriptionWhereInput = {};
+    const whereClause: Prisma.PrescriptionWhereInput = { companyId };
 
     if (startDate || endDate) {
-      whereClause.prescribedDate = {};
-      if (startDate) whereClause.prescribedDate.gte = new Date(startDate);
-      if (endDate) whereClause.prescribedDate.lte = new Date(endDate);
+      whereClause.prescribedAt = {};
+      if (startDate) whereClause.prescribedAt.gte = new Date(startDate);
+      if (endDate) whereClause.prescribedAt.lte = new Date(endDate);
     }
 
     const prescriptions = await prisma.prescription.findMany({
@@ -387,14 +387,14 @@ export class ClinicalReportService {
         status: true,
         refillsAllowed: true,
         refillsUsed: true,
-        prescribedDate: true,
-        fulfilledDate: true,
+        prescribedAt: true,
+        dispensedDate: true,
       },
     });
 
     const totalPrescriptions = prescriptions.length;
     const fulfilledPrescriptions = prescriptions.filter(
-      (p) => p.fulfilledDate !== null,
+      (p) => p.dispensedDate !== null
     ).length;
     const refillRate =
       totalPrescriptions > 0
@@ -432,7 +432,7 @@ export class ClinicalReportService {
     req: Request,
     startDate?: string,
     endDate?: string,
-    providerId?: string,
+    providerId?: string
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -489,14 +489,14 @@ export class ClinicalReportService {
             acc[item.status] = item._count.status;
             return acc;
           },
-          {} as Record<string, number>,
+          {} as Record<string, number>
         ),
         appointmentsByType: appointmentsByType.reduce(
           (acc, item) => {
             acc[item.appointmentType] = item._count.appointmentType;
             return acc;
           },
-          {} as Record<string, number>,
+          {} as Record<string, number>
         ),
         noShowRate,
         noShowByProvider: noShowByProvider.map((item) => ({

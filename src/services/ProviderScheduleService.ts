@@ -28,39 +28,47 @@ export class ProviderScheduleService {
     const userId = req.user?.id;
     if (!userId) throw new AppError("Not Authorized", 401);
 
-    // Validate provider exists
-    const provider = await prisma.provider.findUnique({
-      where: { id: providerId },
+    // Validate provider exists and belongs to user's company
+    const provider = await prisma.provider.findFirst({
+      where: {
+        id: providerId,
+        companyId: req.user?.company?.companyId,
+      },
     });
 
     if (!provider) {
       throw new AppError("Provider not found", 404);
     }
 
-    // Delete existing schedules for this provider
-    await prisma.providerSchedule.deleteMany({
-      where: { providerId },
+    // Use transaction to update all schedules
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete existing schedules for this provider
+      await tx.providerSchedule.deleteMany({
+        where: { providerId },
+      });
+
+      // Create new schedules
+      const createdSchedules = await Promise.all(
+        schedules.map((schedule) =>
+          tx.providerSchedule.create({
+            data: {
+              providerId,
+              dayOfWeek: schedule.dayOfWeek,
+              startTime: schedule.startTime, // Store as string "HH:mm"
+              endTime: schedule.endTime, // Store as string "HH:mm"
+              isActive: schedule.isActive ?? true,
+            },
+          }),
+        ),
+      );
+
+      return createdSchedules;
     });
 
-    // Create new schedules
-    const created = await Promise.all(
-      schedules.map((schedule) =>
-        prisma.providerSchedule.create({
-          data: {
-            providerId,
-            dayOfWeek: schedule.dayOfWeek,
-            startTime: new Date(`1970-01-01T${schedule.startTime}:00`),
-            endTime: new Date(`1970-01-01T${schedule.endTime}:00`),
-            isActive: schedule.isActive ?? true,
-          },
-        }),
-      ),
-    );
-
     return {
-      statusCode: 201,
-      message: "Provider schedule created successfully",
-      data: created,
+      statusCode: 200,
+      message: "Provider schedule updated successfully",
+      data: { schedules: result },
     };
   }
 
@@ -69,9 +77,15 @@ export class ProviderScheduleService {
    */
   public static async getSchedule(
     providerId: string,
+    req: Request,
   ): Promise<IResponse<unknown>> {
-    const provider = await prisma.provider.findUnique({
-      where: { id: providerId },
+    const companyId = req.user?.company?.companyId as string;
+
+    const provider = await prisma.provider.findFirst({
+      where: {
+        id: providerId,
+        companyId,
+      },
     });
 
     if (!provider) {
@@ -79,21 +93,14 @@ export class ProviderScheduleService {
     }
 
     const schedules = await prisma.providerSchedule.findMany({
-      where: { providerId, isActive: true },
+      where: { providerId },
       orderBy: { dayOfWeek: "asc" },
     });
 
     return {
       statusCode: 200,
       message: "Provider schedule retrieved successfully",
-      data: {
-        provider: {
-          id: provider.id,
-          name: provider.name,
-          email: provider.email,
-        },
-        schedules,
-      },
+      data: { schedules }, // Wrap in data object
     };
   }
 

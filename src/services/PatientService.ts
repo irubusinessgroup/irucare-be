@@ -8,7 +8,7 @@ export class PatientService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -21,6 +21,8 @@ export class PatientService {
           OR: [
             { name: { contains: searchq } },
             { phone: { contains: searchq } },
+            { patientNO: { contains: searchq } },
+            { NID: { contains: searchq } },
           ],
         }
       : { companyId };
@@ -57,7 +59,7 @@ export class PatientService {
     });
 
     const lastPatientNumber = lastPatient?.patientNO
-      ? parseInt(lastPatient.patientNO.slice(2)) // Extract the numeric part
+      ? parseInt(lastPatient.patientNO.slice(2))
       : 0;
 
     const newPatientNumber = `PA${(lastPatientNumber + 1)
@@ -71,9 +73,15 @@ export class PatientService {
           identificationType: data.identificationType,
           phone: data.phone,
           gender: data.gender,
-          birthDate: data.birthDate,
+          birthDate: new Date(data.birthDate),
           patientNO: newPatientNumber,
           NID: data.NID,
+          motherName: data.motherName,
+          fatherName: data.fatherName,
+          email: data.email,
+          nextOfKinName: data.nextOfKinName,
+          nextOfKinPhone: data.nextOfKinPhone,
+          nextOfKinRelation: data.nextOfKinRelation,
           companyId,
         },
       });
@@ -82,9 +90,14 @@ export class PatientService {
         await tx.patientAddress.createMany({
           data: data.address.map((addr) => ({
             patientId: patient.id,
-            city: addr.city,
-            street: addr.street,
             country: addr.country,
+            province: addr.province,
+            district: addr.district,
+            sector: addr.sector,
+            cell: addr.cell,
+            village: addr.village,
+            street: addr.street || "",
+            // city: addr.city || "",
           })),
         });
       }
@@ -102,8 +115,14 @@ export class PatientService {
           identificationType: data.identificationType,
           phone: data.phone,
           gender: data.gender,
-          birthDate: data.birthDate,
+          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
           NID: data.NID,
+          motherName: data.motherName,
+          fatherName: data.fatherName,
+          email: data.email,
+          nextOfKinName: data.nextOfKinName,
+          nextOfKinPhone: data.nextOfKinPhone,
+          nextOfKinRelation: data.nextOfKinRelation,
         },
       });
 
@@ -112,9 +131,14 @@ export class PatientService {
         await tx.patientAddress.createMany({
           data: data.address.map((addr) => ({
             patientId: id,
-            city: addr.city,
-            street: addr.street,
             country: addr.country,
+            province: addr.province,
+            district: addr.district,
+            sector: addr.sector,
+            cell: addr.cell,
+            village: addr.village,
+            street: addr.street || "",
+            // city: addr.city || "",
           })),
         });
       }

@@ -557,12 +557,23 @@ export interface CreatePatientDto {
   identificationType: string;
   phone: string;
   gender: string;
-  birthDate: Date;
+  birthDate: string;
   NID: string;
+  motherName?: string;
+  fatherName?: string;
+  email?: string;
+  nextOfKinName?: string;
+  nextOfKinPhone?: string;
+  nextOfKinRelation?: string;
   address: {
-    city: string;
-    street: string;
     country: string;
+    province?: string;
+    district?: string;
+    sector?: string;
+    cell?: string;
+    village?: string;
+    street?: string;
+    city?: string;
   }[];
 }
 
@@ -1313,98 +1324,26 @@ export interface ValidationError {
   message: string;
 }
 
-// Appointment System Interfaces
-export type AppointmentType =
-  | "CONSULTATION"
-  | "FOLLOW_UP"
-  | "ROUTINE_CHECKUP"
-  | "SPECIALIST"
-  | "EMERGENCY"
-  | "PROCEDURE"
-  | "VACCINATION";
-
-export type AppointmentStatus =
-  | "SCHEDULED"
-  | "CONFIRMED"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "NO_SHOW"
-  | "RESCHEDULED";
-
-export type AppointmentNotificationType =
-  | "APPOINTMENT_SCHEDULED"
-  | "APPOINTMENT_CONFIRMED"
-  | "APPOINTMENT_CANCELLED"
-  | "APPOINTMENT_RESCHEDULED"
-  | "APPOINTMENT_REMINDER"
-  | "APPOINTMENT_COMPLETED";
-
-export interface TAppointment {
-  id: string;
-  patientId: string;
-  providerId: string;
-  companyId: string;
-  appointmentType: AppointmentType;
-  status: AppointmentStatus;
-  scheduledDate: Date;
-  duration: number;
-  reason: string;
-  notes?: string | null;
-  room?: string | null;
-  createdBy: string;
-  confirmedAt?: Date | null;
-  cancelledAt?: Date | null;
-  cancellationReason?: string | null;
-  noShowAt?: Date | null;
-  completedAt?: Date | null;
-  encounterId?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  // Relations
-  patient?: {
-    id: string;
-    name: string;
-    phone: string;
-    patientNO: string;
-  };
-  provider?: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  createdByUser?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-  company?: {
-    id: string;
-    name: string;
-  };
-}
-
 export interface CreateAppointmentDto {
   patientId: string;
   providerId: string;
-  appointmentType: AppointmentType;
-  scheduledDate: Date | string;
+  appointmentType: string;
+  scheduledDate: string;
   duration: number;
   reason: string;
   notes?: string;
   room?: string;
+  isWalkIn?: boolean;
 }
 
 export interface UpdateAppointmentDto {
-  appointmentType?: AppointmentType;
-  scheduledDate?: Date | string;
+  appointmentType?: string;
+  scheduledDate?: string;
   duration?: number;
   reason?: string;
   notes?: string;
   room?: string;
-  status?: AppointmentStatus;
-  cancellationReason?: string;
-  encounterId?: string;
+  status?: string;
 }
 
 export interface AppointmentFilters {
@@ -1413,233 +1352,25 @@ export interface AppointmentFilters {
   searchq?: string;
   patientId?: string;
   providerId?: string;
-  appointmentType?: AppointmentType;
-  status?: AppointmentStatus;
+  appointmentType?: string;
+  status?: string;
   startDate?: string;
   endDate?: string;
-  companyId: string;
+  isWalkIn?: boolean;
+  queueStatus?: string;
 }
 
-export interface TAppointmentTimeSlot {
-  id: string;
-  providerId: string;
-  companyId: string;
-  date: Date;
-  startTime: Date;
-  endTime: Date;
-  duration: number;
-  isAvailable: boolean;
-  isBlocked: boolean;
-  blockReason?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  provider?: {
+export interface CalendarView {
+  date: string;
+  appointments: Array<{
     id: string;
-    firstName: string;
-    lastName: string;
-  };
-}
-
-export interface CreateTimeSlotDto {
-  providerId: string;
-  date: Date | string;
-  startTime: Date | string;
-  endTime: Date | string;
-  duration: number;
-  isAvailable?: boolean;
-  isBlocked?: boolean;
-  blockReason?: string;
-}
-
-export interface TProviderAvailability {
-  id: string;
-  providerId: string;
-  companyId: string;
-  dayOfWeek: number;
-  startTime: Date;
-  endTime: Date;
-  isAvailable: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  provider?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-}
-
-export interface CreateProviderAvailabilityDto {
-  providerId: string;
-  dayOfWeek: number;
-  startTime: Date | string;
-  endTime: Date | string;
-  isAvailable?: boolean;
-}
-
-export interface TAppointmentNotification {
-  id: string;
-  appointmentId: string;
-  userId: string;
-  notificationType: AppointmentNotificationType;
-  message: string;
-  sentAt?: Date | null;
-  createdAt: Date;
-  appointment?: {
-    id: string;
-    scheduledDate: Date;
-    reason: string;
-  };
-  user?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-  };
-}
-
-export interface CreateAppointmentNotificationDto {
-  appointmentId: string;
-  userId: string;
-  notificationType: AppointmentNotificationType;
-  message: string;
-}
-
-export interface AvailableTimeSlot {
-  time: string;
-  available: boolean;
-  slotId?: string;
-}
-
-export interface AppointmentStatistics {
-  totalAppointments: number;
-  appointmentsByStatus: Record<AppointmentStatus, number>;
-  appointmentsByType: Record<AppointmentType, number>;
-  averageAppointmentDuration: number;
-  noShowRate: number;
-  monthlyTrends: Array<{
-    month: string;
-    count: number;
+    time: string;
+    duration: number;
+    patient: { id: string; name: string; patientNO: string };
+    provider: { id: string; name: string };
+    status: string;
+    room?: string;
   }>;
-  providerStatistics: Array<{
-    providerId: string;
-    providerName: string;
-    totalAppointments: number;
-    noShowRate: number;
-  }>;
-}
-
-export interface AppointmentActionDto {
-  reason?: string;
-  notes?: string;
-  encounterId?: string;
-  newDate?: Date | string;
-}
-
-export interface RescheduleAppointmentDto {
-  newDate: Date | string;
-  reason?: string;
-}
-
-export interface CancelAppointmentDto {
-  reason: string;
-}
-
-export interface CompleteAppointmentDto {
-  encounterId?: string;
-  notes?: string;
-}
-
-export interface NoShowAppointmentDto {
-  notes?: string;
-}
-
-export interface CreateEncounterDto {
-  patientId: string;
-  providerId: string;
-  appointmentId?: string;
-  notes?: string;
-}
-
-export interface UpdateEncounterDto {
-  notes?: string;
-}
-
-// EMR
-export type EMRRecordType = "NOTE" | "DIAGNOSIS" | "VITALS" | "RESULT";
-
-export interface CreateEMRDto {
-  patientId: string;
-  encounterId?: string;
-  recordType: EMRRecordType;
-  title?: string;
-  content?: string;
-  data?: unknown;
-  isConfidential?: boolean;
-}
-
-export interface UpdateEMRDto {
-  title?: string;
-  content?: string;
-  data?: unknown;
-  isConfidential?: boolean;
-}
-
-// Prescriptions
-export interface PrescriptionItem {
-  drugCode: string;
-  drugName: string;
-  dose: string;
-  frequency: string;
-  duration: string;
-  quantity?: number;
-}
-
-export interface CreatePrescriptionDto {
-  patientId: string;
-  providerId: string;
-  encounterId?: string;
-  items: PrescriptionItem[];
-  refillsAllowed?: number;
-  readonly pharmacyNotes?: string;
-  itemId?: string; // Link to Items table for medication
-}
-
-export interface UpdatePrescriptionDto {
-  items?: PrescriptionItem[];
-  refillsAllowed?: number;
-  pharmacyNotes?: string;
-  status?: "ACTIVE" | "COMPLETED" | "CANCELLED";
-}
-
-// Lab Orders
-export interface LabOrderTest {
-  code: string;
-  name: string;
-  specimen?: string;
-  notes?: string;
-}
-
-export interface LabResultItem {
-  code: string;
-  name: string;
-  value: string | number | null;
-  unit?: string;
-  refRange?: string;
-  flag?: "LOW" | "HIGH" | "CRITICAL" | "NORMAL";
-}
-
-export interface CreateLabOrderDto {
-  patientId: string;
-  providerId: string;
-  encounterId?: string;
-  orderType?: string;
-  tests: LabOrderTest[];
-  specialInstructions?: string;
-}
-
-export interface UpdateLabOrderDto {
-  tests?: LabOrderTest[];
-  specialInstructions?: string;
-  status?: "ORDERED" | "SCHEDULED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 }
 
 // Clinic Billing
@@ -1685,4 +1416,597 @@ export interface UpdateProviderDto {
   email?: string;
   specialty?: string;
   licenseNumber?: string;
+}
+
+export type EncounterStatus =
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW";
+export type VisitType =
+  | "OUTPATIENT"
+  | "INPATIENT"
+  | "EMERGENCY"
+  | "FOLLOW_UP"
+  | "WELLNESS_CHECK";
+
+export interface CreateEncounterDto {
+  patientId: string;
+  providerId: string;
+  appointmentId?: string;
+  visitType?: VisitType;
+  scheduledTime?: string;
+}
+
+export interface UpdateEncounterDto {
+  providerId?: string;
+  visitType?: VisitType;
+  scheduledTime?: string;
+  status?: EncounterStatus;
+}
+
+export interface EncounterFilters {
+  patientId?: string;
+  providerId?: string;
+  appointmentId?: string;
+  status?: EncounterStatus | EncounterStatus[];
+  visitType?: VisitType;
+  startDate?: string;
+  endDate?: string;
+}
+
+export type TriageLevel = "ROUTINE" | "URGENT" | "EMERGENCY" | "CRITICAL";
+
+export interface CreateTriageDto {
+  encounterId: string;
+  triageLevel: TriageLevel;
+  chiefComplaint: string;
+  triageNotes?: string;
+  // Vitals
+  temperature?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  respiratoryRate?: number;
+  oxygenSaturation?: number;
+  weight?: number;
+  height?: number;
+  painScore?: number;
+  allergies?: string;
+  currentMedications?: string;
+}
+
+export interface UpdateTriageDto {
+  triageLevel?: TriageLevel;
+  chiefComplaint?: string;
+  triageNotes?: string;
+  temperature?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  heartRate?: number;
+  respiratoryRate?: number;
+  oxygenSaturation?: number;
+  weight?: number;
+  height?: number;
+  painScore?: number;
+  allergies?: string;
+  currentMedications?: string;
+}
+
+export type DiagnosisType =
+  | "PRIMARY"
+  | "SECONDARY"
+  | "DIFFERENTIAL"
+  | "RULED_OUT";
+
+export interface CreateConsultationDto {
+  encounterId: string;
+  chiefComplaint: string;
+  historyOfPresentingIllness?: string;
+  pastMedicalHistory?: string;
+  familyHistory?: string;
+  socialHistory?: string;
+  reviewOfSystems?: Record<string, unknown>;
+  physicalExamination?: string;
+  generalAppearance?: string;
+  systemicExamination?: Record<string, unknown>;
+  clinicalImpression?: string;
+  differentialDiagnosis?: string;
+  treatmentPlan?: string;
+  followUpInstructions?: string;
+  diagnoses?: Array<{
+    icdCode: string;
+    icdVersion?: string;
+    diagnosisName: string;
+    diagnosisType?: DiagnosisType;
+    notes?: string;
+  }>;
+}
+
+export interface UpdateConsultationDto {
+  chiefComplaint?: string;
+  historyOfPresentingIllness?: string;
+  pastMedicalHistory?: string;
+  familyHistory?: string;
+  socialHistory?: string;
+  reviewOfSystems?: Record<string, unknown>;
+  physicalExamination?: string;
+  generalAppearance?: string;
+  systemicExamination?: Record<string, unknown>;
+  clinicalImpression?: string;
+  differentialDiagnosis?: string;
+  treatmentPlan?: string;
+  followUpInstructions?: string;
+}
+
+export interface AddDiagnosisDto {
+  icdCode: string;
+  icdVersion?: string;
+  diagnosisName: string;
+  diagnosisType?: DiagnosisType;
+  notes?: string;
+  onsetDate?: string;
+}
+
+export type OrderStatus1 =
+  | "PENDING"
+  | "SCHEDULED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "REJECTED";
+
+export interface CreateLabOrderDto {
+  encounterId: string;
+  patientId: string;
+  providerId: string;
+  testId: string;
+  priority?: string;
+  clinicalNotes?: string;
+  specialInstructions?: string;
+  scheduledDate?: string;
+}
+
+export interface UpdateLabOrderDto {
+  status?: OrderStatus1;
+  priority?: string;
+  clinicalNotes?: string;
+  specialInstructions?: string;
+  scheduledDate?: string;
+  sampleCollectedAt?: string;
+}
+
+export interface LabOrderFilters {
+  patientId?: string;
+  providerId?: string;
+  encounterId?: string;
+  status?: OrderStatus1;
+  testCategory?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface CreateLabResultDto {
+  labOrderId: string;
+  testParameter: string;
+  result: string;
+  unit?: string;
+  referenceRange?: string;
+  isAbnormal?: boolean;
+  abnormalFlag?: string;
+  notes?: string;
+}
+
+export interface UpdateLabResultDto {
+  result?: string;
+  unit?: string;
+  referenceRange?: string;
+  isAbnormal?: boolean;
+  abnormalFlag?: string;
+  notes?: string;
+}
+
+export interface BulkCreateResultsDto {
+  labOrderId: string;
+  results: Array<{
+    testParameter: string;
+    result: string;
+    unit?: string;
+    referenceRange?: string;
+    isAbnormal?: boolean;
+    abnormalFlag?: string;
+  }>;
+  notes?: string;
+}
+
+export type LabTestType = "SINGLE" | "PANEL" | "PROFILE";
+
+export interface CreateLabTestDto {
+  testCode: string;
+  testName: string;
+  testType?: LabTestType;
+  category: string;
+  description?: string;
+  sampleType: string;
+  sampleVolume?: string;
+  turnaroundTime?: number;
+  price?: number;
+  panelTests?: string[];
+  referenceRanges?: Record<string, unknown>;
+  requiresApproval?: boolean;
+}
+
+export interface UpdateLabTestDto {
+  testCode?: string;
+  testName?: string;
+  testType?: LabTestType;
+  category?: string;
+  description?: string;
+  sampleType?: string;
+  sampleVolume?: string;
+  turnaroundTime?: number;
+  price?: number;
+  panelTests?: string[];
+  referenceRanges?: Record<string, unknown>;
+  requiresApproval?: boolean;
+  isActive?: boolean;
+}
+export interface LabTestFilters {
+  category?: string;
+  testType?: LabTestType;
+  isActive?: boolean;
+  search?: string;
+}
+
+export type NoteType =
+  | "PROGRESS"
+  | "DISCHARGE_SUMMARY"
+  | "REFERRAL_LETTER"
+  | "CONSULTATION"
+  | "PROCEDURE_NOTE"
+  | "OTHER";
+
+export interface CreateClinicalNoteDto {
+  encounterId: string;
+  noteType: NoteType;
+  title: string;
+  content: string;
+  // For discharge summaries
+  admissionDate?: string;
+  dischargeDate?: string;
+  dischargeDiagnosis?: string;
+  dischargeInstructions?: string;
+  // For referrals
+  referralTo?: string;
+  referralReason?: string;
+  referralUrgency?: string;
+  // Attachments
+  attachments?: Array<{ fileName: string; fileUrl: string; fileType: string }>;
+}
+
+export interface UpdateClinicalNoteDto {
+  title?: string;
+  content?: string;
+  admissionDate?: string;
+  dischargeDate?: string;
+  dischargeDiagnosis?: string;
+  dischargeInstructions?: string;
+  referralTo?: string;
+  referralReason?: string;
+  referralUrgency?: string;
+  attachments?: Array<{ fileName: string; fileUrl: string; fileType: string }>;
+}
+
+export interface ClinicalNoteFilters {
+  patientId?: string;
+  encounterId?: string;
+  noteType?: NoteType;
+  startDate?: string;
+  endDate?: string;
+}
+
+export type CareProgramType =
+  | "MATERNAL_HEALTH"
+  | "CHILD_HEALTH"
+  | "ANTENATAL_CARE"
+  | "POSTNATAL_CARE"
+  | "CHRONIC_DISEASE"
+  | "DIABETES_MANAGEMENT"
+  | "HYPERTENSION_MANAGEMENT"
+  | "OTHER";
+
+export interface CreateCareProgramDto {
+  programName: string;
+  programType: CareProgramType;
+  description?: string;
+  eligibilityCriteria?: Record<string, unknown>;
+  protocolSteps?: Record<string, unknown>;
+}
+
+export interface UpdateCareProgramDto {
+  programName?: string;
+  programType?: CareProgramType;
+  description?: string;
+  eligibilityCriteria?: Record<string, unknown>;
+  protocolSteps?: Record<string, unknown>;
+  isActive?: boolean;
+}
+
+export interface EnrollPatientDto {
+  programId: string;
+  patientId: string;
+  enrollmentDate?: string;
+  expectedEndDate?: string;
+  notes?: string;
+}
+
+export interface UpdateEnrollmentDto {
+  expectedEndDate?: string;
+  currentStage?: string;
+  notes?: string;
+  status?: string;
+  discontinuationReason?: string;
+}
+
+export interface RecordVisitDto {
+  enrollmentId: string;
+  encounterId?: string;
+  visitDate: string;
+  visitType: string;
+  observations?: Record<string, unknown>;
+  measurements?: Record<string, unknown>;
+  assessments?: Record<string, unknown>;
+  interventions?: Record<string, unknown>;
+  nextVisitDate?: string;
+  notes?: string;
+}
+
+export type PrescriptionStatus =
+  | "DRAFT"
+  | "ACTIVE"
+  | "DISPENSED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "ON_HOLD";
+
+export interface CreatePrescriptionDto {
+  encounterId?: string;
+  patientId: string;
+  providerId: string;
+  medicationName: string;
+  itemId?: string;
+  dosage: string;
+  frequency: string;
+  route: string;
+  duration?: string;
+  quantity: number;
+  unit: string;
+  instructions?: string;
+  indicationForUse?: string;
+  startDate?: string;
+  endDate?: string;
+  refillsAllowed?: number;
+}
+
+export interface UpdatePrescriptionDto {
+  medicationName?: string;
+  dosage?: string;
+  frequency?: string;
+  route?: string;
+  duration?: string;
+  quantity?: number;
+  unit?: string;
+  instructions?: string;
+  indicationForUse?: string;
+  startDate?: string;
+  endDate?: string;
+  refillsAllowed?: number;
+  status?: PrescriptionStatus;
+}
+
+export interface DispensePrescriptionDto {
+  quantityDispensed: number;
+  warehouseId?: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  pharmacyNotes?: string;
+}
+
+export interface PrescriptionFilters {
+  patientId?: string;
+  providerId?: string;
+  encounterId?: string;
+  status?: PrescriptionStatus;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface BillingServiceLineInput {
+  code: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  itemId?: string; // Link to Items table for clinical supplies
+}
+
+export interface CreateClinicBillingDto {
+  patientId: string;
+  encounterId?: string;
+  billingType?: string;
+  services: BillingServiceLineInput[];
+  taxAmount?: number;
+  discountAmount?: number;
+  currency?: string;
+  dueDate?: string;
+  notes?: string;
+}
+
+export interface UpdateClinicBillingDto {
+  services?: BillingServiceLineInput[];
+  taxAmount?: number;
+  discountAmount?: number;
+  currency?: string;
+  dueDate?: string;
+  notes?: string;
+  status?: "DRAFT" | "SENT" | "PAID" | "CANCELLED";
+}
+
+// Enums
+export enum DispenseStatus {
+  PENDING = "PENDING",
+  DISPENSED = "DISPENSED",
+  PARTIAL = "PARTIAL",
+  CANCELLED = "CANCELLED",
+}
+
+export type AdjustmentType = $Enums.AdjustmentType;
+
+export enum ReturnReason {
+  EXPIRED = "EXPIRED",
+  DAMAGED = "DAMAGED",
+  WRONG_ITEM = "WRONG_ITEM",
+  PATIENT_REFUSAL = "PATIENT_REFUSAL",
+  OTHER = "OTHER",
+}
+
+// Request Interfaces
+export interface CreateDispenseRequest {
+  prescriptionId?: string;
+  patientId: string;
+  itemId: string;
+  quantity: number;
+  unit: string;
+  batchNumber?: string;
+  expiryDate?: Date;
+  notes?: string;
+}
+
+export interface UpdateDispenseRequest {
+  quantity?: number;
+  batchNumber?: string;
+  expiryDate?: Date;
+  status?: DispenseStatus;
+  dispensedAt?: Date;
+  notes?: string;
+}
+
+export interface CreateOTCSaleRequest {
+  patientId?: string;
+  itemId: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  notes?: string;
+}
+
+export interface CreateReturnRequest {
+  dispenseId?: string;
+  prescriptionId?: string;
+  itemId: string;
+  quantity: number;
+  unit: string;
+  returnReason: ReturnReason;
+  reasonNotes?: string;
+}
+
+export interface CreateAdjustmentRequest {
+  itemId: string;
+  adjustmentType: AdjustmentType;
+  quantity: number;
+  unit: string;
+  reason: string;
+}
+
+export interface CheckDrugInteractionsRequest {
+  medications: string[]; // Array of medication IDs or names
+}
+
+// Response Interfaces
+export interface DispenseResponse {
+  id: string;
+  prescriptionId?: string | null;
+  patientId: string;
+  companyId: string;
+  itemId: string;
+  quantity: number;
+  unit: string;
+  batchNumber?: string | null;
+  expiryDate?: Date | null;
+  status: DispenseStatus;
+  dispensedBy: string;
+  dispensedAt?: Date | null;
+  notes?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OTCSaleResponse {
+  id: string;
+  patientId: string | null;
+  companyId: string;
+  itemId: string;
+  quantity: number | any;
+  unit: string;
+  unitPrice: number | any;
+  totalAmount: number | any;
+  soldBy: string;
+  soldAt: Date;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ReturnResponse {
+  id: string;
+  dispenseId?: string | null;
+  prescriptionId?: string | null;
+  companyId: string;
+  itemId: string;
+  quantity: number | any;
+  unit: string;
+  returnReason: ReturnReason;
+  reasonNotes?: string | null;
+  returnedBy: string;
+  returnedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AdjustmentResponse {
+  id: string;
+  companyId: string;
+  itemId: string;
+  adjustmentType: AdjustmentType;
+  quantity: number;
+  unit: string;
+  reason: string;
+  adjustedBy: string;
+  adjustedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface MedicationHistoryResponse {
+  dispenses: DispenseResponse[];
+  otcSales: OTCSaleResponse[];
+}
+
+export interface DrugInteractionResponse {
+  hasInteractions: boolean;
+  interactions: Array<{
+    medication1: string;
+    medication2: string;
+    severity: string;
+    description: string;
+  }>;
+}
+
+export interface AllergyAlertResponse {
+  hasAllergy: boolean;
+  allergies: Array<{
+    allergen: string;
+    severity: string;
+    reaction?: string;
+  }>;
 }

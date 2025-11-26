@@ -84,8 +84,8 @@ export class ProviderController {
   }
 
   @Get("/{id}/schedule")
-  public getSchedule(@Path() id: string) {
-    return ProviderScheduleService.getSchedule(id);
+  public getSchedule(@Path() id: string, @Request() req: ExpressRequest) {
+    return ProviderScheduleService.getSchedule(id, req);
   }
 
   @Post("/{id}/schedule/block")

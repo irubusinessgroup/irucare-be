@@ -6,7 +6,7 @@ export type StockSelectStrategy = "FIFO" | "LIFO";
 
 export async function countAvailableStock(
   tx: Tx,
-  params: { itemIds: string[] | string; companyId: string },
+  params: { itemIds: string[] | string; companyId: string }
 ): Promise<number> {
   const itemIds = Array.isArray(params.itemIds)
     ? params.itemIds
@@ -27,7 +27,7 @@ export async function selectAvailableStock(
     companyId: string;
     take: number;
     strategy?: StockSelectStrategy;
-  },
+  }
 ) {
   const itemIds = Array.isArray(params.itemIds)
     ? params.itemIds
@@ -64,7 +64,7 @@ export async function reserveStockUnits(
   params: {
     stockIds: string[];
     link?: { deliveryItemId?: string; directInvoiceId?: string };
-  },
+  }
 ): Promise<number> {
   if (!params.stockIds || params.stockIds.length === 0) return 0;
   const data: Prisma.StockUpdateManyMutationInput = { status: "RESERVED" };
@@ -85,7 +85,7 @@ export async function reserveStockUnits(
 
 export async function releaseStockUnits(
   tx: Tx,
-  params: { stockIds: string[] },
+  params: { stockIds: string[] }
 ): Promise<number> {
   if (!params.stockIds || params.stockIds.length === 0) return 0;
   const res = await tx.stock.updateMany({
@@ -101,7 +101,7 @@ export async function markStockStatusForDelivery(
     deliveryId: string;
     from: "RESERVED";
     to: "IN_TRANSIT" | "AVAILABLE";
-  },
+  }
 ): Promise<number> {
   const res = await tx.stock.updateMany({
     where: {
@@ -135,7 +135,7 @@ export async function createBuyerStockFromDeliveryItem(
     quantityReceived: number;
     unitCost: number;
     expiryDate: Date | null;
-  },
+  }
 ): Promise<{ stockReceiptId: string }> {
   const stockReceipt = await tx.stockReceipts.create({
     data: {
@@ -166,6 +166,8 @@ export async function createBuyerStockFromDeliveryItem(
     data: Array.from({ length: params.quantityReceived }, () => ({
       stockReceiptId: stockReceipt.id,
       status: "AVAILABLE",
+      quantity: 1,
+      quantityAvailable: 1,
     })),
   });
 
@@ -174,7 +176,7 @@ export async function createBuyerStockFromDeliveryItem(
 
 export async function markStockSold(
   tx: Tx,
-  params: { stockIds: string[]; sellId: string },
+  params: { stockIds: string[]; sellId: string }
 ): Promise<number> {
   if (!params.stockIds || params.stockIds.length === 0) return 0;
   const res = await tx.stock.updateMany({

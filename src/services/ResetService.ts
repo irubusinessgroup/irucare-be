@@ -26,20 +26,8 @@ export class ResetService {
           // Delete order respecting foreign keys:
 
           // 1. Appointment notifications and appointments
-          await tx.appointmentNotification.deleteMany({
-            where: {
-              appointment: {
-                companyId,
-              },
-            },
-          });
+
           await tx.appointment.deleteMany({
-            where: { companyId },
-          });
-          await tx.appointmentTimeSlot.deleteMany({
-            where: { companyId },
-          });
-          await tx.providerAvailability.deleteMany({
             where: { companyId },
           });
 
@@ -369,10 +357,7 @@ export class ResetService {
             // Delete all data in reverse dependency order
 
             // Appointment system
-            await tx.appointmentNotification.deleteMany({});
             await tx.appointment.deleteMany({});
-            await tx.appointmentTimeSlot.deleteMany({});
-            await tx.providerAvailability.deleteMany({});
 
             // Delivery system
             await tx.deliveryTracking.deleteMany({});
@@ -461,10 +446,7 @@ export class ResetService {
         await prisma.$transaction(
           async (tx) => {
             // Appointment system
-            await tx.appointmentNotification.deleteMany({});
             await tx.appointment.deleteMany({});
-            await tx.appointmentTimeSlot.deleteMany({});
-            await tx.providerAvailability.deleteMany({});
 
             // Delivery system
             await tx.deliveryTracking.deleteMany({});
