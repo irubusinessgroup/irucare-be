@@ -6,5 +6,10 @@
 
 */
 -- AlterTable
-ALTER TABLE "Stock" ADD COLUMN     "quantity" DECIMAL(18,2) NOT NULL,
-ADD COLUMN     "quantityAvailable" DECIMAL(18,2) NOT NULL;
+-- Add columns with default value first
+ALTER TABLE "Stock" ADD COLUMN IF NOT EXISTS "quantity" DECIMAL(18,2) DEFAULT 0 NOT NULL,
+ADD COLUMN IF NOT EXISTS "quantityAvailable" DECIMAL(18,2) DEFAULT 0 NOT NULL;
+
+-- Remove the default constraint after data is populated
+ALTER TABLE "Stock" ALTER COLUMN "quantity" DROP DEFAULT,
+ALTER COLUMN "quantityAvailable" DROP DEFAULT;
