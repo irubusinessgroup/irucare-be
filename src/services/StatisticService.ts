@@ -71,7 +71,7 @@ export class StatisticService {
                 gte: new Date(`${year}-01-01`),
                 lt: new Date(`${year + 1}-01-01`),
               },
-              status: "CONFIRMED",
+              // status: "CONFIRMED",
             },
             select: {
               createdAt: true,

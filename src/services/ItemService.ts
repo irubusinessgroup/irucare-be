@@ -724,7 +724,7 @@ export class ItemService {
             { itemCodeSku: { contains: searchq } },
             { itemFullName: { contains: searchq } },
             { description: { contains: searchq } },
-            { brandManufacturer: { contains: searchq } },
+            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : { companyId };

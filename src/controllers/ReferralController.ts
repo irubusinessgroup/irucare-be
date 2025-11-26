@@ -42,7 +42,7 @@ export class ReferralController extends Controller {
         referringProviderId: referringProviderId as string | undefined,
         referredToProviderId: referredToProviderId as string | undefined,
         status: status as string | undefined,
-      }
+      },
     );
   }
 
@@ -54,7 +54,7 @@ export class ReferralController extends Controller {
   @Post("/")
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateReferralDto
+    @Body() body: CreateReferralDto,
   ) {
     return ReferralService.create(req, body);
   }
@@ -73,7 +73,7 @@ export class ReferralController extends Controller {
   public accept(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body?: { appointmentDate?: string }
+    @Body() body?: { appointmentDate?: string },
   ) {
     return ReferralService.accept(req, id, body?.appointmentDate);
   }
@@ -82,13 +82,13 @@ export class ReferralController extends Controller {
   public complete(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body?: { responseNotes?: string; followUpEncounterId?: string }
+    @Body() body?: { responseNotes?: string; followUpEncounterId?: string },
   ) {
     return ReferralService.complete(
       req,
       id,
       body?.responseNotes,
-      body?.followUpEncounterId
+      body?.followUpEncounterId,
     );
   }
 }

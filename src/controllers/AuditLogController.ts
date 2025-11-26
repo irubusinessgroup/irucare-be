@@ -7,7 +7,7 @@ import { AuditLogService } from "../services/AuditLogService";
 @Security("jwt")
 export class AuditLogController extends Controller {
   @Get("/")
-  public getLogs(@Request() req: ExpressRequest) {
+  public getLogs(@Request() req: ExpressRequest): Promise<any> {
     const {
       page,
       limit,
@@ -28,20 +28,20 @@ export class AuditLogController extends Controller {
         action: action as string | undefined,
         startDate: startDate as string | undefined,
         endDate: endDate as string | undefined,
-      }
+      },
     );
   }
 
   @Get("/patient/{patientId}")
   public getPatientLogs(
     @Path() patientId: string,
-    @Request() req: ExpressRequest
-  ) {
+    @Request() req: ExpressRequest,
+  ): Promise<any> {
     const { page, limit } = req.query;
     return AuditLogService.getPatientLogs(
       patientId,
       page ? Number(page) : undefined,
-      limit ? Number(limit) : undefined
+      limit ? Number(limit) : undefined,
     );
   }
 }

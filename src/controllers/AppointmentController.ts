@@ -1,6 +1,6 @@
 import {
   Body,
-  Delete,
+  // Delete,
   Get,
   Path,
   Post,
@@ -12,196 +12,207 @@ import {
   Security,
   Query,
 } from "tsoa";
-import { AppointmentService } from "../services/AppointmentService";
-import {
-  AppointmentReminderService,
-  ConfigureRemindersDto,
-} from "../services/AppointmentReminderService";
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
-  AppointmentFilters,
-  TAppointment,
-  IResponse,
-  IPaged,
-  AvailableTimeSlot,
-  AppointmentStatistics,
-  RescheduleAppointmentDto,
-  CancelAppointmentDto,
-  CompleteAppointmentDto,
-  NoShowAppointmentDto,
-  AppointmentType,
-  AppointmentStatus,
 } from "../utils/interfaces/common";
+import { AppointmentService } from "../services/AppointmentService";
 import { Request as Req } from "express";
-// import { checkRole } from "../middlewares/checkRole";
 import { isACompanyMemberOrAdmin } from "../middlewares/isAcompanyMember";
 
-@Tags("Appointment")
+@Tags("Appointments")
 @Route("/api/appointments")
 @Security("jwt")
 @Middlewares(isACompanyMemberOrAdmin)
 export class AppointmentController {
-  @Get("/")
-  public async getAllAppointments(
+  @Post("/")
+  public async createAppointment(
+    @Body() data: CreateAppointmentDto,
     @Request() request: Req,
-    @Query() page?: number,
-    @Query() limit?: number,
-    @Query() searchq?: string,
-    @Query() patientId?: string,
+  ) {
+    return AppointmentService.createAppointment(data, request);
+  }
+
+  @Post("/walk-in")
+  public async registerWalkIn(
+    @Body() data: CreateAppointmentDto,
+    @Request() request: Req,
+  ) {
+    return AppointmentService.registerWalkIn(data, request);
+  }
+
+  @Get("/calendar/day")
+  public async getDayView(
+    @Query() date: string,
     @Query() providerId?: string,
-    @Query() appointmentType?: AppointmentType,
-    @Query() status?: AppointmentStatus,
+    @Query() room?: string,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getDayView(date, providerId, room, request!);
+  }
+
+  @Get("/calendar/week")
+  public async getWeekView(
+    @Query() startDate: string,
+    @Query() providerId?: string,
+    @Query() room?: string,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getWeekView(
+      startDate,
+      providerId,
+      room,
+      request!,
+    );
+  }
+
+  @Get("/calendar/month")
+  public async getMonthView(
+    @Query() year: number,
+    @Query() month: number,
+    @Query() providerId?: string,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getMonthView(year, month, providerId, request!);
+  }
+
+  @Get("/queue/waiting-room")
+  public async getWaitingRoom(@Request() request: Req) {
+    return AppointmentService.getWaitingRoom(request);
+  }
+
+  @Put("/{id}/check-in")
+  public async checkInPatient(@Path() id: string, @Request() request: Req) {
+    return AppointmentService.checkInPatient(id, request);
+  }
+
+  @Post("/queue/call-next")
+  public async callNextPatient(
+    @Query() providerId: string,
+    @Request() request: Req,
+  ) {
+    return AppointmentService.callNextPatient(providerId, request);
+  }
+
+  @Put("/{id}/transfer")
+  public async transferPatient(
+    @Path() id: string,
+    @Body() body: { transferTo: string },
+    @Request() request: Req,
+  ) {
+    return AppointmentService.transferPatient(id, body.transferTo, request);
+  }
+
+  @Get("/today")
+  public async getTodayAppointments(
+    @Query() providerId?: string,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getTodayAppointments(providerId, request!);
+  }
+
+  @Get("/upcoming")
+  public async getUpcomingAppointments(
+    @Query() days?: number,
+    @Query() providerId?: string,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getUpcomingAppointments(
+      days || 7,
+      providerId,
+      request!,
+    );
+  }
+
+  @Get("/missed")
+  public async getMissedAppointments(
     @Query() startDate?: string,
     @Query() endDate?: string,
-  ): Promise<IPaged<TAppointment[]>> {
-    const companyId = request.user?.company?.companyId;
-    if (!companyId) {
-      throw new Error("Company ID is missing");
-    }
-
-    const filters: AppointmentFilters = {
-      page,
-      limit,
-      searchq,
-      patientId,
-      providerId,
-      appointmentType,
-      status,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getMissedAppointments(
       startDate,
       endDate,
-      companyId,
-    };
+      request!,
+    );
+  }
 
-    return AppointmentService.getAllAppointments(request, filters);
+  @Get("/")
+  public async getAllAppointments(
+    @Query() searchq?: string,
+    @Query() page?: number,
+    @Query() limit?: number,
+    @Query() status?: string,
+    @Query() providerId?: string,
+    @Query() startDate?: string,
+    @Query() endDate?: string,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getAllAppointments(
+      request!,
+      searchq,
+      limit,
+      page,
+      status,
+      providerId,
+      startDate,
+      endDate,
+    );
+  }
+
+  @Get("/available-slots")
+  public async getAvailableSlots(
+    @Query() providerId: string,
+    @Query() date: string,
+    @Query() duration?: number,
+    @Request() request?: Req,
+  ) {
+    return AppointmentService.getAvailableSlots(
+      providerId,
+      date,
+      duration || 30,
+      request!,
+    );
   }
 
   @Get("/{id}")
-  public async getAppointmentById(
-    @Path() id: string,
-    @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
+  public async getAppointmentById(@Path() id: string, @Request() request: Req) {
     return AppointmentService.getAppointmentById(id, request);
-  }
-
-  @Post("/")
-  public async createAppointment(
-    @Body() appointmentData: CreateAppointmentDto,
-    @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.createAppointment(appointmentData, request);
   }
 
   @Put("/{id}")
   public async updateAppointment(
     @Path() id: string,
-    @Body() appointmentData: UpdateAppointmentDto,
+    @Body() data: UpdateAppointmentDto,
     @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.updateAppointment(id, appointmentData, request);
-  }
-
-  @Delete("/{id}")
-  public async deleteAppointment(
-    @Path() id: string,
-    @Request() request: Req,
-  ): Promise<IResponse<null>> {
-    return AppointmentService.deleteAppointment(id, request);
-  }
-
-  @Put("/{id}/confirm")
-  public async confirmAppointment(
-    @Path() id: string,
-    @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.confirmAppointment(id, request);
+  ) {
+    return AppointmentService.updateAppointment(id, data, request);
   }
 
   @Put("/{id}/cancel")
   public async cancelAppointment(
     @Path() id: string,
-    @Body() cancelData: CancelAppointmentDto,
+    @Body() body: { reason: string },
     @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.cancelAppointment(id, cancelData, request);
+  ) {
+    return AppointmentService.cancelAppointment(id, body.reason, request);
   }
 
-  @Put("/{id}/reschedule")
-  public async rescheduleAppointment(
-    @Path() id: string,
-    @Body() rescheduleData: RescheduleAppointmentDto,
-    @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.rescheduleAppointment(
-      id,
-      rescheduleData,
-      request,
-    );
+  @Put("/{id}/no-show")
+  public async markNoShow(@Path() id: string, @Request() request: Req) {
+    return AppointmentService.markNoShow(id, request);
   }
 
   @Put("/{id}/complete")
   public async completeAppointment(
     @Path() id: string,
-    @Body() completeData: CompleteAppointmentDto,
+    @Body() body: { encounterId?: string },
     @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.completeAppointment(id, completeData, request);
-  }
-
-  @Put("/{id}/no-show")
-  public async markNoShow(
-    @Path() id: string,
-    @Body() noShowData: NoShowAppointmentDto,
-    @Request() request: Req,
-  ): Promise<IResponse<TAppointment>> {
-    return AppointmentService.markNoShow(id, noShowData, request);
-  }
-
-  @Get("/available-slots")
-  public async getAvailableTimeSlots(
-    @Request() request: Req,
-    @Query() providerId: string,
-    @Query() date: string,
-    @Query() duration?: number,
-  ): Promise<IResponse<AvailableTimeSlot[]>> {
-    return AppointmentService.getAvailableTimeSlots(
-      providerId,
-      date,
-      duration || 30,
+  ) {
+    return AppointmentService.completeAppointment(
+      id,
+      body.encounterId,
       request,
-    );
-  }
-
-  @Get("/today")
-  public async getTodayAppointments(
-    @Request() request: Req,
-    @Query() providerId?: string,
-  ): Promise<IResponse<TAppointment[]>> {
-    return AppointmentService.getTodayAppointments(request, providerId);
-  }
-
-  @Get("/upcoming")
-  public async getUpcomingAppointments(
-    @Request() request: Req,
-    @Query() days?: number,
-  ): Promise<IResponse<TAppointment[]>> {
-    return AppointmentService.getUpcomingAppointments(request, days || 7);
-  }
-
-  @Get("/statistics")
-  public async getAppointmentStatistics(
-    @Request() request: Req,
-    @Query() startDate?: string,
-    @Query() endDate?: string,
-    @Query() providerId?: string,
-    @Query() appointmentType?: AppointmentType,
-  ): Promise<IResponse<AppointmentStatistics>> {
-    return AppointmentService.getAppointmentStatistics(
-      request,
-      startDate,
-      endDate,
-      providerId,
-      appointmentType,
     );
   }
 
@@ -209,64 +220,22 @@ export class AppointmentController {
   public async getPatientAppointments(
     @Path() patientId: string,
     @Request() request: Req,
-    @Query() page?: number,
-    @Query() limit?: number,
-  ): Promise<IPaged<TAppointment[]>> {
-    const companyId = request.user?.company?.companyId;
-    if (!companyId) {
-      throw new Error("Company ID is missing");
-    }
-
-    const filters: AppointmentFilters = {
-      page,
-      limit,
-      patientId,
-      companyId,
+  ) {
+    const appointments = await AppointmentService.getTodayAppointments(
+      undefined,
+      request,
+    );
+    return {
+      ...appointments,
+      data: appointments.data.filter((apt) => apt.patientId === patientId),
     };
-
-    return AppointmentService.getAllAppointments(request, filters);
   }
 
   @Get("/provider/{providerId}")
   public async getProviderAppointments(
     @Path() providerId: string,
     @Request() request: Req,
-    @Query() page?: number,
-    @Query() limit?: number,
-  ): Promise<IPaged<TAppointment[]>> {
-    const companyId = request.user?.company?.companyId;
-    if (!companyId) {
-      throw new Error("Company ID is missing");
-    }
-
-    const filters: AppointmentFilters = {
-      page,
-      limit,
-      providerId,
-      companyId,
-    };
-
-    return AppointmentService.getAllAppointments(request, filters);
-  }
-
-  @Post("/{id}/reminders")
-  public async configureReminders(
-    @Path() id: string,
-    @Body() body: ConfigureRemindersDto,
   ) {
-    return AppointmentReminderService.configureReminders(id, body);
-  }
-
-  @Get("/{id}/reminders")
-  public async getReminders(@Path() id: string) {
-    return AppointmentReminderService.getReminders(id);
-  }
-
-  @Get("/reminders/pending")
-  public async getPendingReminders(
-    @Query() page?: number,
-    @Query() limit?: number,
-  ) {
-    return AppointmentReminderService.getPendingReminders(page, limit);
+    return AppointmentService.getTodayAppointments(providerId, request);
   }
 }

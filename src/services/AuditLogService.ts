@@ -103,7 +103,7 @@ export class AuditLogService {
     ]);
 
     return {
-      data,
+      data: data as any[],
       totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
@@ -125,7 +125,7 @@ export class AuditLogService {
     const skip = (pageNum - 1) * limitNum;
 
     // Get all entity IDs related to this patient
-    const [appointments, encounters, prescriptions, labOrders, billings] =
+    const [appointments, encounters, prescriptions, labOrders] =
       await Promise.all([
         prisma.appointment.findMany({
           where: { patientId },
@@ -143,10 +143,6 @@ export class AuditLogService {
           where: { patientId },
           select: { id: true },
         }),
-        prisma.clinicBilling.findMany({
-          where: { patientId },
-          select: { id: true },
-        }),
       ]);
 
     const entityIds = [
@@ -154,7 +150,6 @@ export class AuditLogService {
       ...encounters.map((e) => ({ type: "ENCOUNTER", id: e.id })),
       ...prescriptions.map((p) => ({ type: "PRESCRIPTION", id: p.id })),
       ...labOrders.map((l) => ({ type: "LAB_ORDER", id: l.id })),
-      ...billings.map((b) => ({ type: "BILLING", id: b.id })),
     ];
 
     // Get audit logs for all these entities
@@ -186,7 +181,7 @@ export class AuditLogService {
     ]);
 
     return {
-      data,
+      data: data as any[],
       totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
