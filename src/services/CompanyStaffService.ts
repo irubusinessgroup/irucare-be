@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "../utils/client";
 import AppError, { ValidationError } from "../utils/error";
-import type { CreateCompanyStaffDto } from "../utils/interfaces/common";
+import type {
+  CreateCompanyStaffUnionDto,
+  RoleType,
+} from "../utils/interfaces/common";
 import { IResponse } from "../utils/interfaces/common";
-import { roles } from "../utils/roles";
+import { ClinicRole, roles } from "../utils/roles";
 import type { Request } from "express";
 import { companyStaffValidations } from "./../varifications/companyStaff";
 import { hashSync } from "bcrypt";
@@ -17,7 +20,7 @@ export class CompanyStaffService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ) {
     const requestingUser = await prisma.companyUser.findFirst({
       where: {
@@ -27,7 +30,7 @@ export class CompanyStaffService {
 
     const queryOptions = QueryOptions(
       ["user.firstName", "user.lastName", "user.email"],
-      searchq,
+      searchq
     );
     const pagination = Paginations(currentPage, limit);
 
@@ -38,7 +41,7 @@ export class CompanyStaffService {
     };
 
     const companyUser = req.user?.userRoles?.some(
-      (role) => role.name === roles.ADMIN,
+      (role) => role.name === roles.ADMIN
     )
       ? await prisma.companyUser.findMany({
           where: queryOptions,
@@ -109,7 +112,7 @@ export class CompanyStaffService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ) {
     const requestingUser = await prisma.companyUser.findFirst({
       where: {
@@ -124,7 +127,7 @@ export class CompanyStaffService {
     if (!requestingUser || !requestingUser.company) {
       throw new AppError(
         "Company does not exist or you do not have access",
-        400,
+        400
       );
     }
 
@@ -132,7 +135,7 @@ export class CompanyStaffService {
 
     const queryOptions = QueryOptions(
       ["user.firstName", "user.lastName", "user.email"],
-      searchq,
+      searchq
     );
     const pagination = Paginations(currentPage, limit);
 
@@ -151,6 +154,7 @@ export class CompanyStaffService {
             phoneNumber: true,
             photo: true,
             userRoles: true,
+            clinicUserRoles: true,
           },
         },
       },
@@ -171,18 +175,27 @@ export class CompanyStaffService {
       },
     });
 
-    const staff = companyUsers.map((companyUser) => ({
-      id: companyUser.user.id,
-      firstName: companyUser.user.firstName,
-      lastName: companyUser.user.lastName,
-      email: companyUser.user.email,
-      phoneNumber: companyUser.user.phoneNumber,
-      photo: companyUser.user.photo,
-      title: companyUser.title,
-      idNumber: companyUser.idNumber,
-      idAttachment: companyUser.idAttachment,
-      role: companyUser.user.userRoles.map((role) => role.name).join(", "),
-    }));
+    const staff = companyUsers.map((companyUser) => {
+      // Combine both role types
+      const systemRoles = companyUser.user.userRoles.map((role) => role.name);
+      const clinicRoles = companyUser.user.clinicUserRoles.map(
+        (role) => role.role
+      );
+      const allRoles = [...systemRoles, ...clinicRoles];
+
+      return {
+        id: companyUser.user.id,
+        firstName: companyUser.user.firstName,
+        lastName: companyUser.user.lastName,
+        email: companyUser.user.email,
+        phoneNumber: companyUser.user.phoneNumber,
+        photo: companyUser.user.photo,
+        title: companyUser.title,
+        idNumber: companyUser.idNumber,
+        idAttachment: companyUser.idAttachment,
+        role: allRoles.join(", "),
+      };
+    });
 
     return {
       data: staff,
@@ -196,7 +209,7 @@ export class CompanyStaffService {
 
   public static async getCompanyStaffCountByMonth(
     companyId: string,
-    year: number,
+    year: number
   ): Promise<IResponse<any>> {
     try {
       const companyStaff = await prisma.companyUser.findMany({
@@ -230,13 +243,31 @@ export class CompanyStaffService {
   }
 
   static async createCompanyStaff(
-    data: CreateCompanyStaffDto,
-    companyId: string,
+    data: CreateCompanyStaffUnionDto,
+    companyId: string
   ) {
     const errors = await companyStaffValidations.onCreate(data);
     if (errors[0]) {
       throw new ValidationError(errors);
     }
+
+    // Fetch the company to check its industry
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { industry: true }, // Adjust field name if different
+    });
+
+    if (!company) {
+      throw new AppError("Company not found", 404);
+    }
+
+    // Determine if this is a healthcare company
+    const isHealthcareCompany = ["clinic", "hospital"].includes(
+      (company.industry || "").toLowerCase()
+    );
+
+    // Check if the role is a ClinicRole
+    const isClinicRole = Object.values(ClinicRole).includes(data.role as any);
 
     const userInfo = await prisma.user.create({
       data: {
@@ -245,21 +276,34 @@ export class CompanyStaffService {
         email: data.email,
         phoneNumber: data.phoneNumber,
         password: hashSync("Password123!", 10),
-        userRoles: {
-          create: {
-            name: data.role,
-          },
-        },
+
+        // Conditionally create the appropriate role
+        ...(isHealthcareCompany && isClinicRole
+          ? {
+              clinicUserRoles: {
+                create: {
+                  role: data.role as ClinicRole, // Use ClinicRole
+                },
+              },
+            }
+          : {
+              userRoles: {
+                create: {
+                  name: data.role as RoleType, // Use RoleType
+                },
+              },
+            }),
       },
       include: {
         userRoles: true,
+        clinicUserRoles: true,
       },
     });
 
     // Create the company user entry
     await prisma.companyUser.create({
       data: {
-        companyId: companyId!,
+        companyId: companyId,
         userId: userInfo.id,
         title: data.title ?? "N/A",
         idNumber: data.idNumber ?? "N/A",
@@ -267,13 +311,14 @@ export class CompanyStaffService {
           typeof data.idAttachment === "string" ? data.idAttachment : undefined,
       },
     });
+
     return userInfo;
   }
 
   public static async updateCompanyStaff(
     id: string,
-    data: CreateCompanyStaffDto,
-    companyId: string,
+    data: CreateCompanyStaffUnionDto,
+    companyId: string
   ) {
     try {
       // Check if email, phoneNumber, or idNumber is already taken by another user
@@ -308,7 +353,7 @@ export class CompanyStaffService {
         EventType.COMPANY_STAFF_UPDATED,
         updatedCompanyStaff,
         data,
-        companyId,
+        companyId
       );
 
       return {

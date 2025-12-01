@@ -12,6 +12,7 @@ import {
   Tags,
   Delete,
   Query,
+  Middlewares,
 } from "tsoa";
 import type { Request as ExpressRequest } from "express";
 import { CareProgramService } from "../services/CareProgramService";
@@ -23,12 +24,21 @@ import {
   UpdateCareProgramDto,
   UpdateEnrollmentDto,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Care Programs")
 @Route("api/care-programs")
 @Security("jwt")
 export class CareProgramController extends Controller {
   @Get("/")
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.DOCTOR,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -42,11 +52,19 @@ export class CareProgramController extends Controller {
   }
 
   @Get("/{id}")
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.DOCTOR,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return CareProgramService.getById(id, req);
   }
 
   @Post("/")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateCareProgramDto
@@ -55,6 +73,7 @@ export class CareProgramController extends Controller {
   }
 
   @Put("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public update(
     @Path() id: string,
     @Body() body: UpdateCareProgramDto,
@@ -64,6 +83,7 @@ export class CareProgramController extends Controller {
   }
 
   @Delete("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -72,6 +92,7 @@ export class CareProgramController extends Controller {
   }
 
   @Post("/enroll")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public enrollPatient(
     @Request() req: ExpressRequest,
     @Body() body: EnrollPatientDto
@@ -80,6 +101,7 @@ export class CareProgramController extends Controller {
   }
 
   @Get("/patient/{patientId}/enrollments")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public patientEnrollments(
     @Path() patientId: string,
     @Request() req: ExpressRequest
@@ -88,6 +110,7 @@ export class CareProgramController extends Controller {
   }
 
   @Put("/enrollment/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public updateEnrollment(
     @Path() id: string,
     @Body() body: UpdateEnrollmentDto,
@@ -97,6 +120,7 @@ export class CareProgramController extends Controller {
   }
 
   @Post("/visit")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public recordVisit(
     @Request() req: ExpressRequest,
     @Body() body: RecordVisitDto
@@ -105,6 +129,7 @@ export class CareProgramController extends Controller {
   }
 
   @Get("/enrollment/{enrollmentId}/visits")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public enrollmentVisits(
     @Path() enrollmentId: string,
     @Request() req: ExpressRequest
@@ -113,6 +138,7 @@ export class CareProgramController extends Controller {
   }
 
   @Get("/{programId}/enrollments")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public programEnrollments(
     @Path() programId: string,
     @Request() req: ExpressRequest,

@@ -10,20 +10,24 @@ import {
   Security,
   Tags,
   Query,
+  Middlewares,
 } from "tsoa";
 import { Request as ExpressRequest } from "express";
 import { StockIssuanceService } from "../services/StockIssuanceService";
 import { ReorderAlertsService } from "../services/ReorderAlertsService";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 // ============= Stock Issuance Controller =============
 @Tags("Stock Issuance")
 @Route("/api/stock/issuance")
+@Security("jwt")
 export class StockIssuanceController {
   /**
    * Issue stock to department/ward/pharmacy
    */
   @Post("/issue")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async issueStock(
     @Body()
     data: {
@@ -47,7 +51,7 @@ export class StockIssuanceController {
    * Get issuance history
    */
   @Get("/history")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.CLINIC_ADMIN))
   public async getIssuanceHistory(
     @Request() req: ExpressRequest,
     @Query() itemId?: string,
@@ -73,12 +77,13 @@ export class StockIssuanceController {
 // ============= Stock Transfer Controller =============
 @Tags("Stock Transfer")
 @Route("/api/stock/transfer")
+@Security("jwt")
 export class StockTransferController {
   /**
    * Transfer stock between warehouses
    */
   @Post("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async transferStock(
     @Body()
     data: {
@@ -99,7 +104,7 @@ export class StockTransferController {
    * Get stock movements (all types)
    */
   @Get("/movements")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.CLINIC_ADMIN))
   public async getStockMovements(
     @Request() req: ExpressRequest,
     @Query() itemId?: string,
@@ -125,12 +130,13 @@ export class StockTransferController {
 // ============= Stock Adjustment Controller =============
 @Tags("Stock Adjustment")
 @Route("/api/stock/adjustment")
+@Security("jwt")
 export class StockAdjustmentController {
   /**
    * Adjust stock (add, subtract, or set)
    */
   @Post("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async adjustStock(
     @Body()
     data: {
@@ -150,12 +156,13 @@ export class StockAdjustmentController {
 // ============= Reorder Rules Controller =============
 @Tags("Reorder & Alerts")
 @Route("/api/inventory/reorder")
+@Security("jwt")
 export class ReorderController {
   /**
    * Create or update reorder rule
    */
   @Post("/rules")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createReorderRule(
     @Body()
     data: {
@@ -179,7 +186,7 @@ export class ReorderController {
    * Get all reorder rules
    */
   @Get("/rules")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getReorderRules(
     @Request() req: ExpressRequest,
     @Query() itemId?: string,
@@ -196,7 +203,7 @@ export class ReorderController {
    * Delete reorder rule
    */
   @Delete("/rules/{ruleId}")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async deleteReorderRule(
     @Path() ruleId: string,
     @Request() req: ExpressRequest
@@ -208,7 +215,7 @@ export class ReorderController {
    * Manually check stock levels and generate alerts
    */
   @Post("/check-levels")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async checkStockLevels(@Request() req: ExpressRequest) {
     // Note: In production, you'd pass io (Socket.IO) instance here
     return ReorderAlertsService.checkStockLevels(req);
@@ -218,12 +225,13 @@ export class ReorderController {
 // ============= Stock Alerts Controller =============
 @Tags("Stock Alerts")
 @Route("/api/inventory/alerts")
+@Security("jwt")
 export class AlertsController {
   /**
    * Get active alerts
    */
   @Get("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getActiveAlerts(
     @Request() req: ExpressRequest,
     @Query() alertType?: string,
@@ -240,7 +248,7 @@ export class AlertsController {
    * Dismiss/acknowledge an alert
    */
   @Put("/{alertId}/dismiss")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async dismissAlert(
     @Path() alertId: string,
     @Request() req: ExpressRequest
@@ -248,4 +256,3 @@ export class AlertsController {
     return ReorderAlertsService.dismissAlert(req, alertId);
   }
 }
-

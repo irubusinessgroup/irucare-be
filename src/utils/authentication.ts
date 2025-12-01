@@ -30,7 +30,12 @@ export const expressAuthentication = (
             where: { email },
             include: {
               userRoles: true,
-              company: true,
+              clinicUserRoles: true,
+              company: {
+                include: {
+                  company: true,
+                },
+              },
             },
           });
 
@@ -49,7 +54,12 @@ export const expressAuthentication = (
               where: { id: decoded.id },
               include: {
                 userRoles: true,
-                company: true,
+                clinicUserRoles: true,
+                company: {
+                  include: {
+                    company: true,
+                  },
+                },
               },
             });
 
@@ -67,7 +77,12 @@ export const expressAuthentication = (
               where: { email },
               include: {
                 userRoles: true,
-                company: true,
+                clinicUserRoles: true,
+                company: {
+                  include: {
+                    company: true,
+                  },
+                },
               },
             });
 

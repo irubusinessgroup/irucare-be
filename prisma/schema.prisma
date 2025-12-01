@@ -70,6 +70,8 @@ model User {
   performedMovements StockMovement[]
   dismissedAlerts    StockAlert[]
 
+  clinicUserRoles ClinicUserRole[]
+
 }
 
 
@@ -2640,4 +2642,22 @@ model StockAlert {
   @@index([itemId])
   @@index([status])
   @@index([alertType])
+}
+
+
+enum ClinicRole{
+  CLINIC_ADMIN
+  RECEPTIONIST
+  NURSE
+  DOCTOR
+  LAB_TECH
+  PHARMACIST
+  ACCOUNTANT
+}
+
+model ClinicUserRole{
+  id          String  @id @default(uuid())
+  userId      String
+  role        ClinicRole
+  user        User    @relation(fields: [userId], references: [id])
 }

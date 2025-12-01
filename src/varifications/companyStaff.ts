@@ -1,10 +1,10 @@
 import { prisma } from "../utils/client";
 import AppError, { IValidationError } from "./../utils/error";
-import { CreateCompanyStaffDto } from "./../utils/interfaces/common";
+import { CreateCompanyStaffUnionDto } from "./../utils/interfaces/common";
 
 export class companyStaffValidations {
   static async onCreate(
-    data: CreateCompanyStaffDto,
+    data: CreateCompanyStaffUnionDto,
   ): Promise<IValidationError[]> {
     const errors: IValidationError[] = [];
     const emailTaken = await prisma.user.findFirst({
@@ -33,7 +33,7 @@ export class companyStaffValidations {
 
   static async onUpdate(
     userId: string,
-    data: CreateCompanyStaffDto,
+    data: CreateCompanyStaffUnionDto,
   ): Promise<IValidationError[]> {
     const errors: IValidationError[] = [];
 

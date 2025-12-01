@@ -1,6 +1,7 @@
 import {
   Body,
   Get,
+  Middlewares,
   Path,
   Post,
   Query,
@@ -16,12 +17,15 @@ import {
   CreateReturnRequest,
   ReturnResponse,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Pharmacy - Returns")
+@Security("jwt")
 @Route("/api/pharmacy/returns")
 export class PharmacyReturnsController {
   @Get("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getReturns(
     @Query() page?: number,
     @Query() limit?: number,
@@ -32,7 +36,7 @@ export class PharmacyReturnsController {
   }
 
   @Post("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createReturn(
     @Body() data: CreateReturnRequest,
     @Request() req: ExpressRequest
@@ -43,7 +47,7 @@ export class PharmacyReturnsController {
   }
 
   @Get("/{returnId}")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getReturnById(
     @Path() returnId: string,
     @Request() req: ExpressRequest

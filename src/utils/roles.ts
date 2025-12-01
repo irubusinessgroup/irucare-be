@@ -9,3 +9,13 @@ export enum roles {
   STAFF = "STAFF",
   CLIENT = "CLIENT",
 }
+
+export enum ClinicRole {
+  CLINIC_ADMIN = "CLINIC_ADMIN",
+  RECEPTIONIST = "RECEPTIONIST",
+  NURSE = "NURSE",
+  DOCTOR = "DOCTOR",
+  LAB_TECH = "LAB_TECH",
+  PHARMACIST = "PHARMACIST",
+  ACCOUNTANT = "ACCOUNTANT",
+}

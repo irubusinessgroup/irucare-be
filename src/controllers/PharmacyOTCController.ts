@@ -1,6 +1,7 @@
 import {
   Body,
   Get,
+  Middlewares,
   Path,
   Post,
   Query,
@@ -16,12 +17,15 @@ import {
   CreateOTCSaleRequest,
   OTCSaleResponse,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Pharmacy - OTC Sales")
+@Security("jwt")
 @Route("/api/pharmacy/otc-sales")
 export class PharmacyOTCController {
   @Get("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getOTCSales(
     @Query() page?: number,
     @Query() limit?: number,
@@ -32,7 +36,7 @@ export class PharmacyOTCController {
   }
 
   @Post("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createOTCSale(
     @Body() data: CreateOTCSaleRequest,
     @Request() req: ExpressRequest
@@ -43,7 +47,7 @@ export class PharmacyOTCController {
   }
 
   @Get("/{saleId}")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getOTCSaleById(
     @Path() saleId: string,
     @Request() req: ExpressRequest

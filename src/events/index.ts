@@ -1,7 +1,7 @@
 import EventEmitter from "events";
 import {
   CreateCompanyDto,
-  CreateCompanyStaffDto,
+  CreateCompanyStaffUnionDto,
   TCompany,
   TUser,
 } from "../utils/interfaces/common";
@@ -31,14 +31,14 @@ Emitter.on(
 
 Emitter.on(
   EventType.COMPANY_STAFF_CREATED,
-  (user: TUser, data: CreateCompanyStaffDto, companyId: string) => {
+  (user: TUser, data: CreateCompanyStaffUnionDto, companyId: string) => {
     companyStaffCreatedHandler(user, data, companyId);
   },
 );
 
 Emitter.on(
   EventType.COMPANY_STAFF_UPDATED,
-  (user: TUser, data: CreateCompanyStaffDto, companyId: string) => {
+  (user: TUser, data: CreateCompanyStaffUnionDto, companyId: string) => {
     companyStaffUpdateHandler(user, data, companyId);
   },
 );

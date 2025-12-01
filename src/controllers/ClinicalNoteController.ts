@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Middlewares,
   Path,
   Post,
   Put,
@@ -20,12 +21,15 @@ import {
   NoteType,
   UpdateClinicalNoteDto,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Clinical Notes")
 @Route("api/clinical-notes")
 @Security("jwt")
 export class ClinicalNoteController extends Controller {
   @Get("/")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -42,11 +46,13 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Get("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return ClinicalNoteService.getById(id, req);
   }
 
   @Post("/")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateClinicalNoteDto
@@ -55,6 +61,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Put("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR, ClinicRole.CLINIC_ADMIN))
   public update(
     @Path() id: string,
     @Body() body: UpdateClinicalNoteDto,
@@ -64,6 +71,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Delete("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -72,6 +80,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Get("/encounter/{encounterId}/notes")
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
   public encounterNotes(
     @Path() encounterId: string,
     @Request() req: ExpressRequest
@@ -80,6 +89,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Post("/encounter/{encounterId}/discharge-summary")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
   public generateDischargeSummary(
     @Path() encounterId: string,
     @Request() req: ExpressRequest
