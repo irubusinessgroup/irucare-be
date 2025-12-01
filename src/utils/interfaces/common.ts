@@ -1,6 +1,7 @@
 import type { $Enums, PaymentMethod } from "@prisma/client";
 import { TsoaResponse } from "tsoa";
 import { DeliveryItemStatus } from "@prisma/client";
+import { ClinicRole } from "../roles";
 
 export interface IResponse<T> {
   statusCode: number;
@@ -38,8 +39,22 @@ export type TUser = {
   createdAt?: Date | string;
   updatedAt?: Date | string;
   userRoles?: IUserRole[];
-  company?: { id: string; userId: string; companyId: string };
+  clinicUserRoles?: IClinicUserRole[];
+  company?: {
+    id: string;
+    userId: string;
+    companyId: string;
+    company: {
+      industry?: string | null;
+    };
+  };
 };
+
+export interface IClinicUserRole {
+  id: string;
+  role: ClinicRole;
+  userId: string;
+}
 
 export interface IUserRole {
   id: string;
@@ -508,7 +523,7 @@ export interface CreateCompanyDto {
   };
 }
 
-export interface CreateCompanyStaffDto {
+export interface CreateStandardCompanyStaffDto {
   firstName: string;
   lastName: string;
   email: string;
@@ -518,6 +533,21 @@ export interface CreateCompanyStaffDto {
   idNumber?: string;
   idAttachment?: Express.Multer.File | string;
 }
+
+export interface CreateClinicCompanyStaffDto {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber?: string;
+  title?: string;
+  role: ClinicRole;
+  idNumber?: string;
+  idAttachment?: Express.Multer.File | string;
+}
+
+export type CreateCompanyStaffUnionDto =
+  | CreateStandardCompanyStaffDto
+  | CreateClinicCompanyStaffDto;
 
 // CompanyTools DTOs
 export interface CreateCompanyToolsDto {

@@ -11,8 +11,8 @@ import {
 } from "tsoa";
 import { InventoryService } from "../services/InventoryService";
 import { Request as ExpressRequest } from "express";
-import { roles } from "../utils/roles";
-import { checkRole } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
+import { checkClinicRole, checkRole } from "../middlewares";
 import { DirectStockAdditionRequest } from "../utils/interfaces/common";
 import { prisma } from "../utils/client";
 
@@ -66,7 +66,7 @@ export class InventoryController {
    * Get stock overview with all statistics
    */
   @Get("/overview")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public async getStockOverview(@Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {

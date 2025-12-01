@@ -11,6 +11,7 @@ import {
   Query,
   Delete,
   Put,
+  Middlewares,
 } from "tsoa";
 import type { Request as ExpressRequest } from "express";
 import { LabResultService } from "../services/LabResultService";
@@ -19,12 +20,15 @@ import {
   CreateLabResultDto,
   UpdateLabResultDto,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Lab Results")
 @Route("api/lab-results")
 @Security("jwt")
 export class LabResultController extends Controller {
   @Post("/")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateLabResultDto
@@ -33,6 +37,7 @@ export class LabResultController extends Controller {
   }
 
   @Post("/bulk")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public bulkCreate(
     @Request() req: ExpressRequest,
     @Body() body: BulkCreateResultsDto
@@ -41,6 +46,7 @@ export class LabResultController extends Controller {
   }
 
   @Put("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public update(
     @Path() id: string,
     @Body() body: UpdateLabResultDto,
@@ -50,6 +56,7 @@ export class LabResultController extends Controller {
   }
 
   @Delete("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -58,6 +65,7 @@ export class LabResultController extends Controller {
   }
 
   @Get("/lab-order/{labOrderId}")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
   public getByLabOrder(
     @Path() labOrderId: string,
     @Request() req: ExpressRequest
@@ -66,6 +74,7 @@ export class LabResultController extends Controller {
   }
 
   @Post("/lab-order/{labOrderId}/approve")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
   public approve(
     @Path() labOrderId: string,
     @Request() req: ExpressRequest
@@ -74,6 +83,7 @@ export class LabResultController extends Controller {
   }
 
   @Get("/patient/{patientId}/history")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,

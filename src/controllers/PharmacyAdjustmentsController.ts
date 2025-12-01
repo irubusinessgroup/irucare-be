@@ -1,6 +1,7 @@
 import {
   Body,
   Get,
+  Middlewares,
   Path,
   Post,
   Query,
@@ -16,12 +17,15 @@ import {
   CreateAdjustmentRequest,
   AdjustmentResponse,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Pharmacy - Adjustments")
+@Security("jwt")
 @Route("/api/pharmacy/adjustments")
 export class PharmacyAdjustmentsController {
   @Get("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getAdjustments(
     @Query() page?: number,
     @Query() limit?: number,
@@ -32,7 +36,7 @@ export class PharmacyAdjustmentsController {
   }
 
   @Post("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createAdjustment(
     @Body() data: CreateAdjustmentRequest,
     @Request() req: ExpressRequest
@@ -43,7 +47,7 @@ export class PharmacyAdjustmentsController {
   }
 
   @Get("/{adjustmentId}")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getAdjustmentById(
     @Path() adjustmentId: string,
     @Request() req: ExpressRequest

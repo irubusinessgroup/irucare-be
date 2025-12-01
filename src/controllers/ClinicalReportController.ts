@@ -1,12 +1,24 @@
-import { Controller, Get, Request, Route, Security, Tags, Query } from "tsoa";
+import {
+  Controller,
+  Get,
+  Request,
+  Route,
+  Security,
+  Tags,
+  Query,
+  Middlewares,
+} from "tsoa";
 import type { Request as ExpressRequest } from "express";
 import { ClinicalReportService } from "../services/ClinicalReportService";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Clinical Reports")
 @Route("api/reports/clinic")
 @Security("jwt")
 export class ClinicalReportController extends Controller {
   @Get("/provider-performance")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public getProviderPerformance(
     @Request() req: ExpressRequest,
     @Query() providerId?: string,
@@ -22,6 +34,7 @@ export class ClinicalReportController extends Controller {
   }
 
   @Get("/patient-outcomes")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public getPatientOutcomes(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
@@ -37,6 +50,7 @@ export class ClinicalReportController extends Controller {
   }
 
   @Get("/revenue")
+  @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT))
   public getRevenueReport(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
@@ -52,6 +66,7 @@ export class ClinicalReportController extends Controller {
   }
 
   @Get("/lab-utilization")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public getLabUtilization(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
@@ -61,6 +76,7 @@ export class ClinicalReportController extends Controller {
   }
 
   @Get("/prescription-compliance")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public getPrescriptionCompliance(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
@@ -74,6 +90,7 @@ export class ClinicalReportController extends Controller {
   }
 
   @Get("/appointment-statistics")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public getAppointmentStatistics(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,

@@ -26,12 +26,12 @@ export class UserService extends BaseService {
   public static async getUsers(
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ): Promise<IPaged<IUserResponse[]>> {
     try {
       const queryOptions = QueryOptions(
         ["firstName", "lastName", "email"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -63,13 +63,13 @@ export class UserService extends BaseService {
       throw new AppError(error, 500);
     }
   }
-
   public static async loginUser(user: ILoginUser) {
     try {
       const userData = await prisma.user.findFirst({
         where: { email: user.email },
         include: {
           userRoles: true,
+          clinicUserRoles: true, 
           company: {
             include: {
               company: true,
@@ -77,25 +77,25 @@ export class UserService extends BaseService {
           },
         },
       });
+
       if (!userData) {
         throw new AppError("user account not found ", 401);
       }
 
       const isPasswordSimilar = await compare(user.password, userData.password);
       if (isPasswordSimilar) {
-        // const token = jwt.sign(user.email, process.env.JWT_SECRET!);
+        // Combine both role types
+        const systemRoles = userData.userRoles.map((role) => role.name);
+        const clinicRoles = userData.clinicUserRoles.map((role) => role.role);
+        const allRoles = [...systemRoles, ...clinicRoles].filter((r) => !!r);
+
         const token = jwt.sign(
           {
             id: userData.id,
             email: userData.email,
-            userRoles: userData.userRoles
-              .map((role) => role.name)
-              .filter((r) => !!r),
+            userRoles: allRoles, 
           },
-          process.env.JWT_SECRET!,
-        );
-        const userRoles = userData.userRoles.map(
-          (roleRecord) => roleRecord.name,
+          process.env.JWT_SECRET!
         );
 
         // Get industry from company if user has a company association
@@ -111,7 +111,7 @@ export class UserService extends BaseService {
             email: userData.email,
             phoneNumber: userData.phoneNumber,
             id: userData.id,
-            roles: userRoles,
+            roles: allRoles,
             photo: userData.photo,
             industry,
           },
@@ -122,7 +122,6 @@ export class UserService extends BaseService {
       throw new AppError(error, 500);
     }
   }
-
   // user signup
   public static async signUpUser(user: ISignUpUser) {
     try {
@@ -260,7 +259,7 @@ export class UserService extends BaseService {
   public static async updatePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string,
+    newPassword: string
   ) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -319,7 +318,7 @@ export class UserService extends BaseService {
   public static async resetPassword(
     email: string,
     otp: string,
-    newPassword: string,
+    newPassword: string
   ) {
     const user = await prisma.user.findFirst({ where: { email } });
 
@@ -515,7 +514,7 @@ export class UserService extends BaseService {
 
   public static async updateProfile(
     req: Request,
-    profileData: UpdateProfileDto,
+    profileData: UpdateProfileDto
   ) {
     try {
       const userId = req.user!.id;

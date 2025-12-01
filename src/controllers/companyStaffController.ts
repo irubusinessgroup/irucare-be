@@ -14,7 +14,7 @@ import {
 import { appendNIDAttachment, checkRole } from "../middlewares";
 import { CompanyStaffService } from "../services/CompanyStaffService";
 
-import type { CreateCompanyStaffDto } from "../utils/interfaces/common";
+import type { CreateCompanyStaffUnionDto } from "../utils/interfaces/common";
 import { roles } from "../utils/roles";
 import { Request as ExpressRequest } from "express";
 import upload from "../utils/cloudinary";
@@ -36,7 +36,7 @@ export class CompanyStaffController {
       req,
       searchq as string | undefined,
       limit ? parseInt(limit as string) : undefined,
-      currentPage,
+      currentPage
     );
   }
   @Get("/my-staff")
@@ -48,7 +48,7 @@ export class CompanyStaffController {
       req,
       searchq as string | undefined,
       limit ? parseInt(limit as string) : undefined,
-      currentPage,
+      currentPage
     );
   }
   @Get("/analysis/company/{year}")
@@ -56,7 +56,7 @@ export class CompanyStaffController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public async getCompanyStaffCountByMonth(
     @Request() request: ExpressRequest,
-    @Path() year: number,
+    @Path() year: number
   ) {
     const companyId = request.user?.company?.companyId;
     if (!companyId) {
@@ -70,11 +70,11 @@ export class CompanyStaffController {
     checkRole(roles.COMPANY_ADMIN),
     upload.any(),
     appendNIDAttachment,
-    validate(createCompanyStaffSchema),
+    validate(createCompanyStaffSchema)
   )
   public async addCompanyStaffMember(
-    @Body() companyStaff: CreateCompanyStaffDto,
-    @Request() request: ExpressRequest,
+    @Body() companyStaff: CreateCompanyStaffUnionDto,
+    @Request() request: ExpressRequest
   ) {
     const companyId = request.user?.company?.companyId;
     return CompanyStaffService.createCompanyStaff(companyStaff, companyId!);
@@ -90,12 +90,12 @@ export class CompanyStaffController {
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN),
     upload.any(),
-    appendNIDAttachment,
+    appendNIDAttachment
   )
   public updateCompany(
     id: string,
-    @Body() companyStaff: CreateCompanyStaffDto,
-    @Request() request: ExpressRequest,
+    @Body() companyStaff: CreateCompanyStaffUnionDto,
+    @Request() request: ExpressRequest
   ) {
     const companyId = request.user?.company?.companyId;
     return CompanyStaffService.updateCompanyStaff(id, companyStaff, companyId!);

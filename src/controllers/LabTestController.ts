@@ -12,6 +12,7 @@ import {
   Tags,
   Delete,
   Query,
+  Middlewares,
 } from "tsoa";
 import type { Request as ExpressRequest } from "express";
 
@@ -21,12 +22,15 @@ import {
   LabTestType,
   UpdateLabTestDto,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Lab Tests")
 @Route("api/lab-tests")
 @Security("jwt")
 export class LabTestController extends Controller {
   @Get("/")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -42,11 +46,13 @@ export class LabTestController extends Controller {
   }
 
   @Get("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getById(id, req);
   }
 
   @Post("/")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateLabTestDto
@@ -55,6 +61,7 @@ export class LabTestController extends Controller {
   }
 
   @Put("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public update(
     @Path() id: string,
     @Body() body: UpdateLabTestDto,
@@ -64,6 +71,7 @@ export class LabTestController extends Controller {
   }
 
   @Delete("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -72,16 +80,19 @@ export class LabTestController extends Controller {
   }
 
   @Get("/categories/list")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public categories(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getCategories(req);
   }
 
   @Get("/panels/list")
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
   public panelsAndProfiles(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getPanelsAndProfiles(req);
   }
 
   @Get("/pricing/list")
+  @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT))
   public pricingList(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getPricingList(req);
   }

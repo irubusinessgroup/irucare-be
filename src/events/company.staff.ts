@@ -1,11 +1,11 @@
 import { roles } from "../utils/roles";
 import { prisma } from "../utils/client";
 
-import { CreateCompanyStaffDto, TUser } from "../utils/interfaces/common";
+import { CreateCompanyStaffUnionDto, TUser } from "../utils/interfaces/common";
 
 export const companyStaffCreatedHandler = async (
   user: TUser,
-  data: CreateCompanyStaffDto,
+  data: CreateCompanyStaffUnionDto,
   companyId: string,
 ) => {
   try {
@@ -38,7 +38,7 @@ export const companyStaffCreatedHandler = async (
 
 export const companyStaffUpdateHandler = async (
   user: TUser,
-  data: CreateCompanyStaffDto,
+  data: CreateCompanyStaffUnionDto,
   companyId: string,
 ) => {
   try {

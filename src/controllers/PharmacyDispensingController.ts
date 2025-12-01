@@ -1,6 +1,7 @@
 import {
   Body,
   Get,
+  Middlewares,
   Path,
   Post,
   Put,
@@ -18,12 +19,15 @@ import {
   UpdateDispenseRequest,
   DispenseResponse,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Pharmacy - Dispensing")
+@Security("jwt")
 @Route("/api/pharmacy/dispensing")
 export class PharmacyDispensingController {
   @Get("/queue")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getDispensingQueue(
     @Query() status?: string,
     @Query() page?: number,
@@ -40,7 +44,7 @@ export class PharmacyDispensingController {
   }
 
   @Post("/")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createDispense(
     @Body() data: CreateDispenseRequest,
     @Request() req: ExpressRequest
@@ -51,7 +55,7 @@ export class PharmacyDispensingController {
   }
 
   @Get("/{dispenseId}")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getDispenseById(
     @Path() dispenseId: string,
     @Request() req: ExpressRequest
@@ -61,7 +65,7 @@ export class PharmacyDispensingController {
   }
 
   @Put("/{dispenseId}")
-  @Security("jwt")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async updateDispense(
     @Path() dispenseId: string,
     @Body() data: UpdateDispenseRequest,

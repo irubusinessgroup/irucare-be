@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Middlewares,
   Path,
   Post,
   Put,
@@ -20,12 +21,21 @@ import {
   UpdateEncounterDto,
   VisitType,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Encounters")
 @Route("api/encounters")
 @Security("jwt")
 export class EncounterController extends Controller {
   @Get("/")
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.DOCTOR,
+      ClinicRole.NURSE,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -52,11 +62,19 @@ export class EncounterController extends Controller {
   }
 
   @Get("/{id}")
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.DOCTOR,
+      ClinicRole.NURSE,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return EncounterService.getById(id, req);
   }
 
   @Post("/")
+  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.NURSE))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateEncounterDto
@@ -65,6 +83,7 @@ export class EncounterController extends Controller {
   }
 
   @Put("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
   public update(
     @Path() id: string,
     @Body() body: UpdateEncounterDto,
@@ -74,31 +93,54 @@ export class EncounterController extends Controller {
   }
 
   @Delete("/{id}")
-  public remove(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  public remove(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return EncounterService.remove(id, req);
   }
 
   @Put("/{id}/check-in")
-  public checkIn(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
+  public checkIn(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return EncounterService.checkIn(id, req);
   }
 
   @Put("/{id}/complete")
-  public complete(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  public complete(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return EncounterService.complete(id, req);
   }
 
   @Put("/{id}/cancel")
-  public cancel(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(
+    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN)
+  )
+  public cancel(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return EncounterService.cancel(id, req);
   }
 
   @Put("/{id}/no-show")
-  public noShow(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
+  public noShow(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return EncounterService.noShow(id, req);
   }
 
   @Get("/patient/{patientId}/history")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR, ClinicRole.NURSE))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,

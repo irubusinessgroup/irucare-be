@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Middlewares,
   Path,
   Post,
   Put,
@@ -20,12 +21,15 @@ import {
   PrescriptionStatus,
   UpdatePrescriptionDto,
 } from "../utils/interfaces/common";
+import { checkClinicRole } from "../middlewares";
+import { ClinicRole } from "../utils/roles";
 
 @Tags("Prescriptions")
 @Route("api/prescriptions")
 @Security("jwt")
 export class PrescriptionController extends Controller {
   @Get("/")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.DOCTOR))
   public list(@Request() req: ExpressRequest): Promise<any> {
     const {
       page,
@@ -48,11 +52,13 @@ export class PrescriptionController extends Controller {
   }
 
   @Get("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.DOCTOR))
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return PrescriptionService.getById(id, req);
   }
 
   @Post("/")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreatePrescriptionDto
@@ -61,6 +67,7 @@ export class PrescriptionController extends Controller {
   }
 
   @Put("/{id}")
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
   public update(
     @Path() id: string,
     @Body() body: UpdatePrescriptionDto,
@@ -70,11 +77,16 @@ export class PrescriptionController extends Controller {
   }
 
   @Delete("/{id}")
-  public remove(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN, ClinicRole.DOCTOR))
+  public remove(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return PrescriptionService.remove(id, req);
   }
 
   @Post("/{id}/dispense")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public dispense(
     @Path() id: string,
     @Body() body: DispensePrescriptionDto,
@@ -84,6 +96,7 @@ export class PrescriptionController extends Controller {
   }
 
   @Put("/{id}/pickup")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public pickup(
     @Path() id: string,
     @Body() body: { pickedUpBy: string },
@@ -93,21 +106,34 @@ export class PrescriptionController extends Controller {
   }
 
   @Put("/{id}/refill")
-  public refill(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
+  public refill(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return PrescriptionService.refill(id, req);
   }
 
   @Put("/{id}/complete")
-  public complete(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
+  public complete(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return PrescriptionService.complete(id, req);
   }
 
   @Put("/{id}/cancel")
-  public cancel(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
+  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  public cancel(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ): Promise<any> {
     return PrescriptionService.cancel(id, req);
   }
 
   @Get("/patient/{patientId}/history")
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.DOCTOR))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
