@@ -14,7 +14,7 @@ export class PharmacyPatientsService {
     patientId: string,
     companyId: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ): Promise<IPaged<MedicationHistoryResponse>> {
     try {
       // Verify patient exists
@@ -96,7 +96,7 @@ export class PharmacyPatientsService {
 
   static async checkDrugInteractions(
     data: CheckDrugInteractionsRequest,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<DrugInteractionResponse>> {
     if (!data.medications || data.medications.length < 2) {
       return {
@@ -136,7 +136,7 @@ export class PharmacyPatientsService {
   static async getAllergyAlerts(
     patientId: string,
     medicationId: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<AllergyAlertResponse>> {
     // Verify patient exists
     const patient = await prisma.patient.findFirst({
@@ -172,7 +172,7 @@ export class PharmacyPatientsService {
           .includes(allergy.allergen.toLowerCase()) ||
         allergy.allergen
           .toLowerCase()
-          .includes(medication.itemFullName.toLowerCase())
+          .includes(medication.itemFullName.toLowerCase()),
     );
 
     const allergies = matchingAllergies.map((allergy) => ({

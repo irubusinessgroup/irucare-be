@@ -24,7 +24,13 @@ import { ClinicRole } from "../utils/roles";
 @Security("jwt")
 export class LabOrderController extends Controller {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR, ClinicRole.LAB_TECH))
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.PROVIDER,
+      ClinicRole.LAB_TECH,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -51,13 +57,13 @@ export class LabOrderController extends Controller {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR, ClinicRole.LAB_TECH))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER, ClinicRole.LAB_TECH))
   public get(@Path() id: string, @Request() req: ExpressRequest) {
     return LabOrderService.getById(id, req);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public create(@Request() req: ExpressRequest, @Body() body: any) {
     return LabOrderService.create(req, body);
   }
@@ -89,7 +95,7 @@ export class LabOrderController extends Controller {
   }
 
   @Put("/{id}/cancel")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public cancel(@Path() id: string, @Request() req: ExpressRequest) {
     return LabOrderService.cancel(id, req);
   }

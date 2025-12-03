@@ -26,7 +26,7 @@ import { ClinicRole } from "../utils/roles";
 @Security("jwt")
 export class InsuranceClaimController extends Controller {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT))
+  @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT, ClinicRole.CLINIC_ADMIN))
   public list(@Request() req: ExpressRequest) {
     const {
       page,

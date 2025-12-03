@@ -17,7 +17,7 @@ export class LabOrderService {
     req: Request,
     page?: number,
     limit?: number,
-    filters?: LabOrderFilters
+    filters?: LabOrderFilters,
   ): Promise<IPaged<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -96,7 +96,7 @@ export class LabOrderService {
    */
   public static async getById(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -168,7 +168,7 @@ export class LabOrderService {
    */
   public static async create(
     req: Request,
-    dto: CreateLabOrderDto
+    dto: CreateLabOrderDto,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -236,7 +236,7 @@ export class LabOrderService {
   public static async update(
     id: string,
     dto: UpdateLabOrderDto,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -284,7 +284,7 @@ export class LabOrderService {
   public static async collectSample(
     id: string,
     sampleType: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -322,7 +322,7 @@ export class LabOrderService {
    */
   public static async cancel(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -353,7 +353,7 @@ export class LabOrderService {
    * Get pending lab requests
    */
   public static async getPendingRequests(
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -393,7 +393,7 @@ export class LabOrderService {
    * Get in-progress lab requests
    */
   public static async getInProgressRequests(
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -429,7 +429,7 @@ export class LabOrderService {
    */
   public static async remove(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);

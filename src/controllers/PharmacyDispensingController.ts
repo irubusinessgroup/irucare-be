@@ -32,14 +32,14 @@ export class PharmacyDispensingController {
     @Query() status?: string,
     @Query() page?: number,
     @Query() limit?: number,
-    @Request() req?: ExpressRequest
+    @Request() req?: ExpressRequest,
   ): Promise<IPaged<DispenseResponse[]>> {
     const companyId = req?.user?.company?.companyId as string;
     return PharmacyDispensingService.getDispensingQueue(
       companyId,
       status,
       limit,
-      page
+      page,
     );
   }
 
@@ -47,7 +47,7 @@ export class PharmacyDispensingController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createDispense(
     @Body() data: CreateDispenseRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<DispenseResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const userId = req.user?.id as string;
@@ -58,7 +58,7 @@ export class PharmacyDispensingController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getDispenseById(
     @Path() dispenseId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<DispenseResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyDispensingService.getDispenseById(dispenseId, companyId);
@@ -69,13 +69,13 @@ export class PharmacyDispensingController {
   public async updateDispense(
     @Path() dispenseId: string,
     @Body() data: UpdateDispenseRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<DispenseResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyDispensingService.updateDispense(
       dispenseId,
       data,
-      companyId
+      companyId,
     );
   }
 }

@@ -11,7 +11,7 @@ export class PharmacyReturnsService {
   static async createReturn(
     data: CreateReturnRequest,
     companyId: string,
-    userId: string
+    userId: string,
   ): Promise<IResponse<ReturnResponse>> {
     // Verify item exists
     const item = await prisma.items.findFirst({
@@ -73,7 +73,7 @@ export class PharmacyReturnsService {
   static async getReturns(
     companyId: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ): Promise<IPaged<ReturnResponse[]>> {
     try {
       const pagination = Paginations(currentPage, limit);
@@ -119,7 +119,7 @@ export class PharmacyReturnsService {
 
   static async getReturnById(
     returnId: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<ReturnResponse>> {
     const returnRecord = await prisma.pharmacyReturns.findFirst({
       where: {

@@ -90,13 +90,13 @@ export class StockIssuanceService {
       // Calculate total available
       const totalAvailable = availableStock.reduce(
         (sum, stock) => sum + Number(stock.quantityAvailable),
-        0
+        0,
       );
 
       if (totalAvailable < data.quantity) {
         throw new AppError(
           `Insufficient stock. Available: ${totalAvailable}, Requested: ${data.quantity}`,
-          400
+          400,
         );
       }
 
@@ -140,7 +140,7 @@ export class StockIssuanceService {
                   ? "ISSUED"
                   : "AVAILABLE",
             },
-          })
+          }),
         );
 
         // Create issuance detail record
@@ -151,7 +151,7 @@ export class StockIssuanceService {
               stockId: stock.id,
               quantityIssued: toDeduct,
             },
-          })
+          }),
         );
 
         remainingToIssue -= toDeduct;
@@ -232,13 +232,13 @@ export class StockIssuanceService {
 
       const totalAvailable = availableStock.reduce(
         (sum, stock) => sum + Number(stock.quantityAvailable),
-        0
+        0,
       );
 
       if (totalAvailable < data.quantity) {
         throw new AppError(
           `Insufficient stock in source warehouse. Available: ${totalAvailable}`,
-          400
+          400,
         );
       }
 
@@ -280,7 +280,7 @@ export class StockIssuanceService {
                   ? "TRANSFERRED"
                   : "AVAILABLE",
             },
-          })
+          }),
         );
 
         // Create new stock receipt in destination warehouse
@@ -314,7 +314,7 @@ export class StockIssuanceService {
               quantity: toTransfer,
               quantityAvailable: toTransfer,
             },
-          })
+          }),
         );
 
         remainingToTransfer -= toTransfer;
@@ -489,7 +489,7 @@ export class StockIssuanceService {
       endDate?: Date;
     },
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -568,7 +568,7 @@ export class StockIssuanceService {
       endDate?: Date;
     },
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {

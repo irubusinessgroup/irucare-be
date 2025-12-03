@@ -26,7 +26,7 @@ export class InventoryController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InventoryService.getInventory(req, searchq, limit, page);
   }
@@ -37,7 +37,7 @@ export class InventoryController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InventoryService.getExpiringItems(req, searchq, limit, page);
   }
@@ -48,7 +48,7 @@ export class InventoryController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InventoryService.getExpiredItems(req, searchq, limit, page);
   }
@@ -57,7 +57,7 @@ export class InventoryController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public addDirectStock(
     @Request() req: ExpressRequest,
-    @Body() stockData: DirectStockAdditionRequest
+    @Body() stockData: DirectStockAdditionRequest,
   ) {
     return InventoryService.addDirectStock(req, stockData);
   }
@@ -91,7 +91,7 @@ export class InventoryController {
     const totalValue = stockReceipts.reduce((sum, receipt) => {
       const availableQty = receipt.stocks.reduce(
         (s, stock) => s + Number(stock.quantityAvailable),
-        0
+        0,
       );
       return sum + availableQty * Number(receipt.unitCost);
     }, 0);
@@ -115,7 +115,7 @@ export class InventoryController {
 
       const currentStock = stocks.reduce(
         (sum, s) => sum + Number(s.quantityAvailable),
-        0
+        0,
       );
 
       if (currentStock <= rule.minLevel.toNumber()) {

@@ -18,7 +18,7 @@ export class EncounterService {
     req: Request,
     page?: number,
     limit?: number,
-    filters?: EncounterFilters
+    filters?: EncounterFilters,
   ): Promise<IPaged<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -103,7 +103,7 @@ export class EncounterService {
    */
   public static async getById(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -167,7 +167,7 @@ export class EncounterService {
    */
   public static async create(
     req: Request,
-    dto: CreateEncounterDto
+    dto: CreateEncounterDto,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -221,7 +221,7 @@ export class EncounterService {
   public static async update(
     id: string,
     dto: UpdateEncounterDto,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -264,7 +264,7 @@ export class EncounterService {
    */
   public static async checkIn(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -299,7 +299,7 @@ export class EncounterService {
    */
   public static async complete(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -333,7 +333,7 @@ export class EncounterService {
    */
   public static async cancel(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -367,7 +367,7 @@ export class EncounterService {
    */
   public static async noShow(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -380,7 +380,7 @@ export class EncounterService {
     if (encounter.status !== "SCHEDULED") {
       throw new AppError(
         "Only scheduled encounters can be marked as no-show",
-        409
+        409,
       );
     }
 
@@ -403,7 +403,7 @@ export class EncounterService {
    */
   public static async remove(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -418,7 +418,7 @@ export class EncounterService {
     if (existing.status === "IN_PROGRESS" || existing.status === "COMPLETED") {
       throw new AppError(
         "Cannot delete in-progress or completed encounters",
-        409
+        409,
       );
     }
 
@@ -437,7 +437,7 @@ export class EncounterService {
     patientId: string,
     req: Request,
     page?: number,
-    limit?: number
+    limit?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);

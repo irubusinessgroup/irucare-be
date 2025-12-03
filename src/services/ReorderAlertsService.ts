@@ -36,7 +36,7 @@ export class ReorderAlertsService {
    */
   public static async createReorderRule(
     req: Request,
-    data: CreateReorderRuleDto
+    data: CreateReorderRuleDto,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -147,7 +147,7 @@ export class ReorderAlertsService {
       belowReorderPoint?: boolean;
     },
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -207,7 +207,7 @@ export class ReorderAlertsService {
 
         const currentStock = stocks.reduce(
           (sum, stock) => sum + Number(stock.quantityAvailable),
-          0
+          0,
         );
 
         const needsReorder = currentStock <= rule.reorderPoint.toNumber();
@@ -228,7 +228,7 @@ export class ReorderAlertsService {
                 ? "REORDER"
                 : "NORMAL",
         };
-      })
+      }),
     );
 
     // Filter by reorder point if requested
@@ -315,7 +315,7 @@ export class ReorderAlertsService {
 
       const currentStock = stocks.reduce(
         (sum, stock) => sum + Number(stock.quantityAvailable),
-        0
+        0,
       );
 
       // Check for low stock
@@ -437,7 +437,7 @@ export class ReorderAlertsService {
       if (!receipt.expiryDate) continue;
 
       const daysUntilExpiry = Math.ceil(
-        (receipt.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        (receipt.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
       );
 
       const severity =
@@ -455,7 +455,7 @@ export class ReorderAlertsService {
         message: `${receipt.item.itemFullName} expires in ${daysUntilExpiry} days`,
         currentStock: receipt.stocks.reduce(
           (sum, s) => sum + Number(s.quantityAvailable),
-          0
+          0,
         ),
         warehouseId: receipt.warehouseId || undefined,
         warehouseName: receipt.warehouse?.warehousename,
@@ -486,7 +486,7 @@ export class ReorderAlertsService {
         "/dashboard/inventory/alerts",
         "stock_alert",
         undefined,
-        { alertCount: alerts.length }
+        { alertCount: alerts.length },
       );
     }
 
@@ -510,7 +510,7 @@ export class ReorderAlertsService {
       itemId?: string;
     },
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -600,7 +600,7 @@ export class ReorderAlertsService {
     // Calculate delivery date based on lead time
     const expectedDeliveryDate = new Date();
     expectedDeliveryDate.setDate(
-      expectedDeliveryDate.getDate() + (rule.leadTimeDays || 7)
+      expectedDeliveryDate.getDate() + (rule.leadTimeDays || 7),
     );
 
     await prisma.purchaseOrder.create({

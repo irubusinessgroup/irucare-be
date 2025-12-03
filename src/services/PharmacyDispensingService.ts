@@ -13,7 +13,7 @@ export class PharmacyDispensingService {
   static async createDispense(
     data: CreateDispenseRequest,
     companyId: string,
-    userId: string
+    userId: string,
   ): Promise<IResponse<DispenseResponse>> {
     // Verify patient exists
     const patient = await prisma.patient.findFirst({
@@ -71,7 +71,7 @@ export class PharmacyDispensingService {
     companyId: string,
     status?: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ): Promise<IPaged<DispenseResponse[]>> {
     try {
       const pagination = Paginations(currentPage, limit);
@@ -118,7 +118,7 @@ export class PharmacyDispensingService {
 
   static async getDispenseById(
     dispenseId: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<DispenseResponse>> {
     const dispense = await prisma.pharmacyDispenses.findFirst({
       where: {
@@ -153,7 +153,7 @@ export class PharmacyDispensingService {
   static async updateDispense(
     dispenseId: string,
     data: UpdateDispenseRequest,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<DispenseResponse>> {
     const existingDispense = await prisma.pharmacyDispenses.findFirst({
       where: {

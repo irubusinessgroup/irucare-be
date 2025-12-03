@@ -49,7 +49,7 @@ export class StockService {
 
   static async createManualStockReceipt(
     data: CreateManualStockReceiptDto,
-    companyId: string
+    companyId: string,
   ) {
     const manualPoNumber = data.manualPoNumber?.trim();
     if (!manualPoNumber) {
@@ -154,7 +154,7 @@ export class StockService {
             status: "AVAILABLE",
             quantity: 1,
             quantityAvailable: 1,
-          })
+          }),
         );
 
         await tx.stock.createMany({
@@ -199,7 +199,7 @@ export class StockService {
             status: "AVAILABLE",
             quantity: 1,
             quantityAvailable: 1,
-          })
+          }),
         );
 
         await tx.stock.createMany({
@@ -218,7 +218,7 @@ export class StockService {
   static async updateStockReceipt(
     id: string,
     data: UpdateStockDto,
-    companyId: string
+    companyId: string,
   ) {
     return await prisma.$transaction(async (tx) => {
       const existingEntry = await tx.stockReceipts.findUnique({
@@ -246,7 +246,7 @@ export class StockService {
       const totalCost = StockCalculations.calculateTotalCost(
         data.quantityReceived ??
           parseFloat(existingEntry.quantityReceived.toString()),
-        data.unitCost ?? parseFloat(existingEntry.unitCost.toString())
+        data.unitCost ?? parseFloat(existingEntry.unitCost.toString()),
       );
 
       let stockAdjustment: Array<{
@@ -275,7 +275,7 @@ export class StockService {
           if (availableCount < decreaseBy) {
             throw new AppError(
               `Cannot reduce quantity by ${decreaseBy}. Only ${availableCount} available units exist.`,
-              400
+              400,
             );
           }
 
@@ -370,7 +370,7 @@ export class StockService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     try {
       const companyId = req.user?.company?.companyId;
@@ -426,21 +426,21 @@ export class StockService {
       const stockWithStatus = await Promise.all(
         stock.map(async (stockItem) => {
           const expiryStatus = StockCalculations.calculateDaysToExpiry(
-            stockItem.expiryDate ?? undefined
+            stockItem.expiryDate ?? undefined,
           );
           const totalStockQuantity = StockCalculations.calculateTotalCost(
             parseFloat(stockItem.quantityReceived.toString()),
-            parseFloat(stockItem.unitCost.toString())
+            parseFloat(stockItem.unitCost.toString()),
           );
           return {
             ...stockItem,
             expiryStatus,
             totalStockQuantity,
             isApproved: stockItem.approvals.some(
-              (a) => a.approvalStatus === "APPROVED"
+              (a) => a.approvalStatus === "APPROVED",
             ),
           };
-        })
+        }),
       );
 
       return {
@@ -457,7 +457,7 @@ export class StockService {
 
   private static async validateReferences(
     data: CreateStockDto,
-    companyId: string
+    companyId: string,
   ): Promise<{
     itemId: string;
     supplierId: string;
@@ -500,7 +500,7 @@ export class StockService {
 
     const received = poItem.stockReceipts.reduce(
       (sum, sr) => sum + sr.quantityReceived.toNumber(),
-      0
+      0,
     );
     const remaining = poItem.quantity.toNumber() - received;
 

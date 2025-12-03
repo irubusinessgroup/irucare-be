@@ -17,7 +17,7 @@ export class ClinicalNoteService {
     req: Request,
     page?: number,
     limit?: number,
-    filters?: ClinicalNoteFilters
+    filters?: ClinicalNoteFilters,
   ): Promise<IPaged<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -93,7 +93,7 @@ export class ClinicalNoteService {
    */
   public static async getById(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -144,7 +144,7 @@ export class ClinicalNoteService {
    */
   public static async create(
     req: Request,
-    dto: CreateClinicalNoteDto
+    dto: CreateClinicalNoteDto,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -194,7 +194,7 @@ export class ClinicalNoteService {
   public static async update(
     id: string,
     dto: UpdateClinicalNoteDto,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -241,7 +241,7 @@ export class ClinicalNoteService {
    */
   public static async remove(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -265,7 +265,7 @@ export class ClinicalNoteService {
    */
   public static async getEncounterNotes(
     encounterId: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -299,7 +299,7 @@ export class ClinicalNoteService {
    */
   public static async generateDischargeSummary(
     encounterId: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;

@@ -18,7 +18,7 @@ export class LabTestService {
     req: Request,
     page?: number,
     limit?: number,
-    filters?: LabTestFilters
+    filters?: LabTestFilters,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -94,7 +94,7 @@ export class LabTestService {
    */
   public static async getById(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -128,7 +128,7 @@ export class LabTestService {
    */
   public static async create(
     req: Request,
-    dto: CreateLabTestDto
+    dto: CreateLabTestDto,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -178,7 +178,7 @@ export class LabTestService {
   public static async update(
     id: string,
     dto: UpdateLabTestDto,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -235,7 +235,7 @@ export class LabTestService {
    */
   public static async remove(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -277,7 +277,7 @@ export class LabTestService {
    * Get lab test categories
    */
   public static async getCategories(
-    req: Request
+    req: Request,
   ): Promise<IResponse<string[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -304,7 +304,7 @@ export class LabTestService {
    * Get panels and profiles
    */
   public static async getPanelsAndProfiles(
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -329,7 +329,7 @@ export class LabTestService {
    * Get pricing list
    */
   public static async getPricingList(
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);

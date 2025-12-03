@@ -29,7 +29,13 @@ import { ClinicRole } from "../utils/roles";
 @Security("jwt")
 export class ClinicalNoteController extends Controller {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.NURSE,
+      ClinicRole.PROVIDER,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -46,13 +52,13 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return ClinicalNoteService.getById(id, req);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateClinicalNoteDto
@@ -61,7 +67,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR, ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER, ClinicRole.CLINIC_ADMIN))
   public update(
     @Path() id: string,
     @Body() body: UpdateClinicalNoteDto,
@@ -80,7 +86,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Get("/encounter/{encounterId}/notes")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public encounterNotes(
     @Path() encounterId: string,
     @Request() req: ExpressRequest
@@ -89,7 +95,7 @@ export class ClinicalNoteController extends Controller {
   }
 
   @Post("/encounter/{encounterId}/discharge-summary")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public generateDischargeSummary(
     @Path() encounterId: string,
     @Request() req: ExpressRequest

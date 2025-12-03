@@ -16,7 +16,7 @@ import { PatientService } from "../services/PatientService";
 import { CreatePatientDto, UpdatePatientDto } from "../utils/interfaces/common";
 import { Request as ExpressRequest } from "express";
 import { ClinicRole, roles } from "../utils/roles";
-import { checkRole, checkRoleAuto } from "../middlewares";
+import { checkRoleAuto } from "../middlewares";
 
 @Security("jwt")
 @Route("/api/patients")
@@ -26,8 +26,9 @@ export class PatientController {
   @Middlewares(
     checkRoleAuto(
       roles.COMPANY_ADMIN,
+      ClinicRole.CLINIC_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.DOCTOR,
+      ClinicRole.PROVIDER  ,
       ClinicRole.NURSE
     )
   )
