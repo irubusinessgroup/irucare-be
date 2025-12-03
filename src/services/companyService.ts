@@ -8,6 +8,7 @@ import { prisma } from "../utils/client";
 import AppError, { ValidationError } from "../utils/error";
 import { CreateCompanyDto, IResponse } from "../utils/interfaces/common";
 import { roles } from "../utils/roles";
+import { ItemSeederService } from "./ItemSeederService";
 
 export class companyService {
   public static async getCompanies(
@@ -192,7 +193,7 @@ export class companyService {
   }
 
   static async createCompany(data: CreateCompanyDto) {
-    console.log("data:--:", data);
+    // console.log("data:--:", data);
     const errors = await companyValidations.onCreate(data);
     if (errors[0]) {
       throw new ValidationError(errors);
@@ -214,6 +215,15 @@ export class companyService {
         logo: (data.company.logo as string) ?? "",
       },
     });
+    
+    // Seed items if industry is PHARMACY
+    if (newCompany.industry === "PHARMACY") {
+      // Run in background to not block response
+      ItemSeederService.seedPharmacyItems(newCompany.id).catch(err => {
+        console.error("Failed to seed pharmacy items:", err);
+      });
+    }
+
     Emitter.emit(EventType.COMPANY_CREATED, newCompany, data);
     return {
       message: "Company Created Successfully!!",
