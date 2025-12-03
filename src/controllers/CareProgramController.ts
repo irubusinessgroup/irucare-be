@@ -35,7 +35,7 @@ export class CareProgramController extends Controller {
   @Middlewares(
     checkClinicRole(
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER  ,
+      ClinicRole.PROVIDER,
       ClinicRole.CLINIC_ADMIN,
     ),
   )
@@ -55,7 +55,7 @@ export class CareProgramController extends Controller {
   @Middlewares(
     checkClinicRole(
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER  ,
+      ClinicRole.PROVIDER,
       ClinicRole.CLINIC_ADMIN,
     ),
   )
@@ -92,7 +92,7 @@ export class CareProgramController extends Controller {
   }
 
   @Post("/enroll")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public enrollPatient(
     @Request() req: ExpressRequest,
     @Body() body: EnrollPatientDto,
@@ -101,7 +101,7 @@ export class CareProgramController extends Controller {
   }
 
   @Get("/patient/{patientId}/enrollments")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public patientEnrollments(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
@@ -110,7 +110,7 @@ export class CareProgramController extends Controller {
   }
 
   @Put("/enrollment/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public updateEnrollment(
     @Path() id: string,
     @Body() body: UpdateEnrollmentDto,
@@ -120,7 +120,7 @@ export class CareProgramController extends Controller {
   }
 
   @Post("/visit")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public recordVisit(
     @Request() req: ExpressRequest,
     @Body() body: RecordVisitDto,
@@ -129,7 +129,7 @@ export class CareProgramController extends Controller {
   }
 
   @Get("/enrollment/{enrollmentId}/visits")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public enrollmentVisits(
     @Path() enrollmentId: string,
     @Request() req: ExpressRequest,

@@ -46,7 +46,7 @@ export class InsuranceClaimController extends Controller {
         encounterId: encounterId as string | undefined,
         billingId: billingId as string | undefined,
         status: status as string | undefined,
-      }
+      },
     );
   }
 
@@ -60,7 +60,7 @@ export class InsuranceClaimController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateInsuranceClaimDto
+    @Body() body: CreateInsuranceClaimDto,
   ) {
     return InsuranceClaimService.create(req, body);
   }
@@ -94,7 +94,7 @@ export class InsuranceClaimController extends Controller {
       responseFileUrl?: string;
       status: "APPROVED" | "REJECTED" | "PARTIAL";
       notes?: string;
-    }
+    },
   ) {
     return InsuranceClaimService.processResponse(id, body);
   }

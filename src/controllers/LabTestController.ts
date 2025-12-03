@@ -34,13 +34,13 @@ export class LabTestController extends Controller {
     checkClinicRole(
       ClinicRole.LAB_TECH,
       ClinicRole.PROVIDER,
-      ClinicRole.ACCOUNTANT
-    )
+      ClinicRole.ACCOUNTANT,
+    ),
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<any> {
     const { category, testType, isActive, search } = req.query;
     return LabTestService.list(req, page, limit, {
@@ -61,7 +61,7 @@ export class LabTestController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateLabTestDto
+    @Body() body: CreateLabTestDto,
   ): Promise<any> {
     return LabTestService.create(req, body);
   }
@@ -71,7 +71,7 @@ export class LabTestController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateLabTestDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return LabTestService.update(id, body, req);
   }
@@ -80,7 +80,7 @@ export class LabTestController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return LabTestService.remove(id, req);
   }

@@ -32,7 +32,7 @@ export class TriageController extends Controller {
   }
 
   @Get("/encounter/{encounterId}")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public getByEncounter(
     @Path() encounterId: string,
     @Request() req: ExpressRequest,
@@ -51,7 +51,7 @@ export class TriageController extends Controller {
   }
 
   @Get("/patient/{patientId}/vitals-history")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public vitalsHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
@@ -61,7 +61,7 @@ export class TriageController extends Controller {
   }
 
   @Get("/queue")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public triageQueue(@Request() req: ExpressRequest): Promise<any> {
     return TriageService.getTriageQueue(req);
   }

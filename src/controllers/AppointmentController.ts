@@ -27,22 +27,22 @@ import { ClinicRole } from "../utils/roles";
 export class AppointmentController {
   @Post("/")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN)
+    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
   )
   public async createAppointment(
     @Body() data: CreateAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.createAppointment(data, request);
   }
 
   @Post("/walk-in")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN)
+    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
   )
   public async registerWalkIn(
     @Body() data: CreateAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.registerWalkIn(data, request);
   }
@@ -52,14 +52,14 @@ export class AppointmentController {
     checkClinicRole(
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.PROVIDER  
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public async getDayView(
     @Query() date: string,
     @Query() providerId?: string,
     @Query() room?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getDayView(date, providerId, room, request!);
   }
@@ -69,20 +69,20 @@ export class AppointmentController {
     checkClinicRole(
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.PROVIDER  
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public async getWeekView(
     @Query() startDate: string,
     @Query() providerId?: string,
     @Query() room?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getWeekView(
       startDate,
       providerId,
       room,
-      request!
+      request!,
     );
   }
 
@@ -91,14 +91,14 @@ export class AppointmentController {
     checkClinicRole(
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.PROVIDER  
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public async getMonthView(
     @Query() year: number,
     @Query() month: number,
     @Query() providerId?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getMonthView(year, month, providerId, request!);
   }
@@ -108,8 +108,8 @@ export class AppointmentController {
     checkClinicRole(
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.NURSE
-    )
+      ClinicRole.NURSE,
+    ),
   )
   public async getWaitingRoom(@Request() request: Req) {
     return AppointmentService.getWaitingRoom(request);
@@ -125,19 +125,19 @@ export class AppointmentController {
   @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
   public async callNextPatient(
     @Query() providerId: string,
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.callNextPatient(providerId, request);
   }
 
   @Put("/{id}/transfer")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN)
+    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
   )
   public async transferPatient(
     @Path() id: string,
     @Body() body: { transferTo: string },
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.transferPatient(id, body.transferTo, request);
   }
@@ -146,7 +146,7 @@ export class AppointmentController {
   @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
   public async getTodayAppointments(
     @Query() providerId?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getTodayAppointments(providerId, request!);
   }
@@ -156,28 +156,28 @@ export class AppointmentController {
   public async getUpcomingAppointments(
     @Query() days?: number,
     @Query() providerId?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getUpcomingAppointments(
       days || 7,
       providerId,
-      request!
+      request!,
     );
   }
 
   @Get("/missed")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN)
+    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
   )
   public async getMissedAppointments(
     @Query() startDate?: string,
     @Query() endDate?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getMissedAppointments(
       startDate,
       endDate,
-      request!
+      request!,
     );
   }
 
@@ -191,7 +191,7 @@ export class AppointmentController {
     @Query() providerId?: string,
     @Query() startDate?: string,
     @Query() endDate?: string,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getAllAppointments(
       request!,
@@ -201,28 +201,28 @@ export class AppointmentController {
       status,
       providerId,
       startDate,
-      endDate
+      endDate,
     );
   }
 
   @Get("/available-slots")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
   public async getAvailableSlots(
     @Query() providerId: string,
     @Query() date: string,
     @Query() duration?: number,
-    @Request() request?: Req
+    @Request() request?: Req,
   ) {
     return AppointmentService.getAvailableSlots(
       providerId,
       date,
       duration || 30,
-      request!
+      request!,
     );
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
   public async getAppointmentById(@Path() id: string, @Request() request: Req) {
     return AppointmentService.getAppointmentById(id, request);
   }
@@ -232,19 +232,19 @@ export class AppointmentController {
   public async updateAppointment(
     @Path() id: string,
     @Body() data: UpdateAppointmentDto,
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.updateAppointment(id, data, request);
   }
 
   @Put("/{id}/cancel")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN)
+    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
   )
   public async cancelAppointment(
     @Path() id: string,
     @Body() body: { reason: string },
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.cancelAppointment(id, body.reason, request);
   }
@@ -256,28 +256,28 @@ export class AppointmentController {
   }
 
   @Put("/{id}/complete")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public async completeAppointment(
     @Path() id: string,
     @Body() body: { encounterId?: string },
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.completeAppointment(
       id,
       body.encounterId,
-      request
+      request,
     );
   }
 
   @Get("/patient/{patientId}")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
   public async getPatientAppointments(
     @Path() patientId: string,
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     const appointments = await AppointmentService.getTodayAppointments(
       undefined,
-      request
+      request,
     );
     return {
       ...appointments,
@@ -286,10 +286,10 @@ export class AppointmentController {
   }
 
   @Get("/provider/{providerId}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public async getProviderAppointments(
     @Path() providerId: string,
-    @Request() request: Req
+    @Request() request: Req,
   ) {
     return AppointmentService.getTodayAppointments(providerId, request);
   }

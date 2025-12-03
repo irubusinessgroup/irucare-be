@@ -28,7 +28,7 @@ import { ClinicRole } from "../utils/roles";
 @Security("jwt")
 export class ConsultationController extends Controller {
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateConsultationDto,
@@ -37,7 +37,7 @@ export class ConsultationController extends Controller {
   }
 
   @Get("/encounter/{encounterId}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public getByEncounter(
     @Path() encounterId: string,
     @Request() req: ExpressRequest,
@@ -46,7 +46,7 @@ export class ConsultationController extends Controller {
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public update(
     @Path() id: string,
     @Body() body: UpdateConsultationDto,
@@ -56,7 +56,7 @@ export class ConsultationController extends Controller {
   }
 
   @Post("/{consultationId}/diagnosis")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public addDiagnosis(
     @Path() consultationId: string,
     @Body() body: AddDiagnosisDto,
@@ -66,7 +66,7 @@ export class ConsultationController extends Controller {
   }
 
   @Put("/diagnosis/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public updateDiagnosis(
     @Path() id: string,
     @Body() body: Partial<AddDiagnosisDto>,
@@ -76,7 +76,7 @@ export class ConsultationController extends Controller {
   }
 
   @Delete("/diagnosis/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  , ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER, ClinicRole.CLINIC_ADMIN))
   public removeDiagnosis(
     @Path() id: string,
     @Request() req: ExpressRequest,
@@ -85,7 +85,7 @@ export class ConsultationController extends Controller {
   }
 
   @Get("/patient/{patientId}/diagnosis-history")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  , ClinicRole.NURSE))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER, ClinicRole.NURSE))
   public diagnosisHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,

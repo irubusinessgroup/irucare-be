@@ -33,13 +33,13 @@ export class ClinicalNoteController extends Controller {
     checkClinicRole(
       ClinicRole.NURSE,
       ClinicRole.PROVIDER,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ) {
     const { patientId, encounterId, noteType, startDate, endDate } = req.query;
     return ClinicalNoteService.list(req, page, limit, {
@@ -61,7 +61,7 @@ export class ClinicalNoteController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateClinicalNoteDto
+    @Body() body: CreateClinicalNoteDto,
   ): Promise<any> {
     return ClinicalNoteService.create(req, body);
   }
@@ -71,7 +71,7 @@ export class ClinicalNoteController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateClinicalNoteDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ClinicalNoteService.update(id, body, req);
   }
@@ -80,7 +80,7 @@ export class ClinicalNoteController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ClinicalNoteService.remove(id, req);
   }
@@ -89,7 +89,7 @@ export class ClinicalNoteController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
   public encounterNotes(
     @Path() encounterId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ClinicalNoteService.getEncounterNotes(encounterId, req);
   }
@@ -98,7 +98,7 @@ export class ClinicalNoteController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public generateDischargeSummary(
     @Path() encounterId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ClinicalNoteService.generateDischargeSummary(encounterId, req);
   }

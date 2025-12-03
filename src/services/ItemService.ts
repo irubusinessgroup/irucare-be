@@ -97,14 +97,14 @@ export class ItemService {
 
   public static async importItems(
     file: Express.Multer.File,
-    companyId: string
+    companyId: string,
   ) {
     try {
       // Ensure file buffer is available (requires memory storage)
       if (!file || !file.buffer) {
         throw new AppError(
           "File buffer is missing. Ensure this route uses multer.memoryStorage().",
-          400
+          400,
         );
       }
 
@@ -123,7 +123,7 @@ export class ItemService {
       if (!worksheet) {
         throw new AppError(
           "Unable to read the first worksheet from Excel file",
-          400
+          400,
         );
       }
       const rawData: Array<Record<string, unknown>> =
@@ -138,7 +138,7 @@ export class ItemService {
           key === "categoryName" ||
           key === "productCode" ||
           key === "minLevel" ||
-          key === "maxLevel"
+          key === "maxLevel",
       );
 
       // If headers are in the first data row (__EMPTY pattern), use them as headers
@@ -151,7 +151,7 @@ export class ItemService {
             (val.toLowerCase().includes("item") ||
               val.toLowerCase().includes("category") ||
               val.toLowerCase().includes("product") ||
-              val.toLowerCase().includes("level"))
+              val.toLowerCase().includes("level")),
         )
       ) {
         // Build proper column mapping from first row
@@ -222,7 +222,7 @@ export class ItemService {
       // Validate data
       const { validItems, errors } = await this.validateItems(
         normalizedData,
-        companyId
+        companyId,
       );
 
       if (errors.length > 0) {
@@ -246,7 +246,7 @@ export class ItemService {
       // Import valid items
       const importedItems = await this.bulkCreateOrUpdateItems(
         validItems,
-        companyId
+        companyId,
       );
       // Remove DB duplicates after import
       await ItemService.removeDbDuplicates(companyId);
@@ -282,7 +282,7 @@ export class ItemService {
   }
 
   private static normalizeData(
-    rawData: Array<Record<string, unknown>>
+    rawData: Array<Record<string, unknown>>,
   ): ImportItemRow[] {
     return rawData.map((row) => {
       const normalizedRow: Record<string, unknown> = {};
@@ -316,7 +316,7 @@ export class ItemService {
 
   private static async validateItems(
     data: ImportItemRow[],
-    companyId: string
+    companyId: string,
   ): Promise<{ validItems: ImportItemRow[]; errors: ValidationError[] }> {
     const validItems: ImportItemRow[] = [];
     const errors: ValidationError[] = [];
@@ -331,7 +331,7 @@ export class ItemService {
     }
 
     const requiredColumns = this.getRequiredColumnsForIndustry(
-      company.industry || undefined
+      company.industry || undefined,
     );
 
     for (let i = 0; i < data.length; i++) {
@@ -414,7 +414,7 @@ export class ItemService {
   // Bulk create or update items by productCode
   private static async bulkCreateOrUpdateItems(
     items: ImportItemRow[],
-    companyId: string
+    companyId: string,
   ) {
     const importedItems = [];
     // Get all categories upfront
@@ -422,7 +422,7 @@ export class ItemService {
       where: { companyId },
     });
     const categoryMap = new Map(
-      categories.map((c) => [c.categoryName.toLowerCase().trim(), c])
+      categories.map((c) => [c.categoryName.toLowerCase().trim(), c]),
     );
     for (const item of items) {
       try {
@@ -496,7 +496,7 @@ export class ItemService {
       } catch (error: unknown) {
         console.error(
           `Failed to create/update item: ${item.itemFullName}`,
-          error
+          error,
         );
       }
     }
@@ -520,7 +520,7 @@ export class ItemService {
     try {
       const filePath = path.join(
         process.cwd(),
-        "src/resources/initial items.xlsx"
+        "src/resources/initial items.xlsx",
       );
       const workbook = XLSX.readFile(filePath);
       const sheetName = workbook.SheetNames[0];
@@ -580,10 +580,10 @@ export class ItemService {
             ]),
             Category: getVal(["category", "category name"]),
             "Min Level": Number(
-              getVal(["min level", "min_level", "minimum level"]) || 10
+              getVal(["min level", "min_level", "minimum level"]) || 10,
             ),
             "Max Level": Number(
-              getVal(["max level", "max_level", "maximum level"]) || 100
+              getVal(["max level", "max_level", "maximum level"]) || 100,
             ),
             Tax: getVal(["tax", "tax code", "taxcode"]) || "A",
           };
@@ -688,7 +688,7 @@ export class ItemService {
 
     const totalStockQuantity = item.stockReceipts.reduce(
       (sum, s) => sum + parseFloat(s.quantityReceived.toString()),
-      0
+      0,
     );
 
     return {
@@ -703,7 +703,7 @@ export class ItemService {
   public static async updateItem(
     id: string,
     data: UpdateItemDto,
-    companyId: string
+    companyId: string,
   ) {
     const item = await prisma.items.findUnique({
       where: { id, companyId: companyId },
@@ -777,7 +777,7 @@ export class ItemService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -889,7 +889,7 @@ export class ItemService {
     companyId: string,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const pageNum = Number(page) > 0 ? Number(page) : 1;
     const limitNum = Number(limit) > 0 ? Number(limit) : 15;

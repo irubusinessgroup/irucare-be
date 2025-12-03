@@ -28,15 +28,15 @@ export class PatientController {
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER  ,
-      ClinicRole.NURSE
-    )
+      ClinicRole.PROVIDER,
+      ClinicRole.NURSE,
+    ),
   )
   public getAllPatients(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return PatientService.getAllPatients(req, searchq, limit, page);
   }
@@ -45,7 +45,7 @@ export class PatientController {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public createPatient(
     @Body() body: CreatePatientDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     return PatientService.createPatient(body, companyId!);

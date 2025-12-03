@@ -4,6 +4,7 @@
   "description": "irucare-be",
   "main": "build/index.js",
   "scripts": {
+    "script": "ts-node src/scripts/importPharmacyMockData.ts",
     "check": "npx @biomejs/biome check --apply ./src",
     "dev": "npm run spec:routes && concurrently \"nodemon\" \"nodemon -x tsoa spec-and-routes\"",
     "prisma:generate": "npx prisma generate",

@@ -12,7 +12,7 @@ export class ProviderService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -96,7 +96,7 @@ export class ProviderService {
 
   public static async createProvider(
     data: CreateProviderDto,
-    companyId: string
+    companyId: string,
   ) {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);

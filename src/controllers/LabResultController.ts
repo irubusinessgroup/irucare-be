@@ -65,7 +65,7 @@ export class LabResultController extends Controller {
   }
 
   @Get("/lab-order/{labOrderId}")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER))
   public getByLabOrder(
     @Path() labOrderId: string,
     @Request() req: ExpressRequest,
@@ -74,7 +74,7 @@ export class LabResultController extends Controller {
   }
 
   @Post("/lab-order/{labOrderId}/approve")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public approve(
     @Path() labOrderId: string,
     @Request() req: ExpressRequest,
@@ -83,7 +83,7 @@ export class LabResultController extends Controller {
   }
 
   @Get("/patient/{patientId}/history")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,

@@ -28,13 +28,13 @@ export class LabOrderController extends Controller {
     checkClinicRole(
       ClinicRole.PROVIDER,
       ClinicRole.LAB_TECH,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ) {
     const {
       patientId,
@@ -73,7 +73,7 @@ export class LabOrderController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: any,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return LabOrderService.update(id, body, req);
   }
@@ -89,7 +89,7 @@ export class LabOrderController extends Controller {
   public collectSample(
     @Path() id: string,
     @Body() body: { sampleType: string },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return LabOrderService.collectSample(id, body.sampleType, req);
   }

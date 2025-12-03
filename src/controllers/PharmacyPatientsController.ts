@@ -27,7 +27,7 @@ import { ClinicRole } from "../utils/roles";
 @Route("/api/pharmacy")
 export class PharmacyPatientsController {
   @Get("/patients/{patientId}/medication-history")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER))
   public async getMedicationHistory(
     @Path() patientId: string,
     @Query() page?: number,
@@ -44,7 +44,7 @@ export class PharmacyPatientsController {
   }
 
   @Post("/drug-interactions/check")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER))
   public async checkDrugInteractions(
     @Body() data: CheckDrugInteractionsRequest,
     @Request() req: ExpressRequest,
@@ -54,7 +54,7 @@ export class PharmacyPatientsController {
   }
 
   @Get("/patients/{patientId}/allergy-alerts/{medicationId}")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER  ))
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER))
   public async getAllergyAlerts(
     @Path() patientId: string,
     @Path() medicationId: string,
