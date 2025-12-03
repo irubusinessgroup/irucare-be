@@ -34,11 +34,11 @@ async function getNextInvoiceNumber(companyId?: string): Promise<string> {
 function computeTotals(
   services: BillingServiceLineInput[],
   taxAmount?: number,
-  discountAmount?: number
+  discountAmount?: number,
 ) {
   const subtotal = services.reduce(
     (sum, s) => sum + s.quantity * s.unitPrice,
-    0
+    0,
   );
   const tax = taxAmount ?? 0;
   const discount = discountAmount ?? 0;
@@ -55,7 +55,7 @@ export class ClinicBillingService {
   public static async list(
     page?: number,
     limit?: number,
-    filters?: { patientId?: string; encounterId?: string; overdue?: boolean }
+    filters?: { patientId?: string; encounterId?: string; overdue?: boolean },
   ): Promise<IPaged<unknown[]>> {
     const pageNum = Number(page) > 0 ? Number(page) : 1;
     const limitNum = Number(limit) > 0 ? Number(limit) : 15;
@@ -99,7 +99,7 @@ export class ClinicBillingService {
 
   public static async create(
     req: Request,
-    dto: CreateClinicBillingDto
+    dto: CreateClinicBillingDto,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     // Extract companyId from authenticated request if present
@@ -139,14 +139,14 @@ export class ClinicBillingService {
           }
         }
         return service;
-      })
+      }),
     );
 
     const invoiceNumber = await getNextInvoiceNumber(companyId);
     const totals = computeTotals(
       enrichedServices,
       dto.taxAmount,
-      dto.discountAmount
+      dto.discountAmount,
     );
     const created = await prisma.clinicBilling.create({
       data: {
@@ -172,7 +172,7 @@ export class ClinicBillingService {
 
   public static async update(
     id: string,
-    dto: UpdateClinicBillingDto
+    dto: UpdateClinicBillingDto,
   ): Promise<IResponse<unknown>> {
     const existing = await prisma.clinicBilling.findUnique({ where: { id } });
     if (!existing) throw new AppError("Billing not found", 404);
@@ -180,7 +180,7 @@ export class ClinicBillingService {
       ? computeTotals(
           dto.services,
           dto.taxAmount ?? existing.taxAmount,
-          dto.discountAmount ?? existing.discountAmount
+          dto.discountAmount ?? existing.discountAmount,
         )
       : {
           subtotal: existing.subtotal,
@@ -236,7 +236,7 @@ export class ClinicBillingService {
     amount?: number,
     paymentGateway?: string,
     transactionId?: string,
-    paymentReceiptUrl?: string
+    paymentReceiptUrl?: string,
   ): Promise<IResponse<unknown>> {
     const existing = await prisma.clinicBilling.findUnique({
       where: { id },
@@ -246,17 +246,17 @@ export class ClinicBillingService {
     if (existing.status === "PAID" || existing.status === "CANCELLED") {
       throw new AppError(
         `Cannot process payment for ${existing.status} invoice`,
-        409
+        409,
       );
     }
 
     // Calculate total paid amount
     const completedPayments = existing.payments.filter(
-      (p) => p.status === "COMPLETED"
+      (p) => p.status === "COMPLETED",
     );
     const totalPaid = completedPayments.reduce(
       (sum, p) => sum + Number(p.amount),
-      0
+      0,
     );
     const remainingAmount = Number(existing.totalAmount) - totalPaid;
 
@@ -266,7 +266,7 @@ export class ClinicBillingService {
     if (paymentAmount > remainingAmount) {
       throw new AppError(
         `Payment amount (${paymentAmount}) exceeds remaining balance (${remainingAmount})`,
-        400
+        400,
       );
     }
 

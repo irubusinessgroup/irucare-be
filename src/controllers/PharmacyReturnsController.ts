@@ -29,7 +29,7 @@ export class PharmacyReturnsController {
   public async getReturns(
     @Query() page?: number,
     @Query() limit?: number,
-    @Request() req?: ExpressRequest
+    @Request() req?: ExpressRequest,
   ): Promise<IPaged<ReturnResponse[]>> {
     const companyId = req?.user?.company?.companyId as string;
     return PharmacyReturnsService.getReturns(companyId, limit, page);
@@ -39,7 +39,7 @@ export class PharmacyReturnsController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createReturn(
     @Body() data: CreateReturnRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<ReturnResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const userId = req.user?.id as string;
@@ -50,7 +50,7 @@ export class PharmacyReturnsController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getReturnById(
     @Path() returnId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<ReturnResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyReturnsService.getReturnById(returnId, companyId);

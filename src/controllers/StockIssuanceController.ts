@@ -42,7 +42,7 @@ export class StockIssuanceController {
       warehouseId: string;
       requestedBy?: string;
     },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return StockIssuanceService.issueStock(req, data);
   }
@@ -60,7 +60,7 @@ export class StockIssuanceController {
     @Query() startDate?: string,
     @Query() endDate?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const filters = {
       itemId,
@@ -95,7 +95,7 @@ export class StockTransferController {
       notes?: string;
       requestedBy?: string;
     },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return StockIssuanceService.transferStock(req, data);
   }
@@ -113,7 +113,7 @@ export class StockTransferController {
     @Query() startDate?: string,
     @Query() endDate?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const filters = {
       itemId,
@@ -147,7 +147,7 @@ export class StockAdjustmentController {
       reason: string;
       notes?: string;
     },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return StockIssuanceService.adjustStock(req, data);
   }
@@ -177,7 +177,7 @@ export class ReorderController {
       leadTimeDays?: number;
       notes?: string;
     },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return ReorderAlertsService.createReorderRule(req, data);
   }
@@ -193,7 +193,7 @@ export class ReorderController {
     @Query() warehouseId?: string,
     @Query() belowReorderPoint?: boolean,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const filters = { itemId, warehouseId, belowReorderPoint };
     return ReorderAlertsService.getReorderRules(req, filters, limit, page);
@@ -206,7 +206,7 @@ export class ReorderController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async deleteReorderRule(
     @Path() ruleId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return ReorderAlertsService.deleteReorderRule(req, ruleId);
   }
@@ -238,7 +238,7 @@ export class AlertsController {
     @Query() severity?: string,
     @Query() itemId?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const filters = { alertType, severity, itemId };
     return ReorderAlertsService.getActiveAlerts(req, filters, limit, page);
@@ -251,7 +251,7 @@ export class AlertsController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async dismissAlert(
     @Path() alertId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return ReorderAlertsService.dismissAlert(req, alertId);
   }

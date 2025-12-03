@@ -26,12 +26,12 @@ export class UserService extends BaseService {
   public static async getUsers(
     searchq?: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ): Promise<IPaged<IUserResponse[]>> {
     try {
       const queryOptions = QueryOptions(
         ["firstName", "lastName", "email"],
-        searchq
+        searchq,
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -69,7 +69,7 @@ export class UserService extends BaseService {
         where: { email: user.email },
         include: {
           userRoles: true,
-          clinicUserRoles: true, 
+          clinicUserRoles: true,
           company: {
             include: {
               company: true,
@@ -93,9 +93,9 @@ export class UserService extends BaseService {
           {
             id: userData.id,
             email: userData.email,
-            userRoles: allRoles, 
+            userRoles: allRoles,
           },
-          process.env.JWT_SECRET!
+          process.env.JWT_SECRET!,
         );
 
         // Get industry from company if user has a company association
@@ -259,7 +259,7 @@ export class UserService extends BaseService {
   public static async updatePassword(
     userId: string,
     currentPassword: string,
-    newPassword: string
+    newPassword: string,
   ) {
     try {
       const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -318,7 +318,7 @@ export class UserService extends BaseService {
   public static async resetPassword(
     email: string,
     otp: string,
-    newPassword: string
+    newPassword: string,
   ) {
     const user = await prisma.user.findFirst({ where: { email } });
 
@@ -514,7 +514,7 @@ export class UserService extends BaseService {
 
   public static async updateProfile(
     req: Request,
-    profileData: UpdateProfileDto
+    profileData: UpdateProfileDto,
   ) {
     try {
       const userId = req.user!.id;

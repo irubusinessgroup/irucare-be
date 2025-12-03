@@ -19,7 +19,7 @@ export class PrescriptionService {
     req: Request,
     page?: number,
     limit?: number,
-    filters?: PrescriptionFilters
+    filters?: PrescriptionFilters,
   ): Promise<IPaged<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -101,7 +101,7 @@ export class PrescriptionService {
    */
   public static async getById(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -156,7 +156,7 @@ export class PrescriptionService {
    */
   public static async create(
     req: Request,
-    dto: CreatePrescriptionDto
+    dto: CreatePrescriptionDto,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -193,7 +193,7 @@ export class PrescriptionService {
     const validationWarnings = await this.validatePrescription(
       dto.patientId,
       dto.medicationName,
-      companyId
+      companyId,
     );
 
     // Generate prescription number
@@ -250,7 +250,7 @@ export class PrescriptionService {
   public static async update(
     id: string,
     dto: UpdatePrescriptionDto,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -302,7 +302,7 @@ export class PrescriptionService {
   public static async dispense(
     id: string,
     dto: DispensePrescriptionDto,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
@@ -350,7 +350,7 @@ export class PrescriptionService {
     // Ensure enough total quantity
     const totalAvailable = stockBatches.reduce(
       (sum, batch) => sum + Number(batch.quantityAvailable),
-      0
+      0,
     );
 
     if (totalAvailable < dto.quantityDispensed) {
@@ -436,7 +436,7 @@ export class PrescriptionService {
   public static async pickup(
     id: string,
     pickedUpBy: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -476,7 +476,7 @@ export class PrescriptionService {
    */
   public static async refill(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -490,7 +490,7 @@ export class PrescriptionService {
     if (existing.status !== "DISPENSED" && existing.status !== "COMPLETED") {
       throw new AppError(
         "Only dispensed or completed prescriptions can be refilled",
-        409
+        409,
       );
     }
 
@@ -518,7 +518,7 @@ export class PrescriptionService {
    */
   public static async complete(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -550,7 +550,7 @@ export class PrescriptionService {
    */
   public static async cancel(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -584,7 +584,7 @@ export class PrescriptionService {
     patientId: string,
     req: Request,
     page?: number,
-    limit?: number
+    limit?: number,
   ): Promise<IPaged<unknown[]>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);
@@ -640,7 +640,7 @@ export class PrescriptionService {
   private static async validatePrescription(
     patientId: string,
     medicationName: string,
-    companyId: string
+    companyId: string,
   ) {
     const warnings: any[] = [];
 
@@ -687,7 +687,7 @@ export class PrescriptionService {
    */
   public static async remove(
     id: string,
-    req: Request
+    req: Request,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID required", 400);

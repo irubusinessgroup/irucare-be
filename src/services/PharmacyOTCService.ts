@@ -11,7 +11,7 @@ export class PharmacyOTCService {
   static async createOTCSale(
     data: CreateOTCSaleRequest,
     companyId: string,
-    userId: string
+    userId: string,
   ): Promise<IResponse<OTCSaleResponse>> {
     // Verify item exists
     const item = await prisma.items.findFirst({
@@ -60,7 +60,7 @@ export class PharmacyOTCService {
   static async getOTCSales(
     companyId: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ): Promise<IPaged<OTCSaleResponse[]>> {
     try {
       const pagination = Paginations(currentPage, limit);
@@ -102,7 +102,7 @@ export class PharmacyOTCService {
 
   static async getOTCSaleById(
     saleId: string,
-    companyId: string
+    companyId: string,
   ): Promise<IResponse<OTCSaleResponse>> {
     const sale = await prisma.otcSales.findFirst({
       where: {

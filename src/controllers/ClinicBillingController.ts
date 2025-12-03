@@ -35,7 +35,7 @@ export class ClinicBillingController extends Controller {
       {
         patientId: patientId as string | undefined,
         encounterId: encounterId as string | undefined,
-      }
+      },
     );
   }
 
@@ -46,7 +46,7 @@ export class ClinicBillingController extends Controller {
     return ClinicBillingService.list(
       page ? Number(page) : undefined,
       limit ? Number(limit) : undefined,
-      { overdue: true }
+      { overdue: true },
     );
   }
 
@@ -60,7 +60,7 @@ export class ClinicBillingController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateClinicBillingDto
+    @Body() body: CreateClinicBillingDto,
   ) {
     return ClinicBillingService.create(req, body);
   }
@@ -94,7 +94,7 @@ export class ClinicBillingController extends Controller {
       paymentGateway?: string;
       transactionId?: string;
       paymentReceiptUrl?: string;
-    }
+    },
   ) {
     return ClinicBillingService.pay(
       id,
@@ -102,7 +102,7 @@ export class ClinicBillingController extends Controller {
       body?.amount,
       body?.paymentGateway,
       body?.transactionId,
-      body?.paymentReceiptUrl
+      body?.paymentReceiptUrl,
     );
   }
 
@@ -114,7 +114,7 @@ export class ClinicBillingController extends Controller {
       return PaymentGatewayService.getPaymentHistoryPaged(
         id,
         page ? Number(page) : undefined,
-        limit ? Number(limit) : undefined
+        limit ? Number(limit) : undefined,
       );
     }
     return PaymentGatewayService.getPaymentHistory(id);

@@ -30,7 +30,13 @@ import { ClinicRole } from "../utils/roles";
 @Security("jwt")
 export class LabTestController extends Controller {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.LAB_TECH,
+      ClinicRole.PROVIDER,
+      ClinicRole.ACCOUNTANT
+    )
+  )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
@@ -46,7 +52,7 @@ export class LabTestController extends Controller {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER))
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getById(id, req);
   }
@@ -86,7 +92,7 @@ export class LabTestController extends Controller {
   }
 
   @Get("/panels/list")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER))
   public panelsAndProfiles(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getPanelsAndProfiles(req);
   }

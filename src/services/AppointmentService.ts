@@ -569,7 +569,7 @@ export class AppointmentService {
     searchq?: string,
     limit?: number,
     currentPage?: number,
-  ){
+  ) {
     try {
       const companyId = req.user?.company?.companyId;
       if (!companyId) throw new AppError("Company ID is missing", 400);

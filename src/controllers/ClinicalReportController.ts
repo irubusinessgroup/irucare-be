@@ -23,13 +23,13 @@ export class ClinicalReportController extends Controller {
     @Request() req: ExpressRequest,
     @Query() providerId?: string,
     @Query() startDate?: string,
-    @Query() endDate?: string
+    @Query() endDate?: string,
   ) {
     return ClinicalReportService.getProviderPerformance(
       req,
       providerId,
       startDate,
-      endDate
+      endDate,
     );
   }
 
@@ -39,13 +39,13 @@ export class ClinicalReportController extends Controller {
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
     @Query() endDate?: string,
-    @Query() diagnosis?: string
+    @Query() diagnosis?: string,
   ) {
     return ClinicalReportService.getPatientOutcomes(
       req,
       startDate,
       endDate,
-      diagnosis
+      diagnosis,
     );
   }
 
@@ -55,13 +55,13 @@ export class ClinicalReportController extends Controller {
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
     @Query() endDate?: string,
-    @Query() groupBy?: "service" | "provider" | "month"
+    @Query() groupBy?: "service" | "provider" | "month",
   ) {
     return ClinicalReportService.getRevenueReport(
       req,
       startDate,
       endDate,
-      groupBy
+      groupBy,
     );
   }
 
@@ -70,7 +70,7 @@ export class ClinicalReportController extends Controller {
   public getLabUtilization(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
-    @Query() endDate?: string
+    @Query() endDate?: string,
   ) {
     return ClinicalReportService.getLabUtilization(req, startDate, endDate);
   }
@@ -80,12 +80,12 @@ export class ClinicalReportController extends Controller {
   public getPrescriptionCompliance(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
-    @Query() endDate?: string
+    @Query() endDate?: string,
   ) {
     return ClinicalReportService.getPrescriptionCompliance(
       req,
       startDate,
-      endDate
+      endDate,
     );
   }
 
@@ -95,13 +95,13 @@ export class ClinicalReportController extends Controller {
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
     @Query() endDate?: string,
-    @Query() providerId?: string
+    @Query() providerId?: string,
   ) {
     return ClinicalReportService.getAppointmentStatistics(
       req,
       startDate,
       endDate,
-      providerId
+      providerId,
     );
   }
 }

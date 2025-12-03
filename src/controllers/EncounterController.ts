@@ -31,9 +31,10 @@ export class EncounterController extends Controller {
   @Get("/")
   @Middlewares(
     checkClinicRole(
-      ClinicRole.DOCTOR,
+      ClinicRole.PROVIDER,
       ClinicRole.NURSE,
-      ClinicRole.CLINIC_ADMIN
+      ClinicRole.CLINIC_ADMIN,
+      ClinicRole.RECEPTIONIST
     )
   )
   public list(
@@ -64,7 +65,7 @@ export class EncounterController extends Controller {
   @Get("/{id}")
   @Middlewares(
     checkClinicRole(
-      ClinicRole.DOCTOR,
+      ClinicRole.PROVIDER,
       ClinicRole.NURSE,
       ClinicRole.CLINIC_ADMIN
     )
@@ -83,7 +84,7 @@ export class EncounterController extends Controller {
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public update(
     @Path() id: string,
     @Body() body: UpdateEncounterDto,
@@ -111,7 +112,7 @@ export class EncounterController extends Controller {
   }
 
   @Put("/{id}/complete")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public complete(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -140,7 +141,7 @@ export class EncounterController extends Controller {
   }
 
   @Get("/patient/{patientId}/history")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR, ClinicRole.NURSE))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER, ClinicRole.NURSE))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,

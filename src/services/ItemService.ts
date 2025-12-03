@@ -9,6 +9,7 @@ import {
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
 import type { Request } from "express";
 import * as XLSX from "xlsx";
+import * as path from "path";
 
 export class ItemService {
   // Normalize/coerce tax payload based on README_BACKEND_TAX.md rules
@@ -74,7 +75,9 @@ export class ItemService {
     "category name": "categoryName",
     "product code": "productCode",
     productcode: "productCode",
-    description: "description",
+    product_code: "productCode",
+    description: "itemFullName",
+    preparations: "itemFullName",
     "min level": "minLevel",
     "minimum level": "minLevel",
     "max level": "maxLevel",
@@ -94,14 +97,14 @@ export class ItemService {
 
   public static async importItems(
     file: Express.Multer.File,
-    companyId: string,
+    companyId: string
   ) {
     try {
       // Ensure file buffer is available (requires memory storage)
       if (!file || !file.buffer) {
         throw new AppError(
           "File buffer is missing. Ensure this route uses multer.memoryStorage().",
-          400,
+          400
         );
       }
 
@@ -120,7 +123,7 @@ export class ItemService {
       if (!worksheet) {
         throw new AppError(
           "Unable to read the first worksheet from Excel file",
-          400,
+          400
         );
       }
       const rawData: Array<Record<string, unknown>> =
@@ -135,7 +138,7 @@ export class ItemService {
           key === "categoryName" ||
           key === "productCode" ||
           key === "minLevel" ||
-          key === "maxLevel",
+          key === "maxLevel"
       );
 
       // If headers are in the first data row (__EMPTY pattern), use them as headers
@@ -148,7 +151,7 @@ export class ItemService {
             (val.toLowerCase().includes("item") ||
               val.toLowerCase().includes("category") ||
               val.toLowerCase().includes("product") ||
-              val.toLowerCase().includes("level")),
+              val.toLowerCase().includes("level"))
         )
       ) {
         // Build proper column mapping from first row
@@ -219,7 +222,7 @@ export class ItemService {
       // Validate data
       const { validItems, errors } = await this.validateItems(
         normalizedData,
-        companyId,
+        companyId
       );
 
       if (errors.length > 0) {
@@ -243,7 +246,7 @@ export class ItemService {
       // Import valid items
       const importedItems = await this.bulkCreateOrUpdateItems(
         validItems,
-        companyId,
+        companyId
       );
       // Remove DB duplicates after import
       await ItemService.removeDbDuplicates(companyId);
@@ -279,7 +282,7 @@ export class ItemService {
   }
 
   private static normalizeData(
-    rawData: Array<Record<string, unknown>>,
+    rawData: Array<Record<string, unknown>>
   ): ImportItemRow[] {
     return rawData.map((row) => {
       const normalizedRow: Record<string, unknown> = {};
@@ -313,7 +316,7 @@ export class ItemService {
 
   private static async validateItems(
     data: ImportItemRow[],
-    companyId: string,
+    companyId: string
   ): Promise<{ validItems: ImportItemRow[]; errors: ValidationError[] }> {
     const validItems: ImportItemRow[] = [];
     const errors: ValidationError[] = [];
@@ -328,7 +331,7 @@ export class ItemService {
     }
 
     const requiredColumns = this.getRequiredColumnsForIndustry(
-      company.industry || undefined,
+      company.industry || undefined
     );
 
     for (let i = 0; i < data.length; i++) {
@@ -411,7 +414,7 @@ export class ItemService {
   // Bulk create or update items by productCode
   private static async bulkCreateOrUpdateItems(
     items: ImportItemRow[],
-    companyId: string,
+    companyId: string
   ) {
     const importedItems = [];
     // Get all categories upfront
@@ -419,7 +422,7 @@ export class ItemService {
       where: { companyId },
     });
     const categoryMap = new Map(
-      categories.map((c) => [c.categoryName.toLowerCase().trim(), c]),
+      categories.map((c) => [c.categoryName.toLowerCase().trim(), c])
     );
     for (const item of items) {
       try {
@@ -493,7 +496,7 @@ export class ItemService {
       } catch (error: unknown) {
         console.error(
           `Failed to create/update item: ${item.itemFullName}`,
-          error,
+          error
         );
       }
     }
@@ -510,58 +513,126 @@ export class ItemService {
       industry = company?.industry || undefined;
     }
     const normalized = (industry || "").toUpperCase();
-
     const isPharmacy = normalized === "PHARMACY";
-    // Build headers and sample rows depending on industry
-    // Always include tax columns
-    const template = isPharmacy
-      ? [
-          {
-            designation: "Paracetamol 500mg tablets", // maps to itemFullName
-            categoryName: "Drugs",
-            drug_code: "PRC-500",
-            description: "Pain reliever",
-            minLevel: 10,
-            maxLevel: 100,
-            tax: "B (18.0)", // B (18.0)
-          },
-        ]
-      : [
-          {
-            itemFullName: "Sample Item 1",
-            categoryName: "General",
-            productCode: "PROD-001",
-            description: "Sample description",
-            minLevel: 10,
-            maxLevel: 100,
-            tax: "A (0.0)", // A (0.0)
-          },
-        ];
 
-    const worksheet = XLSX.utils.json_to_sheet(template);
+    // Read sample data from src/resources/initial items.xlsx
+    let sampleRows: any[] = [];
+    try {
+      const filePath = path.join(
+        process.cwd(),
+        "src/resources/initial items.xlsx"
+      );
+      const workbook = XLSX.readFile(filePath);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+      }) as any[][];
+
+      // Find header row
+      let headerRowIndex = -1;
+      const colMap: Record<string, number> = {};
+
+      for (let i = 0; i < Math.min(20, jsonData.length); i++) {
+        const row = jsonData[i];
+        if (Array.isArray(row)) {
+          const rowStr = row.map((c) => String(c).toLowerCase().trim());
+          if (
+            rowStr.includes("product_code") ||
+            rowStr.includes("product code")
+          ) {
+            headerRowIndex = i;
+            // Build map
+            row.forEach((cell, idx) => {
+              const val = String(cell).toLowerCase().trim();
+              colMap[val] = idx;
+            });
+            break;
+          }
+        }
+      }
+
+      if (headerRowIndex !== -1) {
+        const dataRows = jsonData.slice(headerRowIndex + 1, headerRowIndex + 6); // Take 5 rows
+
+        sampleRows = dataRows.map((row) => {
+          const getVal = (keys: string[]) => {
+            for (const key of keys) {
+              if (colMap[key] !== undefined) {
+                return row[colMap[key]];
+              }
+            }
+            return undefined;
+          };
+
+          return {
+            "Product Code": getVal([
+              "product_code",
+              "product code",
+              "productcode",
+            ]),
+            Description: getVal([
+              "description",
+              "preparations",
+              "item name",
+              "item_name",
+              "designation",
+            ]),
+            Category: getVal(["category", "category name"]),
+            "Min Level": Number(
+              getVal(["min level", "min_level", "minimum level"]) || 10
+            ),
+            "Max Level": Number(
+              getVal(["max level", "max_level", "maximum level"]) || 100
+            ),
+            Tax: getVal(["tax", "tax code", "taxcode"]) || "A",
+          };
+        });
+      }
+    } catch (error) {
+      console.error("Error reading initial items.xlsx for template:", error);
+      // Fallback if file read fails
+    }
+
+    // If we have sample rows, use them, otherwise fallback to hardcoded
+    let templateData: any[] = [];
+
+    if (sampleRows.length > 0) {
+      templateData = sampleRows;
+    } else {
+      // Fallback template
+      templateData = isPharmacy
+        ? [
+            {
+              "Product Code": "PRC-500",
+              Description: "Paracetamol 500mg tablets",
+              Category: "Drugs",
+              "Min Level": 10,
+              "Max Level": 100,
+              Tax: "B",
+            },
+          ]
+        : [
+            {
+              "Product Code": "PROD-001",
+              "Item Name": "Sample Item 1",
+              Category: "General",
+              "Min Level": 10,
+              "Max Level": 100,
+              Tax: "A",
+            },
+          ];
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Items");
 
-    // Set column widths
-    worksheet["!cols"] = isPharmacy
-      ? [
-          { wch: 30 }, // designation
-          { wch: 18 }, // categoryName
-          { wch: 16 }, // drug_code
-          { wch: 30 }, // description
-          { wch: 10 }, // minLevel
-          { wch: 10 }, // maxLevel
-          { wch: 8 }, // tax (A/B)
-        ]
-      : [
-          { wch: 30 }, // itemFullName
-          { wch: 18 }, // categoryName
-          { wch: 16 }, // productCode
-          { wch: 30 }, // description
-          { wch: 10 }, // minLevel
-          { wch: 10 }, // maxLevel
-          { wch: 8 }, // tax (A/B)
-        ];
+    // Auto-width (approximate)
+    const colWidths = Object.keys(templateData[0] || {}).map((key) => ({
+      wch: Math.max(key.length + 5, 15),
+    }));
+    worksheet["!cols"] = colWidths;
 
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
     return buffer;
@@ -617,7 +688,7 @@ export class ItemService {
 
     const totalStockQuantity = item.stockReceipts.reduce(
       (sum, s) => sum + parseFloat(s.quantityReceived.toString()),
-      0,
+      0
     );
 
     return {
@@ -632,7 +703,7 @@ export class ItemService {
   public static async updateItem(
     id: string,
     data: UpdateItemDto,
-    companyId: string,
+    companyId: string
   ) {
     const item = await prisma.items.findUnique({
       where: { id, companyId: companyId },
@@ -706,7 +777,7 @@ export class ItemService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -818,7 +889,7 @@ export class ItemService {
     companyId: string,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const pageNum = Number(page) > 0 ? Number(page) : 1;
     const limitNum = Number(limit) > 0 ? Number(limit) : 15;

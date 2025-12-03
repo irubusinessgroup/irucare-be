@@ -31,7 +31,7 @@ export class LabResultController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateLabResultDto
+    @Body() body: CreateLabResultDto,
   ): Promise<any> {
     return LabResultService.create(req, body);
   }
@@ -40,7 +40,7 @@ export class LabResultController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
   public bulkCreate(
     @Request() req: ExpressRequest,
-    @Body() body: BulkCreateResultsDto
+    @Body() body: BulkCreateResultsDto,
   ): Promise<any> {
     return LabResultService.bulkCreate(req, body);
   }
@@ -50,7 +50,7 @@ export class LabResultController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateLabResultDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return LabResultService.update(id, body, req);
   }
@@ -59,35 +59,35 @@ export class LabResultController extends Controller {
   @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return LabResultService.remove(id, req);
   }
 
   @Get("/lab-order/{labOrderId}")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER  ))
   public getByLabOrder(
     @Path() labOrderId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return LabResultService.getByLabOrderId(labOrderId, req);
   }
 
   @Post("/lab-order/{labOrderId}/approve")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER  ))
   public approve(
     @Path() labOrderId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return LabResultService.approve(labOrderId, req);
   }
 
   @Get("/patient/{patientId}/history")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER  ))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
-    @Query() testParameter?: string
+    @Query() testParameter?: string,
   ): Promise<any> {
     return LabResultService.getPatientHistory(patientId, req, testParameter);
   }

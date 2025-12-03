@@ -2,6 +2,9 @@
 import { hashSync } from "bcrypt";
 import { roles } from "../../src/utils/roles";
 import { prisma } from "../../src/utils/client";
+import * as XLSX from "xlsx";
+import * as path from "path";
+import { ItemCodeGenerator } from "../../src/utils/itemCodeGenerator";
 
 async function main() {
   try {
@@ -161,6 +164,181 @@ async function main() {
       });
     }
     console.log("SEEDING COMPLETE");
+    // Seed Items for PHARMACY companies
+    console.log("SEEDING ITEMS FOR PHARMACY COMPANIES");
+    const pharmacyCompanies = await prisma.company.findMany({
+      where: { industry: "PHARMACY" },
+    });
+
+    if (pharmacyCompanies.length > 0) {
+      try {
+        const filePath = path.join(
+          process.cwd(),
+          "src/resources/initial items.xlsx",
+        );
+        const workbook = XLSX.readFile(filePath);
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+          header: 1,
+        }) as any[][];
+
+        // Find header row
+        let headerRowIndex = -1;
+        const colMap: Record<string, number> = {};
+
+        for (let i = 0; i < Math.min(20, jsonData.length); i++) {
+          const row = jsonData[i];
+          if (Array.isArray(row)) {
+            const rowStr = row.map((c) => String(c).toLowerCase().trim());
+            if (
+              rowStr.includes("product_code") ||
+              rowStr.includes("product code")
+            ) {
+              headerRowIndex = i;
+              // Build map
+              row.forEach((cell, idx) => {
+                const val = String(cell).toLowerCase().trim();
+                colMap[val] = idx;
+              });
+              break;
+            }
+          }
+        }
+
+        if (headerRowIndex === -1) {
+          console.error("Could not find header row in Excel file.");
+        } else {
+          console.log(`Found header row at index ${headerRowIndex}`);
+          const dataRows = jsonData.slice(headerRowIndex + 1);
+
+          const itemsToSeed = dataRows
+            .map((row) => {
+              const getVal = (keys: string[]) => {
+                for (const key of keys) {
+                  if (colMap[key] !== undefined) {
+                    return row[colMap[key]];
+                  }
+                }
+                return undefined;
+              };
+
+              const productCode = getVal([
+                "product_code",
+                "product code",
+                "productcode",
+              ]);
+              const itemFullName = getVal([
+                "description",
+                "preparations",
+                "item name",
+                "item_name",
+                "designation",
+              ]);
+              const categoryName = getVal(["category", "category name"]);
+              const minLevel = Number(
+                getVal(["min level", "min_level", "minimum level"]) || 10,
+              );
+              const maxLevel = Number(
+                getVal(["max level", "max_level", "maximum level"]) || 100,
+              );
+              const taxRaw = getVal(["tax", "tax code", "taxcode"]);
+
+              let isTaxable = false;
+              let taxCode = "A";
+              let taxRate = 0.0;
+
+              if (taxRaw) {
+                const taxStr = String(taxRaw).toUpperCase();
+                if (taxStr.includes("B")) {
+                  isTaxable = true;
+                  taxCode = "B";
+                  taxRate = 18.0;
+                }
+              }
+
+              return {
+                productCode: productCode ? String(productCode).trim() : null,
+                itemFullName: itemFullName
+                  ? String(itemFullName).trim()
+                  : "Unknown Item",
+                categoryName: categoryName
+                  ? String(categoryName).trim()
+                  : "General",
+                minLevel: isNaN(minLevel) ? 10 : minLevel,
+                maxLevel: isNaN(maxLevel) ? 100 : maxLevel,
+                isTaxable,
+                taxCode,
+                taxRate,
+              };
+            })
+            .filter(
+              (item) =>
+                item.itemFullName !== "Unknown Item" && item.productCode,
+            );
+
+          console.log(`Found ${itemsToSeed.length} items to seed.`);
+
+          for (const company of pharmacyCompanies) {
+            console.log(`Seeding items for company: ${company.name}`);
+
+            // Get or create categories
+            const categories = await prisma.itemCategories.findMany({
+              where: { companyId: company.id },
+            });
+            const categoryMap = new Map(
+              categories.map((c) => [c.categoryName.toLowerCase().trim(), c]),
+            );
+
+            for (const item of itemsToSeed) {
+              // Find or create category
+              const normalizedCat = item.categoryName.toLowerCase().trim();
+              let category = categoryMap.get(normalizedCat);
+              if (!category) {
+                category = await prisma.itemCategories.create({
+                  data: {
+                    categoryName: item.categoryName,
+                    companyId: company.id,
+                  },
+                });
+                categoryMap.set(normalizedCat, category);
+              }
+
+              // Check if item exists
+              const existingItem = await prisma.items.findFirst({
+                where: {
+                  companyId: company.id,
+                  productCode: item.productCode,
+                },
+              });
+
+              if (!existingItem) {
+                const itemCode = await ItemCodeGenerator.generate(category.id);
+                await prisma.items.create({
+                  data: {
+                    itemFullName: item.itemFullName,
+                    categoryId: category.id,
+                    productCode: item.productCode,
+                    minLevel: item.minLevel,
+                    maxLevel: item.maxLevel,
+                    isTaxable: item.isTaxable,
+                    taxCode: item.taxCode,
+                    taxRate: item.taxRate,
+                    itemCodeSku: itemCode,
+                    companyId: company.id,
+                  },
+                });
+              }
+            }
+          }
+          console.log("ITEMS SEEDING COMPLETE");
+        }
+      } catch (error) {
+        console.error("Error seeding items:", error);
+      }
+    } else {
+      console.log("No PHARMACY companies found to seed items for.");
+    }
   } catch (error) {
     console.log("SEEDING FAILED", error);
   }

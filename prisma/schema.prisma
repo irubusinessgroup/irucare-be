@@ -71,6 +71,7 @@ model User {
   dismissedAlerts    StockAlert[]
 
   clinicUserRoles ClinicUserRole[]
+   providers        Provider[] 
 
 }
 
@@ -1378,6 +1379,7 @@ model Provider {
   email         String
   specialty     String?
   licenseNumber String?
+  userId        String?  @unique 
   companyId     String
   company       Company  @relation(fields: [companyId], references: [id])
   createdAt     DateTime @default(now())
@@ -1391,6 +1393,7 @@ model Provider {
   // clinicalNotes          ClinicalNote[]  @relation("ClinicalNoteProvider")
   imagingOrders          ImagingOrder[]  @relation("ImagingOrderProvider")
   procedureOrders        ProcedureOrder[] @relation("ProcedureOrderProvider")
+   user          User?    @relation(fields: [userId], references: [id]) 
   schedules                ProviderSchedule[]
   scheduleBlocks           ProviderScheduleBlock[]
   
@@ -2649,7 +2652,7 @@ enum ClinicRole{
   CLINIC_ADMIN
   RECEPTIONIST
   NURSE
-  DOCTOR
+  PROVIDER  
   LAB_TECH
   PHARMACIST
   ACCOUNTANT

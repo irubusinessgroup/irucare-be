@@ -20,7 +20,7 @@ export class CompanyStaffService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ) {
     const requestingUser = await prisma.companyUser.findFirst({
       where: {
@@ -30,7 +30,7 @@ export class CompanyStaffService {
 
     const queryOptions = QueryOptions(
       ["user.firstName", "user.lastName", "user.email"],
-      searchq
+      searchq,
     );
     const pagination = Paginations(currentPage, limit);
 
@@ -41,7 +41,7 @@ export class CompanyStaffService {
     };
 
     const companyUser = req.user?.userRoles?.some(
-      (role) => role.name === roles.ADMIN
+      (role) => role.name === roles.ADMIN,
     )
       ? await prisma.companyUser.findMany({
           where: queryOptions,
@@ -112,7 +112,7 @@ export class CompanyStaffService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number
+    currentPage?: number,
   ) {
     const requestingUser = await prisma.companyUser.findFirst({
       where: {
@@ -127,7 +127,7 @@ export class CompanyStaffService {
     if (!requestingUser || !requestingUser.company) {
       throw new AppError(
         "Company does not exist or you do not have access",
-        400
+        400,
       );
     }
 
@@ -135,7 +135,7 @@ export class CompanyStaffService {
 
     const queryOptions = QueryOptions(
       ["user.firstName", "user.lastName", "user.email"],
-      searchq
+      searchq,
     );
     const pagination = Paginations(currentPage, limit);
 
@@ -179,7 +179,7 @@ export class CompanyStaffService {
       // Combine both role types
       const systemRoles = companyUser.user.userRoles.map((role) => role.name);
       const clinicRoles = companyUser.user.clinicUserRoles.map(
-        (role) => role.role
+        (role) => role.role,
       );
       const allRoles = [...systemRoles, ...clinicRoles];
 
@@ -209,7 +209,7 @@ export class CompanyStaffService {
 
   public static async getCompanyStaffCountByMonth(
     companyId: string,
-    year: number
+    year: number,
   ): Promise<IResponse<any>> {
     try {
       const companyStaff = await prisma.companyUser.findMany({
@@ -244,7 +244,7 @@ export class CompanyStaffService {
 
   static async createCompanyStaff(
     data: CreateCompanyStaffUnionDto,
-    companyId: string
+    companyId: string,
   ) {
     const errors = await companyStaffValidations.onCreate(data);
     if (errors[0]) {
@@ -263,7 +263,7 @@ export class CompanyStaffService {
 
     // Determine if this is a healthcare company
     const isHealthcareCompany = ["clinic", "hospital"].includes(
-      (company.industry || "").toLowerCase()
+      (company.industry || "").toLowerCase(),
     );
 
     // Check if the role is a ClinicRole
@@ -318,7 +318,7 @@ export class CompanyStaffService {
   public static async updateCompanyStaff(
     id: string,
     data: CreateCompanyStaffUnionDto,
-    companyId: string
+    companyId: string,
   ) {
     try {
       // Check if email, phoneNumber, or idNumber is already taken by another user
@@ -353,7 +353,7 @@ export class CompanyStaffService {
         EventType.COMPANY_STAFF_UPDATED,
         updatedCompanyStaff,
         data,
-        companyId
+        companyId,
       );
 
       return {

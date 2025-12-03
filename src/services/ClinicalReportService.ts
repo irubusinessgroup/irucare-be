@@ -12,7 +12,7 @@ export class ClinicalReportService {
     req: Request,
     providerId?: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -134,7 +134,7 @@ export class ClinicalReportService {
     req: Request,
     startDate?: string,
     endDate?: string,
-    diagnosis?: string
+    diagnosis?: string,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -203,7 +203,7 @@ export class ClinicalReportService {
     req: Request,
     startDate?: string,
     endDate?: string,
-    groupBy?: "service" | "provider" | "month"
+    groupBy?: "service" | "provider" | "month",
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -273,7 +273,7 @@ export class ClinicalReportService {
 
     const totalRevenue = billings.reduce(
       (sum, b) => sum + Number(b.totalAmount),
-      0
+      0,
     );
 
     return {
@@ -294,7 +294,7 @@ export class ClinicalReportService {
   public static async getLabUtilization(
     req: Request,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -339,7 +339,7 @@ export class ClinicalReportService {
 
     const totalOrders = labOrders.length;
     const completedOrders = labOrders.filter(
-      (o) => o.status === "COMPLETED"
+      (o) => o.status === "COMPLETED",
     ).length;
     const utilizationRate = totalOrders > 0 ? completedOrders / totalOrders : 0;
 
@@ -365,7 +365,7 @@ export class ClinicalReportService {
   public static async getPrescriptionCompliance(
     req: Request,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -394,7 +394,7 @@ export class ClinicalReportService {
 
     const totalPrescriptions = prescriptions.length;
     const fulfilledPrescriptions = prescriptions.filter(
-      (p) => p.dispensedDate !== null
+      (p) => p.dispensedDate !== null,
     ).length;
     const refillRate =
       totalPrescriptions > 0
@@ -432,7 +432,7 @@ export class ClinicalReportService {
     req: Request,
     startDate?: string,
     endDate?: string,
-    providerId?: string
+    providerId?: string,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -489,14 +489,14 @@ export class ClinicalReportService {
             acc[item.status] = item._count.status;
             return acc;
           },
-          {} as Record<string, number>
+          {} as Record<string, number>,
         ),
         appointmentsByType: appointmentsByType.reduce(
           (acc, item) => {
             acc[item.appointmentType] = item._count.appointmentType;
             return acc;
           },
-          {} as Record<string, number>
+          {} as Record<string, number>,
         ),
         noShowRate,
         noShowByProvider: noShowByProvider.map((item) => ({

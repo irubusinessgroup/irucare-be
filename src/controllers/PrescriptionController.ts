@@ -29,7 +29,13 @@ import { ClinicRole } from "../utils/roles";
 @Security("jwt")
 export class PrescriptionController extends Controller {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.DOCTOR))
+  @Middlewares(
+    checkClinicRole(
+      ClinicRole.PHARMACIST,
+      ClinicRole.PROVIDER,
+      ClinicRole.CLINIC_ADMIN
+    )
+  )
   public list(@Request() req: ExpressRequest): Promise<any> {
     const {
       page,
@@ -52,13 +58,13 @@ export class PrescriptionController extends Controller {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER))
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return PrescriptionService.getById(id, req);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreatePrescriptionDto
@@ -67,7 +73,7 @@ export class PrescriptionController extends Controller {
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public update(
     @Path() id: string,
     @Body() body: UpdatePrescriptionDto,
@@ -77,7 +83,7 @@ export class PrescriptionController extends Controller {
   }
 
   @Delete("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN, ClinicRole.PROVIDER))
   public remove(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -124,7 +130,7 @@ export class PrescriptionController extends Controller {
   }
 
   @Put("/{id}/cancel")
-  @Middlewares(checkClinicRole(ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
   public cancel(
     @Path() id: string,
     @Request() req: ExpressRequest
@@ -133,7 +139,7 @@ export class PrescriptionController extends Controller {
   }
 
   @Get("/patient/{patientId}/history")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.DOCTOR))
+  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST, ClinicRole.PROVIDER))
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,

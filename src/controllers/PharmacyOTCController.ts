@@ -29,7 +29,7 @@ export class PharmacyOTCController {
   public async getOTCSales(
     @Query() page?: number,
     @Query() limit?: number,
-    @Request() req?: ExpressRequest
+    @Request() req?: ExpressRequest,
   ): Promise<IPaged<OTCSaleResponse[]>> {
     const companyId = req?.user?.company?.companyId as string;
     return PharmacyOTCService.getOTCSales(companyId, limit, page);
@@ -39,7 +39,7 @@ export class PharmacyOTCController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async createOTCSale(
     @Body() data: CreateOTCSaleRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<OTCSaleResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const userId = req.user?.id as string;
@@ -50,7 +50,7 @@ export class PharmacyOTCController {
   @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
   public async getOTCSaleById(
     @Path() saleId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<OTCSaleResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyOTCService.getOTCSaleById(saleId, companyId);
