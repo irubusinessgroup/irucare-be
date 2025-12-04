@@ -18,15 +18,21 @@ import {
   CreateReferralDto,
   UpdateReferralDto,
 } from "../services/ReferralService";
-import { checkClinicRole } from "../middlewares";
-import { ClinicRole } from "../utils/roles";
+import { checkClinicRole, checkRoleAuto } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Referrals")
 @Route("api/referrals")
 @Security("jwt")
 export class ReferralController extends Controller {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER
+    )
+  )
   public list(@Request() req: ExpressRequest) {
     const {
       page,
@@ -46,59 +52,65 @@ export class ReferralController extends Controller {
         referringProviderId: referringProviderId as string | undefined,
         referredToProviderId: referredToProviderId as string | undefined,
         status: status as string | undefined,
-      },
+      }
     );
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER
+    )
+  )
   public get(@Path() id: string) {
     return ReferralService.getById(id);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateReferralDto,
+    @Body() body: CreateReferralDto
   ) {
     return ReferralService.create(req, body);
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public update(@Path() id: string, @Body() body: UpdateReferralDto) {
     return ReferralService.update(id, body);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public remove(@Path() id: string) {
     return ReferralService.remove(id);
   }
 
   @Post("/{id}/accept")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public accept(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body?: { appointmentDate?: string },
+    @Body() body?: { appointmentDate?: string }
   ) {
     return ReferralService.accept(req, id, body?.appointmentDate);
   }
 
   @Post("/{id}/complete")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public complete(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body?: { responseNotes?: string; followUpEncounterId?: string },
+    @Body() body?: { responseNotes?: string; followUpEncounterId?: string }
   ) {
     return ReferralService.complete(
       req,
       id,
       body?.responseNotes,
-      body?.followUpEncounterId,
+      body?.followUpEncounterId
     );
   }
 }

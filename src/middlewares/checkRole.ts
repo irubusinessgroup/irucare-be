@@ -87,23 +87,39 @@ export const checkRoleAuto =
 
       // Clinic Mode: Strict validation against clinic roles
       if (isClinic) {
+        // Check for Global Roles first (if any provided)
+        const globalRolesToCheck = rolesToCheck.filter(
+          (r) => !Object.values(ClinicRole).includes(r as ClinicRole)
+        ) as Role[];
+
+        let isGlobalAllowed = false;
+        if (globalRolesToCheck.length > 0 && user?.userRoles) {
+          isGlobalAllowed = user.userRoles.some((userRole) =>
+            globalRolesToCheck.includes(userRole.name as Role)
+          );
+        }
+
+        if (isGlobalAllowed) {
+          return next();
+        }
+
+        // If not allowed by global role, check clinic roles
         if (!user?.clinicUserRoles) {
           return next(
-            new AppError("Access Denied: No clinic roles assigned", 403),
+            new AppError("Access Denied: No clinic roles assigned", 403)
           );
         }
 
         // Filter provided roles to only include ClinicRoles
-        // This effectively ignores any global roles passed in strict mode
         const clinicRolesToCheck = rolesToCheck.filter((r) =>
-          Object.values(ClinicRole).includes(r as ClinicRole),
+          Object.values(ClinicRole).includes(r as ClinicRole)
         ) as ClinicRole[];
 
-        const isAllowed = user.clinicUserRoles.some((userRole) =>
-          clinicRolesToCheck.includes(userRole.role),
+        const isClinicAllowed = user.clinicUserRoles.some((userRole) =>
+          clinicRolesToCheck.includes(userRole.role)
         );
 
-        if (!isAllowed) {
+        if (!isClinicAllowed) {
           return next(new AppError("Access Denied", 403));
         }
         return next();

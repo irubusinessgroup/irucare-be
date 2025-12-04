@@ -17,29 +17,29 @@ import {
   CreateAdjustmentRequest,
   AdjustmentResponse,
 } from "../utils/interfaces/common";
-import { checkClinicRole } from "../middlewares";
-import { ClinicRole } from "../utils/roles";
+import { checkClinicRole, checkRoleAuto } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Pharmacy - Adjustments")
 @Security("jwt")
 @Route("/api/pharmacy/adjustments")
 export class PharmacyAdjustmentsController {
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PHARMACIST))
   public async getAdjustments(
     @Query() page?: number,
     @Query() limit?: number,
-    @Request() req?: ExpressRequest,
+    @Request() req?: ExpressRequest
   ): Promise<IPaged<AdjustmentResponse[]>> {
     const companyId = req?.user?.company?.companyId as string;
     return PharmacyAdjustmentsService.getAdjustments(companyId, limit, page);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PHARMACIST))
   public async createAdjustment(
     @Body() data: CreateAdjustmentRequest,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IResponse<AdjustmentResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const userId = req.user?.id as string;
@@ -47,15 +47,15 @@ export class PharmacyAdjustmentsController {
   }
 
   @Get("/{adjustmentId}")
-  @Middlewares(checkClinicRole(ClinicRole.PHARMACIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PHARMACIST))
   public async getAdjustmentById(
     @Path() adjustmentId: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IResponse<AdjustmentResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyAdjustmentsService.getAdjustmentById(
       adjustmentId,
-      companyId,
+      companyId
     );
   }
 }

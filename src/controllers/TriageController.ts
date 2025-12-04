@@ -15,53 +15,59 @@ import {
 import type { Request as ExpressRequest } from "express";
 import { TriageService } from "../services/TriageService";
 import { CreateTriageDto, UpdateTriageDto } from "../utils/interfaces/common";
-import { checkClinicRole } from "../middlewares";
-import { ClinicRole } from "../utils/roles";
+import { checkClinicRole, checkRoleAuto } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Triage")
 @Route("api/triage")
 @Security("jwt")
 export class TriageController extends Controller {
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateTriageDto,
+    @Body() body: CreateTriageDto
   ): Promise<any> {
     return TriageService.create(req, body);
   }
 
   @Get("/encounter/{encounterId}")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+  )
   public getByEncounter(
     @Path() encounterId: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<any> {
     return TriageService.getByEncounterId(encounterId, req);
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE))
   public update(
     @Path() id: string,
     @Body() body: UpdateTriageDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<any> {
     return TriageService.update(id, body, req);
   }
 
   @Get("/patient/{patientId}/vitals-history")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+  )
   public vitalsHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
-    @Query() limit?: number,
+    @Query() limit?: number
   ): Promise<any> {
     return TriageService.getPatientVitalsHistory(patientId, req, limit);
   }
 
   @Get("/queue")
-  @Middlewares(checkClinicRole(ClinicRole.NURSE, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+  )
   public triageQueue(@Request() req: ExpressRequest): Promise<any> {
     return TriageService.getTriageQueue(req);
   }

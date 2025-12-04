@@ -18,8 +18,8 @@ import {
 } from "../utils/interfaces/common";
 import { AppointmentService } from "../services/AppointmentService";
 import { Request as Req } from "express";
-import { checkClinicRole } from "../middlewares";
-import { ClinicRole } from "../utils/roles";
+import { checkRoleAuto } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Appointments")
 @Route("/api/appointments")
@@ -27,7 +27,11 @@ import { ClinicRole } from "../utils/roles";
 export class AppointmentController {
   @Post("/")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public async createAppointment(
     @Body() data: CreateAppointmentDto,
@@ -38,7 +42,11 @@ export class AppointmentController {
 
   @Post("/walk-in")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public async registerWalkIn(
     @Body() data: CreateAppointmentDto,
@@ -49,7 +57,8 @@ export class AppointmentController {
 
   @Get("/calendar/day")
   @Middlewares(
-    checkClinicRole(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.PROVIDER,
@@ -66,7 +75,8 @@ export class AppointmentController {
 
   @Get("/calendar/week")
   @Middlewares(
-    checkClinicRole(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.PROVIDER,
@@ -88,7 +98,8 @@ export class AppointmentController {
 
   @Get("/calendar/month")
   @Middlewares(
-    checkClinicRole(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.PROVIDER,
@@ -105,7 +116,8 @@ export class AppointmentController {
 
   @Get("/queue/waiting-room")
   @Middlewares(
-    checkClinicRole(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.NURSE,
@@ -116,13 +128,13 @@ export class AppointmentController {
   }
 
   @Put("/{id}/check-in")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public async checkInPatient(@Path() id: string, @Request() request: Req) {
     return AppointmentService.checkInPatient(id, request);
   }
 
   @Post("/queue/call-next")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public async callNextPatient(
     @Query() providerId: string,
     @Request() request: Req,
@@ -132,7 +144,11 @@ export class AppointmentController {
 
   @Put("/{id}/transfer")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public async transferPatient(
     @Path() id: string,
@@ -143,7 +159,13 @@ export class AppointmentController {
   }
 
   @Get("/today")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public async getTodayAppointments(
     @Query() providerId?: string,
     @Request() request?: Req,
@@ -152,7 +174,13 @@ export class AppointmentController {
   }
 
   @Get("/upcoming")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public async getUpcomingAppointments(
     @Query() days?: number,
     @Query() providerId?: string,
@@ -167,7 +195,11 @@ export class AppointmentController {
 
   @Get("/missed")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public async getMissedAppointments(
     @Query() startDate?: string,
@@ -182,7 +214,7 @@ export class AppointmentController {
   }
 
   @Get("/")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public async getAllAppointments(
     @Query() searchq?: string,
     @Query() page?: number,
@@ -206,7 +238,13 @@ export class AppointmentController {
   }
 
   @Get("/available-slots")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public async getAvailableSlots(
     @Query() providerId: string,
     @Query() date: string,
@@ -222,13 +260,19 @@ export class AppointmentController {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public async getAppointmentById(@Path() id: string, @Request() request: Req) {
     return AppointmentService.getAppointmentById(id, request);
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public async updateAppointment(
     @Path() id: string,
     @Body() data: UpdateAppointmentDto,
@@ -239,7 +283,11 @@ export class AppointmentController {
 
   @Put("/{id}/cancel")
   @Middlewares(
-    checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.CLINIC_ADMIN),
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public async cancelAppointment(
     @Path() id: string,
@@ -250,13 +298,13 @@ export class AppointmentController {
   }
 
   @Put("/{id}/no-show")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public async markNoShow(@Path() id: string, @Request() request: Req) {
     return AppointmentService.markNoShow(id, request);
   }
 
   @Put("/{id}/complete")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public async completeAppointment(
     @Path() id: string,
     @Body() body: { encounterId?: string },
@@ -270,7 +318,13 @@ export class AppointmentController {
   }
 
   @Get("/patient/{patientId}")
-  @Middlewares(checkClinicRole(ClinicRole.RECEPTIONIST, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.RECEPTIONIST,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public async getPatientAppointments(
     @Path() patientId: string,
     @Request() request: Req,
@@ -286,7 +340,7 @@ export class AppointmentController {
   }
 
   @Get("/provider/{providerId}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public async getProviderAppointments(
     @Path() providerId: string,
     @Request() request: Req,

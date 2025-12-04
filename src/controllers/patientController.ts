@@ -15,6 +15,7 @@ import {
 import { PatientService } from "../services/PatientService";
 import { CreatePatientDto, UpdatePatientDto } from "../utils/interfaces/common";
 import { Request as ExpressRequest } from "express";
+import { Request as Req } from "express";
 import { ClinicRole, roles } from "../utils/roles";
 import { checkRoleAuto } from "../middlewares";
 
@@ -29,14 +30,14 @@ export class PatientController {
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.PROVIDER,
-      ClinicRole.NURSE,
-    ),
+      ClinicRole.NURSE
+    )
   )
   public getAllPatients(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     return PatientService.getAllPatients(req, searchq, limit, page);
   }
@@ -45,10 +46,9 @@ export class PatientController {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public createPatient(
     @Body() body: CreatePatientDto,
-    @Request() req: ExpressRequest,
+    @Request() request: Req
   ) {
-    const companyId = req.user?.company?.companyId;
-    return PatientService.createPatient(body, companyId!);
+    return PatientService.createPatient(body, request);
   }
 
   @Put("/{id}")

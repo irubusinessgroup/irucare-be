@@ -16,8 +16,8 @@ import {
 import type { Request as ExpressRequest } from "express";
 import { LabOrderService } from "../services/LabOrderService";
 import { OrderStatus1 } from "../utils/interfaces/common";
-import { checkClinicRole } from "../middlewares";
-import { ClinicRole } from "../utils/roles";
+import {  checkRoleAuto } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Lab Orders")
 @Route("api/lab-orders")
@@ -25,16 +25,17 @@ import { ClinicRole } from "../utils/roles";
 export class LabOrderController extends Controller {
   @Get("/")
   @Middlewares(
-    checkClinicRole(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
       ClinicRole.PROVIDER,
       ClinicRole.LAB_TECH,
-      ClinicRole.CLINIC_ADMIN,
-    ),
+      ClinicRole.CLINIC_ADMIN
+    )
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number,
+    @Query() limit?: number
   ) {
     const {
       patientId,
@@ -57,57 +58,59 @@ export class LabOrderController extends Controller {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER, ClinicRole.LAB_TECH))
+  @Middlewares(
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER, ClinicRole.LAB_TECH)
+  )
   public get(@Path() id: string, @Request() req: ExpressRequest) {
     return LabOrderService.getById(id, req);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public create(@Request() req: ExpressRequest, @Body() body: any) {
     return LabOrderService.create(req, body);
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.LAB_TECH))
   public update(
     @Path() id: string,
     @Body() body: any,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return LabOrderService.update(id, body, req);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public remove(@Path() id: string, @Request() req: ExpressRequest) {
     return LabOrderService.remove(id, req);
   }
 
   @Post("/{id}/collect-sample")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.LAB_TECH))
   public collectSample(
     @Path() id: string,
     @Body() body: { sampleType: string },
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return LabOrderService.collectSample(id, body.sampleType, req);
   }
 
   @Put("/{id}/cancel")
-  @Middlewares(checkClinicRole(ClinicRole.PROVIDER))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public cancel(@Path() id: string, @Request() req: ExpressRequest) {
     return LabOrderService.cancel(id, req);
   }
 
   @Get("/pending")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.LAB_TECH))
   public pendingRequests(@Request() req: ExpressRequest) {
     return LabOrderService.getPendingRequests(req);
   }
 
   @Get("/in-progress")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.LAB_TECH))
   public inProgressRequests(@Request() req: ExpressRequest) {
     return LabOrderService.getInProgressRequests(req);
   }

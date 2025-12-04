@@ -8,7 +8,7 @@ export class PatientService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -48,7 +48,8 @@ export class PatientService {
     };
   }
 
-  public static async createPatient(data: CreatePatientDto, companyId: string) {
+  public static async createPatient(data: CreatePatientDto, req: Request) {
+    const companyId = req.user?.company?.companyId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }

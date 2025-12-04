@@ -22,8 +22,8 @@ import {
   LabTestType,
   UpdateLabTestDto,
 } from "../utils/interfaces/common";
-import { checkClinicRole } from "../middlewares";
-import { ClinicRole } from "../utils/roles";
+import { checkRoleAuto } from "../middlewares";
+import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Lab Tests")
 @Route("api/lab-tests")
@@ -31,7 +31,8 @@ import { ClinicRole } from "../utils/roles";
 export class LabTestController extends Controller {
   @Get("/")
   @Middlewares(
-    checkClinicRole(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
       ClinicRole.LAB_TECH,
       ClinicRole.PROVIDER,
       ClinicRole.ACCOUNTANT,
@@ -52,13 +53,19 @@ export class LabTestController extends Controller {
   }
 
   @Get("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.LAB_TECH,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getById(id, req);
   }
 
   @Post("/")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public create(
     @Request() req: ExpressRequest,
     @Body() body: CreateLabTestDto,
@@ -67,7 +74,7 @@ export class LabTestController extends Controller {
   }
 
   @Put("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public update(
     @Path() id: string,
     @Body() body: UpdateLabTestDto,
@@ -77,7 +84,7 @@ export class LabTestController extends Controller {
   }
 
   @Delete("/{id}")
-  @Middlewares(checkClinicRole(ClinicRole.CLINIC_ADMIN))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
     @Request() req: ExpressRequest,
@@ -86,19 +93,25 @@ export class LabTestController extends Controller {
   }
 
   @Get("/categories/list")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.LAB_TECH))
   public categories(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getCategories(req);
   }
 
   @Get("/panels/list")
-  @Middlewares(checkClinicRole(ClinicRole.LAB_TECH, ClinicRole.PROVIDER))
+  @Middlewares(
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.LAB_TECH,
+      ClinicRole.PROVIDER,
+    ),
+  )
   public panelsAndProfiles(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getPanelsAndProfiles(req);
   }
 
   @Get("/pricing/list")
-  @Middlewares(checkClinicRole(ClinicRole.ACCOUNTANT))
+  @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.ACCOUNTANT))
   public pricingList(@Request() req: ExpressRequest): Promise<any> {
     return LabTestService.getPricingList(req);
   }
