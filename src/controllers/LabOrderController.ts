@@ -16,7 +16,7 @@ import {
 import type { Request as ExpressRequest } from "express";
 import { LabOrderService } from "../services/LabOrderService";
 import { OrderStatus1 } from "../utils/interfaces/common";
-import {  checkRoleAuto } from "../middlewares";
+import { checkRoleAuto } from "../middlewares";
 import { ClinicRole, roles } from "../utils/roles";
 
 @Tags("Lab Orders")
@@ -29,13 +29,13 @@ export class LabOrderController extends Controller {
       roles.COMPANY_ADMIN,
       ClinicRole.PROVIDER,
       ClinicRole.LAB_TECH,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ) {
     const {
       patientId,
@@ -59,7 +59,11 @@ export class LabOrderController extends Controller {
 
   @Get("/{id}")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER, ClinicRole.LAB_TECH)
+    checkRoleAuto(
+      roles.COMPANY_ADMIN,
+      ClinicRole.PROVIDER,
+      ClinicRole.LAB_TECH,
+    ),
   )
   public get(@Path() id: string, @Request() req: ExpressRequest) {
     return LabOrderService.getById(id, req);
@@ -76,7 +80,7 @@ export class LabOrderController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: any,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return LabOrderService.update(id, body, req);
   }
@@ -92,7 +96,7 @@ export class LabOrderController extends Controller {
   public collectSample(
     @Path() id: string,
     @Body() body: { sampleType: string },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return LabOrderService.collectSample(id, body.sampleType, req);
   }
