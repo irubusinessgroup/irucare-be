@@ -610,7 +610,9 @@ export interface CreatePatientDto {
 export interface UpdatePatientDto extends Partial<CreatePatientDto> {}
 
 export interface CreateInsuranceCardDto {
-  patientId: string;
+  patientId?: string;
+  clientId?: string;
+  percentage?: number;
   insuranceId: string;
   cardNumber: string;
   expireDate: Date;
@@ -632,7 +634,7 @@ export interface UpdateSupplierDto extends Partial<CreateSupplierDto> {}
 
 export interface CreateInsuranceDto {
   name: string;
-  percentage: number;
+
 }
 
 export interface UpdateInsuranceDto extends Partial<CreateInsuranceDto> {}
@@ -898,9 +900,9 @@ export interface UpdateProcessingEntryDto {
 
 export interface CreateClientDto {
   name: string;
-  email: string;
+  email?: string;
   phone: string;
-  address: string;
+  address?: string;
 }
 
 export interface UpdateClientDto {
@@ -1271,9 +1273,9 @@ export interface DirectInvoiceResponse {
   client: {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
     phone: string;
-    address: string;
+    address: string | null;
   };
   items: DirectInvoiceItemResponse[];
 }

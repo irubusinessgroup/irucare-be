@@ -825,7 +825,7 @@ export class DirectInvoiceService {
 
       // Send email
       await sendEmail({
-        to: invoice.client.email,
+        to: invoice.client.email || "",
         subject: `Invoice ${invoice.invoiceNumber} from ${invoice.company.name}`,
         html,
       });

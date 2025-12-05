@@ -53,7 +53,7 @@ export class InsuranceService {
 
     const insurance = await prisma.insurance.create({
       data: {
-        ...data,
+        name: data.name,
         companyId,
       },
     });
@@ -64,7 +64,9 @@ export class InsuranceService {
   public static async updateInsurance(id: string, data: UpdateInsuranceDto) {
     const insurance = await prisma.insurance.update({
       where: { id },
-      data,
+      data: {
+        name: data.name,
+      },
     });
 
     return { message: "Insurance updated successfully", data: insurance };

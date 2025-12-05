@@ -315,15 +315,16 @@ model Client {
     id                 String         @id @default(uuid())
     companyId          String
     name               String
-    email              String
+    email              String?
     phone              String
-    address            String
+    address            String?
     createdAt         DateTime      @default(now())
     updatedAt         DateTime      @updatedAt
     sells             Sell[]
     purchaseOrders     PurchaseOrder[]
     transactions       Transaction[]
     directInvoices     DirectInvoice[]
+    insuranceCards     InsuranceCard[]
 }
 
 model Sell {
@@ -836,17 +837,20 @@ model PatientAddress {
 model InsuranceCard {
   id            String   @id @default(uuid())
   companyId     String
-  patientId     String
+  patientId     String?
+  clientId      String?
   insuranceId     String
   cardNumber    String   @unique
   expireDate    DateTime
   beneficiary   String
   isOwner       Boolean
+  percentage    Float    @default(0.0)
   expired       Boolean  @default(false)
   deletedAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @default(now())
-  patient       Patient  @relation(fields: [patientId], references: [id])
+  patient       Patient?  @relation(fields: [patientId], references: [id])
+  client        Client?   @relation(fields: [clientId], references: [id])
   insurance     Insurance  @relation(fields: [insuranceId], references: [id])
   insuranceDetails InsuranceDetail[]
   sells            Sell[]
@@ -867,7 +871,7 @@ model Insurance {
   id           String      @id @default(uuid())
   companyId    String
   name         String
-  percentage   Float        @default(0.0)
+
   company      Company      @relation(fields: [companyId], references: [id])
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
