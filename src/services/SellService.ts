@@ -58,6 +58,7 @@ export class SellService {
             name: true,
             email: true,
             phone: true,
+            tin: true,
           },
         },
         company: {

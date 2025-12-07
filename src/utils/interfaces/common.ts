@@ -634,7 +634,6 @@ export interface UpdateSupplierDto extends Partial<CreateSupplierDto> {}
 
 export interface CreateInsuranceDto {
   name: string;
-
 }
 
 export interface UpdateInsuranceDto extends Partial<CreateInsuranceDto> {}
@@ -903,6 +902,7 @@ export interface CreateClientDto {
   email?: string;
   phone: string;
   address?: string;
+  tin?: string;
 }
 
 export interface UpdateClientDto {
@@ -910,6 +910,7 @@ export interface UpdateClientDto {
   email?: string;
   phone?: string;
   address?: string;
+  tin?: string;
 }
 
 export interface CreateSellDto {
