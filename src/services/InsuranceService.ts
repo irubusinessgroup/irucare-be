@@ -54,10 +54,13 @@ export class InsuranceService {
     const insurance = await prisma.insurance.create({
       data: {
         name: data.name,
+        tin: data.tin,
+        phone: data.phone,
+        description: data.description,
+        address: data.address,
         companyId,
       },
     });
-
     return { message: "Insurance created successfully", data: insurance };
   }
 
@@ -66,6 +69,10 @@ export class InsuranceService {
       where: { id },
       data: {
         name: data.name,
+        tin: data.tin,
+        phone: data.phone,
+        description: data.description,
+        address: data.address,
       },
     });
 

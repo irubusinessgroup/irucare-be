@@ -10,7 +10,7 @@ export class SellService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -61,6 +61,7 @@ export class SellService {
             tin: true,
           },
         },
+        doctor: true,
         company: {
           select: {
             id: true,
@@ -129,6 +130,7 @@ export class SellService {
       where: { id, companyId },
       include: {
         client: true,
+        doctor: true,
         sellItems: {
           include: {
             item: {
@@ -186,6 +188,16 @@ export class SellService {
       const companyIndustry = company?.industry ?? undefined;
       const isPharmacy = (companyIndustry ?? "").toUpperCase() === "PHARMACY";
 
+      // Validate Doctor if provided
+      if (data.doctorId) {
+        const doctor = await tx.doctor.findFirst({
+          where: { id: data.doctorId },
+        });
+        if (!doctor) {
+          throw new AppError("Doctor not found", 404);
+        }
+      }
+
       // Validate Client (Required for ALL industries)
       if (!data.clientId) {
         throw new AppError("Client ID is required", 400);
@@ -196,7 +208,7 @@ export class SellService {
       if (!client) {
         throw new AppError(
           "Client not found or doesn't belong to your company",
-          404
+          404,
         );
       }
 
@@ -227,7 +239,7 @@ export class SellService {
         if (!item) {
           throw new AppError(
             `Item not found or doesn't belong to your company: ${itemData.itemId}`,
-            404
+            404,
           );
         }
 
@@ -241,14 +253,14 @@ export class SellService {
         if (selected.length < itemData.quantity) {
           throw new AppError(
             `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-            400
+            400,
           );
         }
 
         if (selected.length === 0) {
           throw new AppError(
             `No available stock for item ${item.itemFullName}`,
-            400
+            400,
           );
         }
 
@@ -256,7 +268,7 @@ export class SellService {
 
         const adjustedSellPrice = applyMarkup(
           Number(itemData.sellPrice),
-          markupPrice
+          markupPrice,
         );
 
         const itemNetAmount = Number(itemData.quantity) * adjustedSellPrice;
@@ -290,13 +302,19 @@ export class SellService {
       // authoritative subtotal is the sum of item price * quantity (already adjusted)
       subtotal = sellItems.reduce(
         (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
-        0
+        0,
       );
 
       const isPharmacyIndustry =
         (companyIndustry ?? "").toUpperCase() === "PHARMACY";
       let applyInsurance = false;
-      if (isPharmacyIndustry && data.insuranceCardId && data.clientId) {
+      // Only apply insurance if industry is PHARMACY AND clientType is INSUREE (or undefined/default)
+      // If clientType is explicitly PRIVATE, skip insurance
+      const shouldCheckInsurance =
+        isPharmacyIndustry && 
+        (data.clientType === "INSUREE" || !data.clientType); // Default behavior if not set? Or strict? Protocol implies PRIVATE skips it.
+
+      if (shouldCheckInsurance && data.insuranceCardId && data.clientId) {
         // Validate card ownership and expiry, and same company
         const insuranceCard = await tx.insuranceCard.findFirst({
           where: {
@@ -309,16 +327,10 @@ export class SellService {
         if (!insuranceCard) {
           throw new AppError(
             "Insurance card not found or not linked to client/company",
-            400
+            400,
           );
         }
-        const now = new Date();
-        const isExpired =
-          Boolean(insuranceCard.expired) ||
-          (insuranceCard.expireDate
-            ? new Date(insuranceCard.expireDate) < now
-            : false);
-        if (!isExpired) {
+        if (insuranceCard) {
           applyInsurance = true;
           insurancePercentageSnapshot = Number(insuranceCard.percentage ?? 0);
         }
@@ -387,6 +399,12 @@ export class SellService {
             itemsToProcess.length === 1
               ? itemsToProcess[0].sellPrice
               : undefined,
+
+          // New fields
+          clientType: data.clientType,
+          paymentMode: data.paymentMode,
+          doctorId: data.doctorId,
+          hospital: data.hospital,
         },
         include: {
           client: { select: { id: true, name: true, email: true } },
@@ -453,7 +471,7 @@ export class SellService {
   public static async updateSell(
     id: string,
     data: UpdateSellDto,
-    req: Request
+    req: Request,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -481,7 +499,7 @@ export class SellService {
         if (!client) {
           throw new AppError(
             "Client not found or doesn't belong to your company",
-            404
+            404,
           );
         }
       }
@@ -543,7 +561,7 @@ export class SellService {
           if (!item) {
             throw new AppError(
               `Item not found or doesn't belong to your company: ${itemData.itemId}`,
-              404
+              404,
             );
           }
 
@@ -557,14 +575,14 @@ export class SellService {
           if (selected.length < itemData.quantity) {
             throw new AppError(
               `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-              400
+              400,
             );
           }
 
           if (selected.length === 0) {
             throw new AppError(
               `No available stock for item ${item.itemFullName}`,
-              400
+              400,
             );
           }
 
@@ -572,7 +590,7 @@ export class SellService {
 
           const adjustedSellPrice = applyMarkup(
             Number(itemData.sellPrice),
-            markupPrice
+            markupPrice,
           );
           const itemNetAmount = Number(itemData.quantity) * adjustedSellPrice;
           const itemTaxAmount = item.isTaxable
@@ -606,7 +624,7 @@ export class SellService {
 
         const subtotal = sellItems.reduce(
           (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
-          0
+          0,
         );
         let insuranceCoveredAmount = 0;
         let patientPayableAmount = subtotal;
@@ -631,18 +649,12 @@ export class SellService {
             if (!insuranceCard) {
               throw new AppError(
                 "Insurance card not found or not linked to client/company",
-                400
+                400,
               );
             }
-            const now = new Date();
-            const isExpired =
-              Boolean(insuranceCard.expired) ||
-              (insuranceCard.expireDate
-                ? new Date(insuranceCard.expireDate) < now
-                : false);
-            if (!isExpired) {
+            if (insuranceCard) {
               insurancePercentageSnapshot = Number(
-                insuranceCard.percentage ?? 0
+                insuranceCard.percentage ?? 0,
               );
               const percentageFactor = (insurancePercentageSnapshot ?? 0) / 100;
               for (const s of sellItems) {
@@ -714,6 +726,11 @@ export class SellService {
             itemsToProcess.length === 1
               ? itemsToProcess[0].sellPrice
               : undefined,
+          
+          clientType: data.clientType ?? existingSell.clientType,
+          paymentMode: data.paymentMode ?? existingSell.paymentMode,
+          doctorId: data.doctorId ?? existingSell.doctorId,
+          hospital: data.hospital ?? existingSell.hospital,
         };
 
         const sell = await tx.sell.update({
@@ -764,7 +781,7 @@ export class SellService {
           if (!itemCheck) {
             throw new AppError(
               "Item not found or doesn't belong to your company",
-              404
+              404,
             );
           }
         }
@@ -789,7 +806,7 @@ export class SellService {
             if (selected.length < newQuantity) {
               throw new AppError(
                 `Insufficient stock. Available: ${selected.length}, Requested: ${newQuantity}`,
-                400
+                400,
               );
             }
 

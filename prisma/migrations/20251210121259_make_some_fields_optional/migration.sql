@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "StockReceipts" ALTER COLUMN "uom" DROP NOT NULL,
+ALTER COLUMN "tempReq" DROP NOT NULL,
+ALTER COLUMN "currency" DROP NOT NULL,
+ALTER COLUMN "condition" DROP NOT NULL;

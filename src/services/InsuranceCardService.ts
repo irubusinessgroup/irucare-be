@@ -22,8 +22,8 @@ export class InsuranceCardService {
       ? {
           companyId,
           OR: [
-            { cardNumber: { contains: searchq } },
-            { beneficiary: { contains: searchq } },
+            { affiliationNumber: { contains: searchq } },
+            { affiliateName: { contains: searchq } },
           ],
         }
       : { companyId };
@@ -72,23 +72,19 @@ export class InsuranceCardService {
           patientId: data.patientId,
           clientId: data.clientId,
           insuranceId: data.insuranceId,
-          cardNumber: data.cardNumber,
-          expireDate: data.expireDate,
-          beneficiary: data.beneficiary,
-          isOwner: data.isOwner,
+          affiliationNumber: data.affiliationNumber,
+          policeNumber: data.policeNumber,
+          relationship: data.relationship,
+          affiliateName: data.affiliateName,
+          birthDate: new Date(data.birthDate),
+          gender: data.gender,
+          phone: data.phone,
+          workDepartment: data.workDepartment,
+          workplace: data.workplace,
           percentage: data.percentage || 0,
         },
       });
 
-      if (data.details && data.details.length > 0) {
-        await tx.insuranceDetail.createMany({
-          data: data.details.map((detail) => ({
-            insuranceCardId: insuranceCard.id,
-            key: detail.key,
-            value: detail.value,
-          })),
-        });
-      }
 
       return insuranceCard;
     });
@@ -105,27 +101,20 @@ export class InsuranceCardService {
           patientId: data.patientId,
           clientId: data.clientId,
           insuranceId: data.insuranceId,
-          cardNumber: data.cardNumber,
-          expireDate: data.expireDate,
-          beneficiary: data.beneficiary,
-          isOwner: data.isOwner,
+          affiliationNumber: data.affiliationNumber,
+          policeNumber: data.policeNumber,
+          relationship: data.relationship,
+          affiliateName: data.affiliateName,
+          birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+          gender: data.gender,
+          phone: data.phone,
+          workDepartment: data.workDepartment,
+          workplace: data.workplace,
           percentage: data.percentage,
         },
       });
 
-      if (data.details) {
-        await tx.insuranceDetail.deleteMany({
-          where: { insuranceCardId: id },
-        });
 
-        await tx.insuranceDetail.createMany({
-          data: data.details.map((detail) => ({
-            insuranceCardId: id,
-            key: detail.key,
-            value: detail.value,
-          })),
-        });
-      }
 
       return insuranceCard;
     });

@@ -3,6 +3,16 @@ import { TsoaResponse } from "tsoa";
 import { DeliveryItemStatus } from "@prisma/client";
 import { ClinicRole } from "../roles";
 
+export interface CreateDoctorDto {
+  name: string;
+  code?: string;
+}
+
+export interface UpdateDoctorDto {
+  name?: string;
+  code?: string;
+}
+
 export interface IResponse<T> {
   statusCode: number;
   message: string;
@@ -614,11 +624,15 @@ export interface CreateInsuranceCardDto {
   clientId?: string;
   percentage?: number;
   insuranceId: string;
-  cardNumber: string;
-  expireDate: Date;
-  beneficiary: string;
-  isOwner: boolean;
-  details: { key: string; value: string }[];
+  affiliationNumber: string;
+  policeNumber?: string;
+  relationship: string;
+  affiliateName: string;
+  birthDate: Date | string; // Accept string for easier parsing from JSON
+  gender?: string;
+  phone?: string;
+  workDepartment?: string;
+  workplace?: string;
 }
 
 export interface UpdateInsuranceCardDto
@@ -634,6 +648,10 @@ export interface UpdateSupplierDto extends Partial<CreateSupplierDto> {}
 
 export interface CreateInsuranceDto {
   name: string;
+  tin?: string;
+  phone?: string;
+  description?: string;
+  address?: string;
 }
 
 export interface UpdateInsuranceDto extends Partial<CreateInsuranceDto> {}
@@ -649,6 +667,7 @@ export interface CreateItemDto {
   isTaxable?: boolean | string;
   taxCode?: "A" | "B";
   taxRate?: number;
+  insurancePrice?: number;
 }
 
 export interface UpdateItemDto {
@@ -662,6 +681,7 @@ export interface UpdateItemDto {
   isTaxable?: boolean | string;
   taxCode?: "A" | "B";
   taxRate?: number;
+  insurancePrice?: number;
 }
 
 export interface CreateStockDto {
@@ -676,10 +696,10 @@ export interface CreateStockDto {
   expiryDate?: Date | string | null;
   unitCost: number;
   packSize?: number;
-  uom: string;
-  tempReq: string;
-  currency: string;
-  condition: string;
+  uom?: string;
+  tempReq?: string;
+  currency?: string;
+  condition?: string;
   // warehouseId may be omitted or null when not assigned; empty string will be normalized to null by services
   warehouseId?: string | null;
   specialHandlingNotes?: string;
@@ -694,10 +714,10 @@ export interface CreateManualStockReceiptDto {
   dateReceived: Date | string;
   quantityReceived: number;
   unitCost: number;
-  currency: string;
-  uom: string;
-  tempReq: string;
-  condition: string;
+  currency?: string;
+  uom?: string;
+  tempReq?: string;
+  condition?: string;
   packSize?: number;
   expiryDate?: Date | string | null;
   invoiceNo?: string;
@@ -732,10 +752,10 @@ export interface CreateStockReceiptFromPODto {
   expiryDate?: Date;
   invoiceNo?: string;
   warehouseId: string;
-  condition: string;
-  tempReq: string;
-  uom: string;
-  currency: string;
+  condition?: string;
+  tempReq?: string;
+  uom?: string;
+  currency?: string;
   packSize?: number;
 }
 
@@ -932,6 +952,12 @@ export interface CreateSellDto {
   itemId?: string;
   quantity?: number;
   sellPrice?: number;
+
+  // New fields
+  clientType?: "PRIVATE" | "INSUREE";
+  paymentMode?: "CREDIT" | "HALF_PAID" | "FULL_PAID";
+  doctorId?: string;
+  hospital?: string;
 }
 
 export interface UpdateSellDto {
@@ -954,6 +980,12 @@ export interface UpdateSellDto {
   itemId?: string;
   quantity?: number;
   sellPrice?: number;
+
+  // New fields
+  clientType?: "PRIVATE" | "INSUREE";
+  paymentMode?: "CREDIT" | "HALF_PAID" | "FULL_PAID";
+  doctorId?: string;
+  hospital?: string;
 }
 
 export interface CreateApprovalDto {
@@ -1349,6 +1381,7 @@ export interface ImportItemRow {
   maxLevel: number;
   // Single tax column from import/template: "A" (0.0) or "B" (18.0)
   taxCode?: "A" | "B" | string;
+  insurancePrice?: number;
 }
 
 export interface ValidationError {

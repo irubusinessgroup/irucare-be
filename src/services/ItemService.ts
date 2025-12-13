@@ -93,6 +93,7 @@ export class ItemService {
     tax: "taxCode",
     rate: "taxRate",
     "tax rate": "taxRate",
+    insurance_price: "insurancePrice",
   };
 
   public static async importItems(
@@ -193,6 +194,11 @@ export class ItemService {
             headerValue.includes("tax code")
           ) {
             headerMapping[key] = "taxCode"; // single tax column preferred
+          } else if (
+            headerValue === "insurance price" ||
+            headerValue.includes("insurance_price")
+          ) {
+            headerMapping[key] = "insurancePrice";
           }
         });
 
@@ -401,6 +407,19 @@ export class ItemService {
         }
       }
 
+      
+      // Validate insurancePrice
+      if (row.insurancePrice !== undefined && row.insurancePrice !== null) {
+        const insurancePriceNum = Number(row.insurancePrice);
+        if (isNaN(insurancePriceNum) || insurancePriceNum < 0) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "insurancePrice",
+            message: "insurancePrice must be a positive number",
+          });
+        }
+      }
+
       if (rowErrors.length > 0) {
         errors.push(...rowErrors);
       } else {
@@ -462,6 +481,7 @@ export class ItemService {
               // Do not update productCode
               // Normalize and apply tax fields if present
               ...ItemService.normalizeTaxFields(item as unknown),
+              insurancePrice: item.insurancePrice,
               companyId,
             },
             include: {
@@ -484,6 +504,7 @@ export class ItemService {
               itemCodeSku: itemCode,
               // Normalize and apply tax fields if present
               ...ItemService.normalizeTaxFields(item as unknown),
+              insurancePrice: item.insurancePrice,
               companyId,
             },
             include: {
@@ -586,6 +607,9 @@ export class ItemService {
               getVal(["max level", "max_level", "maximum level"]) || 100,
             ),
             Tax: getVal(["tax", "tax code", "taxcode"]) || "A",
+            "Insurance Price": Number(
+              getVal(["insurance price", "insurance_price"]) || 0,
+            ),
           };
         });
       }
@@ -610,6 +634,7 @@ export class ItemService {
               "Min Level": 10,
               "Max Level": 100,
               Tax: "B",
+              "Insurance Price": 0,
             },
           ]
         : [
@@ -660,6 +685,7 @@ export class ItemService {
         isTaxable: tax.isTaxable,
         taxCode: tax.taxCode,
         taxRate: tax.taxRate,
+        insurancePrice: data.insurancePrice,
         itemCodeSku: itemCode,
         companyId: companyId,
       },
@@ -735,6 +761,7 @@ export class ItemService {
         isTaxable: tax.isTaxable,
         taxCode: tax.taxCode,
         taxRate: tax.taxRate,
+        insurancePrice: data.insurancePrice,
       },
       include: {
         category: true,

@@ -97,13 +97,13 @@ export class ClientService {
 
     const existingClient = await prisma.client.findFirst({
       where: {
-        email: data.email,
+        phone: data.phone,
         companyId,
       },
     });
 
     if (existingClient) {
-      throw new AppError("Client with this email already exists", 409);
+      throw new AppError("Client with this phone number already exists", 409);
     }
 
     const client = await prisma.client.create({
@@ -134,17 +134,17 @@ export class ClientService {
       throw new AppError("Client not found", 404);
     }
 
-    if (data.email && data.email !== existingClient.email) {
-      const emailExists = await prisma.client.findFirst({
+    if (data.phone && data.phone !== existingClient.phone) {
+      const phoneExists = await prisma.client.findFirst({
         where: {
-          email: data.email,
+          phone: data.phone,
           companyId,
           id: { not: id },
         },
       });
 
-      if (emailExists) {
-        throw new AppError("Client with this email already exists", 409);
+      if (phoneExists) {
+        throw new AppError("Client with this phone number already exists", 409);
       }
     }
 

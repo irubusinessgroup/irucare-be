@@ -10,11 +10,12 @@ import {
   Post,
 } from "tsoa";
 import { InventoryService } from "../services/InventoryService";
-import { Request as ExpressRequest } from "express";
+import { Request as ExpressRequest, Response } from "express";
 import { ClinicRole, roles } from "../utils/roles";
-import { checkClinicRole, checkRole, checkRoleAuto } from "../middlewares";
+import { checkRole, checkRoleAuto } from "../middlewares";
 import { DirectStockAdditionRequest } from "../utils/interfaces/common";
 import { prisma } from "../utils/client";
+import { uploadToMemory } from "../utils/cloudinary";
 
 @Security("jwt")
 @Route("/api/inventory")
@@ -26,7 +27,7 @@ export class InventoryController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InventoryService.getInventory(req, searchq, limit, page);
   }
@@ -37,7 +38,7 @@ export class InventoryController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InventoryService.getExpiringItems(req, searchq, limit, page);
   }
@@ -48,7 +49,7 @@ export class InventoryController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InventoryService.getExpiredItems(req, searchq, limit, page);
   }
@@ -57,9 +58,41 @@ export class InventoryController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public addDirectStock(
     @Request() req: ExpressRequest,
-    @Body() stockData: DirectStockAdditionRequest
+    @Body() stockData: DirectStockAdditionRequest,
   ) {
     return InventoryService.addDirectStock(req, stockData);
+  }
+
+  @Post("/import")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN), uploadToMemory.single("file"))
+  public async importStock(@Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId;
+    const userId = req.user?.id;
+    const file = req.file;
+
+    if (!companyId) throw new Error("Company ID is missing");
+    if (!userId) throw new Error("User ID is missing");
+    if (!file) throw new Error("No file uploaded");
+
+    return InventoryService.importStock(file, companyId, userId);
+  }
+
+  @Get("/template/download")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public async downloadTemplate(@Request() req: ExpressRequest): Promise<void> {
+    const buffer = await InventoryService.downloadStockTemplate();
+
+    const res = req.res as Response;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=stock-import-template.xlsx",
+    );
+
+    res.send(buffer);
   }
 
   /**
@@ -91,7 +124,7 @@ export class InventoryController {
     const totalValue = stockReceipts.reduce((sum, receipt) => {
       const availableQty = receipt.stocks.reduce(
         (s, stock) => s + Number(stock.quantityAvailable),
-        0
+        0,
       );
       return sum + availableQty * Number(receipt.unitCost);
     }, 0);
@@ -115,7 +148,7 @@ export class InventoryController {
 
       const currentStock = stocks.reduce(
         (sum, s) => sum + Number(s.quantityAvailable),
-        0
+        0,
       );
 
       if (currentStock <= rule.minLevel.toNumber()) {

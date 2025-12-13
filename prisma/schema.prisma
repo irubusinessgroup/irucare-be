@@ -141,6 +141,7 @@ model Items {
   isTaxable          Boolean         @default(false)
   taxCode            String          @db.VarChar(1) @default("A")
   taxRate            Decimal         @db.Decimal(5, 2) @default(0)
+  insurancePrice     Decimal?        @db.Decimal(18, 2) @default(0)
   createdAt         DateTime       @default(now()) 
   updatedAt         DateTime       @updatedAt
   stockReceipts      StockReceipts[]
@@ -183,10 +184,10 @@ model StockReceipts {
   unitCost          Decimal         @db.Decimal(18, 4)  
   totalCost         Decimal         @db.Decimal(18, 2)
   packSize          Decimal? 	      @db.Decimal(10, 2) 
-  uom                String 
-  tempReq           String 
-  currency           String
-  condition          String
+  uom                String? 
+  tempReq           String? 
+  currency           String?
+  condition          String?
   warehouseId        String? 
   warehouse           Warehouse?   @relation(fields: [warehouseId], references: [id])
   specialHandlingNotes      String? 	
@@ -356,6 +357,13 @@ model Sell {
     item               Items?         @relation(fields: [itemId], references: [id])
     quantity           Decimal?        @db.Decimal(10, 2)
     sellPrice          Decimal?        @db.Decimal(18, 2)
+    
+    // New fields for Pharmacy Sales Flow
+    clientType    ClientType?  @default(PRIVATE)
+    paymentMode   PaymentMode? // Optional as per requirements
+    doctorId      String?
+    doctor        Doctor?      @relation(fields: [doctorId], references: [id])
+    hospital      String?      // Name of hospital/clinic (optional)
 
     @@index([patientId])
     @@index([insuranceCardId])
@@ -836,26 +844,30 @@ model PatientAddress {
 }
 
 model InsuranceCard {
-  id            String   @id @default(uuid())
-  companyId     String
-  patientId     String?
-  clientId      String?
-  insuranceId     String
-  cardNumber    String   @unique
-  expireDate    DateTime
-  beneficiary   String
-  isOwner       Boolean
-  percentage    Float    @default(0.0)
-  expired       Boolean  @default(false)
-  deletedAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @default(now())
-  patient       Patient?  @relation(fields: [patientId], references: [id])
-  client        Client?   @relation(fields: [clientId], references: [id])
-  insurance     Insurance  @relation(fields: [insuranceId], references: [id])
-  insuranceDetails InsuranceDetail[]
-  sells            Sell[]
-  insuranceClaims  InsuranceClaim[]
+  id                String   @id @default(uuid())
+  companyId         String
+  patientId         String?
+  clientId          String?
+  insuranceId       String
+  affiliationNumber String   @unique // Renamed from cardNumber
+  policeNumber      String?  @default("0")
+  relationship      String
+  affiliateName     String
+  birthDate         DateTime
+  gender            String?
+  phone             String?
+  workDepartment    String?
+  workplace         String?
+  percentage        Float    @default(0.0)
+  deletedAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now())
+  patient           Patient?  @relation(fields: [patientId], references: [id])
+  client            Client?   @relation(fields: [clientId], references: [id])
+  insurance         Insurance  @relation(fields: [insuranceId], references: [id])
+  insuranceDetails  InsuranceDetail[]
+  sells             Sell[]
+  insuranceClaims   InsuranceClaim[]
 }
 
 model InsuranceDetail {
@@ -872,6 +884,10 @@ model Insurance {
   id           String      @id @default(uuid())
   companyId    String
   name         String
+  tin          String?
+  phone        String?
+  description  String?
+  address      String?
 
   company      Company      @relation(fields: [companyId], references: [id])
   createdAt    DateTime     @default(now())
@@ -2668,4 +2684,25 @@ model ClinicUserRole{
   userId      String
   role        ClinicRole
   user        User    @relation(fields: [userId], references: [id])
+}
+
+model Doctor {
+  id          String   @id @default(uuid())
+  name        String
+  code        String?  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  sells       Sell[]
+}
+
+enum ClientType {
+  PRIVATE
+  INSUREE
+}
+
+enum PaymentMode {
+  CREDIT
+  HALF_PAID
+  FULL_PAID
 }
