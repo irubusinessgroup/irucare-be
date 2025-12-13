@@ -4,6 +4,7 @@ import type { Request } from "express";
 import { assertCompanyExists } from "../utils/validators";
 import * as XLSX from "xlsx";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
+import { applyMarkup } from "../utils/pricing";
 
 export class InventoryService {
   public static async getInventory(
@@ -678,12 +679,22 @@ export class InventoryService {
       },
     });
 
+    // Fetch company tools for markup
+    const companyTools = await prisma.companyTools.findFirst({
+      where: { companyId },
+    });
+    const markupPercentage = Number(companyTools?.markupPrice || 0);
+    const calculatedSellPrice = applyMarkup(
+      stockData.unitCost,
+      markupPercentage,
+    );
+
     await prisma.approvals.create({
       data: {
         stockReceiptId: stockReceipt.id,
         approvedByUserId: userId,
         approvalStatus: "APPROVED", // Directly approved
-        ExpectedSellPrice: stockData.unitCost,
+        ExpectedSellPrice: calculatedSellPrice,
         dateApproved: new Date(),
         comments: stockData.reason,
       },

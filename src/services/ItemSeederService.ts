@@ -70,6 +70,7 @@ export class ItemSeederService {
             isTaxable: isTaxable,
             taxCode: taxCode,
             taxRate: taxRate,
+            insurancePrice: item.Price || 0,
             description: item.Description,
           };
         })

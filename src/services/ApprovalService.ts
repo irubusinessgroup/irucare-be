@@ -6,6 +6,7 @@ import {
   UpdateApprovalDto,
 } from "../utils/interfaces/common";
 import { StockService } from "./StockService";
+import { applyMarkup } from "../utils/pricing";
 
 export class ApprovalService {
   public static async createApproval(data: CreateApprovalDto, req: Request) {
@@ -30,13 +31,23 @@ export class ApprovalService {
     }
 
     return await prisma.$transaction(async (tx) => {
+      // Fetch company tools for markup
+      const companyTools = await tx.companyTools.findFirst({
+        where: { companyId: stockReceipt.companyId },
+      });
+      const markupPercentage = Number(companyTools?.markupPrice || 0);
+      const calculatedSellPrice = applyMarkup(
+        Number(stockReceipt.unitCost),
+        markupPercentage
+      );
+
       const approval = await tx.approvals.create({
         data: {
           stockReceiptId: data.stockReceiptId,
           approvedByUserId: userId,
           dateApproved: new Date(),
           approvalStatus: data.approvalStatus,
-          ExpectedSellPrice: data.expectedSellPrice,
+          ExpectedSellPrice: calculatedSellPrice,
           comments: data.comments,
         },
         include: {
@@ -91,7 +102,7 @@ export class ApprovalService {
   public static async updateApproval(
     id: string,
     data: UpdateApprovalDto,
-    req: Request,
+    req: Request
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -108,10 +119,26 @@ export class ApprovalService {
     }
 
     return await prisma.$transaction(async (tx) => {
+      const { ...rest } = data;
+
+      const stockReceipt = await tx.stockReceipts.findUnique({
+        where: { id: approval.stockReceiptId },
+      });
+
+      const companyTools = await tx.companyTools.findFirst({
+        where: { companyId: stockReceipt?.companyId },
+      });
+
+      const markupPercentage = Number(companyTools?.markupPrice || 0);
+      const unitCost = Number(stockReceipt?.unitCost || 0);
+
+      const calculatedSellPrice = applyMarkup(unitCost, markupPercentage);
+
       const updatedApproval = await tx.approvals.update({
         where: { id },
         data: {
-          ...data,
+          ...rest,
+          ExpectedSellPrice: calculatedSellPrice,
           approvedByUserId: userId,
           dateApproved: new Date(),
         },

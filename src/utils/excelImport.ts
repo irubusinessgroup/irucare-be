@@ -8,6 +8,7 @@ export interface ExcelItem {
   "Min Level": number;
   "Max Level": number;
   Tax: number | string;
+  Price?: number;
 }
 
 export const readItemsFromExcel = (): ExcelItem[] => {
