@@ -43,7 +43,7 @@ export class OrderProcessingService {
   private static async sendProcessingDraftNotification(
     purchaseOrder: PurchaseOrderForNotification,
     supplierCompanyId: string,
-    io: SocketIOServer,
+    io: SocketIOServer
   ): Promise<void> {
     if (!purchaseOrder?.companyId) {
       return;
@@ -65,7 +65,7 @@ export class OrderProcessingService {
         poNumber: purchaseOrder.poNumber,
         supplierCompany: supplierCompanyName,
         buyerCompany: purchaseOrder.company?.name,
-      },
+      }
     );
   }
 
@@ -73,7 +73,7 @@ export class OrderProcessingService {
   private static async sendCompletionNotification(
     purchaseOrder: PurchaseOrderForNotification,
     supplierCompanyId: string,
-    io: SocketIOServer,
+    io: SocketIOServer
   ): Promise<void> {
     if (!purchaseOrder?.companyId) {
       return;
@@ -95,7 +95,7 @@ export class OrderProcessingService {
         poNumber: purchaseOrder.poNumber,
         supplierCompany: supplierCompanyName,
         buyerCompany: purchaseOrder.company?.name,
-      },
+      }
     );
   }
 
@@ -103,7 +103,7 @@ export class OrderProcessingService {
   private static async sendApprovalNotification(
     purchaseOrder: PurchaseOrderForNotification,
     buyerCompanyId: string,
-    io: SocketIOServer,
+    io: SocketIOServer
   ): Promise<void> {
     if (!purchaseOrder?.suppliers?.supplierCompanyId) {
       return;
@@ -126,13 +126,13 @@ export class OrderProcessingService {
         buyerCompany: buyerCompanyName,
         supplierCompany: purchaseOrder.suppliers.supplierName,
         overallStatus: purchaseOrder.overallStatus,
-      },
+      }
     );
   }
   public static async createUpdateProcessingDraft(
     data: CreateProcessingEntryDto,
     req: AuthRequest,
-    io?: SocketIOServer,
+    io?: SocketIOServer
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -147,7 +147,7 @@ export class OrderProcessingService {
     if (po.overallStatus !== "NOT_YET") {
       throw new AppError(
         "Cannot edit this performa because the purchase order has progressed — the client may have already taken decisions",
-        400,
+        400
       );
     }
 
@@ -160,7 +160,7 @@ export class OrderProcessingService {
     if (!companyToId) {
       throw new AppError(
         "Cannot create processing entry: purchase order buyer is not a company",
-        400,
+        400
       );
     }
 
@@ -189,7 +189,7 @@ export class OrderProcessingService {
       if (!poItem || poItem.purchaseOrderId !== po.id)
         throw new AppError(
           `Purchase order item ${itemEntry.purchaseOrderItemId} not found for this PO`,
-          404,
+          404
         );
 
       const newIssued = itemEntry.quantityIssued
@@ -234,6 +234,7 @@ export class OrderProcessingService {
           availableStock = await countAvailableStock(prisma, {
             itemIds: supplierItemIds,
             companyId: companyFromId,
+            branchId: req.user?.branchId,
           });
         }
 
@@ -242,6 +243,7 @@ export class OrderProcessingService {
           availableStock = await countAvailableStock(prisma, {
             itemIds: poItem.itemId,
             companyId: companyFromId,
+            branchId: req.user?.branchId,
           });
         }
 
@@ -249,7 +251,7 @@ export class OrderProcessingService {
           const itemName = poItem.item?.itemFullName || "selected item";
           throw new AppError(
             `Insufficient stock for item ${itemName}. Available: ${availableStock}, Required: ${newIssued}`,
-            400,
+            400
           );
         }
       }
@@ -282,7 +284,7 @@ export class OrderProcessingService {
           prisma.purchaseOrderItem.update({
             where: { id: poItem.id },
             data: updateData,
-          }),
+          })
         );
       }
     }
@@ -336,6 +338,7 @@ export class OrderProcessingService {
           purchaseOrderId: po.id,
           companyFromId,
           companyToId,
+          branchId: req.user?.branchId ?? null,
           status: "PENDING",
         },
       });
@@ -358,8 +361,13 @@ export class OrderProcessingService {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
 
-    const entry = await prisma.purchaseOrderProcessing.findUnique({
-      where: { id },
+    const branchId = req.user?.branchId;
+    const entry = await prisma.purchaseOrderProcessing.findFirst({
+      where: {
+        id,
+        companyFromId: companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
     if (!entry) throw new AppError("Entry not found", 404);
 
@@ -376,13 +384,18 @@ export class OrderProcessingService {
   public static async completeAndSend(
     id: string,
     req: AuthRequest,
-    io?: SocketIOServer,
+    io?: SocketIOServer
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
 
-    const entry = await prisma.purchaseOrderProcessing.findUnique({
-      where: { id },
+    const branchId = req.user?.branchId;
+    const entry = await prisma.purchaseOrderProcessing.findFirst({
+      where: {
+        id,
+        companyFromId: companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
     if (!entry) throw new AppError("Entry not found", 404);
 
@@ -421,14 +434,15 @@ export class OrderProcessingService {
     poNumber: string,
     data: ApproveItemsDto,
     req: AuthRequest,
-    io?: SocketIOServer,
+    io?: SocketIOServer
   ) {
     const result = await prisma.$transaction(async (tx) => {
       const companyId = req.user?.company?.companyId;
       if (!companyId) throw new AppError("Company ID is missing", 400);
 
+      const branchId = req.user?.branchId;
       const po = await tx.purchaseOrder.findFirst({
-        where: { poNumber, companyId },
+        where: { poNumber, companyId, ...(branchId ? { branchId } : {}) },
       });
       if (!po) throw new AppError("Purchase order not found", 404);
 
@@ -457,10 +471,10 @@ export class OrderProcessingService {
 
       if (updatedPO) {
         const approvedItems = updatedPO.items.filter(
-          (i) => i.itemStatus === "APPROVED",
+          (i) => i.itemStatus === "APPROVED"
         );
         const rejectedItems = updatedPO.items.filter(
-          (i) => i.itemStatus === "REJECTED",
+          (i) => i.itemStatus === "REJECTED"
         );
         const totalItems = updatedPO.items.length;
 
@@ -510,7 +524,7 @@ export class OrderProcessingService {
 
           await DeliveryService.autoCreateDeliveryFromApprovedPO(
             poAfter.id,
-            supplierReq,
+            supplierReq
           );
         }
       }
@@ -581,9 +595,11 @@ export class OrderProcessingService {
         }
       : {};
 
+    const branchId = req.user?.branchId;
     const entries = (await prisma.purchaseOrderProcessing.findMany({
       where: {
         companyFromId: companyId,
+        ...(branchId ? { branchId } : {}),
         status: { in: statuses },
         ...purchaseOrderSearch,
       },
@@ -605,6 +621,7 @@ export class OrderProcessingService {
     const totalItems = await prisma.purchaseOrderProcessing.count({
       where: {
         companyFromId: companyId,
+        ...(branchId ? { branchId } : {}),
         status: { in: statuses },
         ...purchaseOrderSearch,
       },
@@ -684,9 +701,11 @@ export class OrderProcessingService {
         }
       : {};
 
+    const branchId = req.user?.branchId;
     const entries = (await prisma.purchaseOrderProcessing.findMany({
       where: {
         companyToId: companyId,
+        ...(branchId ? { branchId } : {}),
         status: { in: statuses },
         ...purchaseOrderSearch,
       },
@@ -708,6 +727,7 @@ export class OrderProcessingService {
     const totalItems = await prisma.purchaseOrderProcessing.count({
       where: {
         companyToId: companyId,
+        ...(branchId ? { branchId } : {}),
         status: { in: statuses },
         ...purchaseOrderSearch,
       },
@@ -752,9 +772,11 @@ export class OrderProcessingService {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
 
+    const branchId = req.user?.branchId;
     const po = await prisma.purchaseOrder.findFirst({
       where: {
         poNumber,
+        ...(branchId ? { branchId } : {}),
       },
       include: {
         items: {
@@ -796,6 +818,7 @@ export class OrderProcessingService {
         quantityIssued: { gt: 0 },
         purchaseOrder: {
           supplierId: companyId, // Current user's company is the supplier
+          ...(req.user?.branchId ? { branchId: req.user.branchId } : {}),
           overallStatus: { in: ["SOME_APPROVED", "ALL_APPROVED"] },
         },
       },
@@ -837,7 +860,7 @@ export class OrderProcessingService {
           remainingQuantity,
           canDeliver: remainingQuantity > 0,
         };
-      }),
+      })
     );
 
     // Filter out items that have been fully delivered

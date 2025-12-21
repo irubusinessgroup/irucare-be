@@ -14,8 +14,12 @@ import {
 } from "../utils/validators";
 
 export class StockService {
-  static async createStockReceipt(data: CreateStockDto, companyId: string) {
-    const references = await this.validateReferences(data, companyId);
+  static async createStockReceipt(
+    data: CreateStockDto,
+    companyId: string,
+    branchId?: string | null,
+  ) {
+    const references = await this.validateReferences(data, companyId, branchId);
 
     const totalCost =
       data.quantityReceived * (data.unitCost || references.unitCost);
@@ -28,6 +32,7 @@ export class StockService {
         purchaseOrderItemId: data.purchaseOrderItemId,
         totalCost,
         companyId,
+        branchId,
       },
       include: {
         item: true,
@@ -50,6 +55,7 @@ export class StockService {
   static async createManualStockReceipt(
     data: CreateManualStockReceiptDto,
     companyId: string,
+    branchId?: string | null,
   ) {
     const manualPoNumber = data.manualPoNumber?.trim();
     if (!manualPoNumber) {
@@ -58,9 +64,9 @@ export class StockService {
 
     // Validate item, supplier, warehouse belong to company
     await Promise.all([
-      getItemOrThrow(data.itemId, companyId),
-      getSupplierOrThrow(data.supplierId, companyId),
-      getWarehouseOrThrow(data.warehouseId, companyId),
+      getItemOrThrow(data.itemId, companyId, branchId),
+      getSupplierOrThrow(data.supplierId, companyId, branchId),
+      getWarehouseOrThrow(data.warehouseId, companyId, branchId),
     ]);
 
     const quantityReceived = data.quantityReceived;
@@ -87,6 +93,7 @@ export class StockService {
         currency: data.currency,
         packSize: data.packSize,
         companyId,
+        branchId,
         receiptType: "MANUAL",
         remarksNotes: data.remarksNotes,
         specialHandlingNotes: data.specialHandlingNotes,
@@ -128,7 +135,10 @@ export class StockService {
 
       const existingStock = await tx.stock.findFirst({
         where: {
-          stockReceipt: { itemId: stockReceipt.itemId },
+          stockReceipt: {
+            itemId: stockReceipt.itemId,
+            branchId: (stockReceipt as any).branchId,
+          } as any,
           status: "AVAILABLE",
         },
         include: {
@@ -219,10 +229,15 @@ export class StockService {
     id: string,
     data: UpdateStockDto,
     companyId: string,
+    branchId?: string | null,
   ) {
     return await prisma.$transaction(async (tx) => {
+      const where: any = { id, companyId };
+      if (branchId) {
+        where.branchId = branchId;
+      }
       const existingEntry = await tx.stockReceipts.findUnique({
-        where: { id, companyId },
+        where,
         include: {
           stocks: {
             where: { status: "AVAILABLE" },
@@ -236,11 +251,11 @@ export class StockService {
       }
 
       if (data.itemId) {
-        await getItemOrThrow(String(data.itemId), companyId);
+        await getItemOrThrow(String(data.itemId), companyId, branchId);
       }
 
       if (data.supplierId) {
-        await getSupplierOrThrow(String(data.supplierId), companyId);
+        await getSupplierOrThrow(String(data.supplierId), companyId, branchId);
       }
 
       const totalCost = StockCalculations.calculateTotalCost(
@@ -321,9 +336,17 @@ export class StockService {
     });
   }
 
-  static async deleteStockReceipt(id: string, companyId: string) {
+  static async deleteStockReceipt(
+    id: string,
+    companyId: string,
+    branchId?: string | null,
+  ) {
+    const where: any = { id, companyId: companyId };
+    if (branchId) {
+      where.branchId = branchId;
+    }
     const stock = await prisma.stockReceipts.findUnique({
-      where: { id, companyId: companyId },
+      where,
       include: { approvals: true },
     });
 
@@ -342,9 +365,17 @@ export class StockService {
     return { message: "Stock record deleted successfully" };
   }
 
-  static async getStockReceipt(id: string, companyId: string) {
+  static async getStockReceipt(
+    id: string,
+    companyId: string,
+    branchId?: string | null,
+  ) {
+    const where: any = { id, companyId: companyId };
+    if (branchId) {
+      where.branchId = branchId;
+    }
     const stock = await prisma.stockReceipts.findUnique({
-      where: { id, companyId: companyId },
+      where,
       include: {
         item: {
           include: {
@@ -368,6 +399,7 @@ export class StockService {
 
   static async getAllStock(
     req: Request,
+    branchId?: string | null,
     searchq?: string,
     limit?: number,
     page?: number,
@@ -394,17 +426,26 @@ export class StockService {
               },
             ],
           }
-        : { companyId };
+        : {};
+
+      const where: any = {
+        ...queryOptions,
+        companyId,
+      };
+
+      if (branchId) {
+        where.branchId = branchId;
+      }
 
       const skip = page && limit ? (page - 1) * limit : undefined;
       const take = limit;
 
       const totalItems = await prisma.stockReceipts.count({
-        where: queryOptions,
+        where,
       });
 
       const stock = await prisma.stockReceipts.findMany({
-        where: queryOptions,
+        where,
         skip,
         take,
         orderBy: {
@@ -458,6 +499,7 @@ export class StockService {
   private static async validateReferences(
     data: CreateStockDto,
     companyId: string,
+    branchId?: string | null,
   ): Promise<{
     itemId: string;
     supplierId: string;
@@ -465,14 +507,14 @@ export class StockService {
   }> {
     if (data.itemId) {
       const item = await prisma.items.findUnique({
-        where: { id: data.itemId, companyId },
+        where: { id: data.itemId, companyId, ...(branchId ? { branchId } : {}) },
       });
       if (!item) throw new AppError("Item not found", 404);
     }
 
     if (data.supplierId) {
       const supplier = await prisma.suppliers.findUnique({
-        where: { id: data.supplierId, companyId },
+        where: { id: data.supplierId, companyId, ...(branchId ? { branchId } : {}) },
       });
       if (!supplier) throw new AppError("Supplier not found", 404);
     }

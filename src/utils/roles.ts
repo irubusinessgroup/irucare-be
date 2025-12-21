@@ -8,6 +8,7 @@ export enum roles {
   MANAGER = "MANAGER",
   STAFF = "STAFF",
   CLIENT = "CLIENT",
+  BRANCH_ADMIN = "BRANCH_ADMIN",
 }
 
 export enum ClinicRole {

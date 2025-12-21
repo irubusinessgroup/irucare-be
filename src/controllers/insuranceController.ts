@@ -26,35 +26,44 @@ import { checkRole } from "../middlewares";
 @Tags("Insurance")
 export class InsuranceController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getAllInsurance(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     return InsuranceService.getAllInsurance(req, searchq, limit, page);
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public createInsurance(
     @Body() body: CreateInsuranceDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
-    return InsuranceService.createInsurance(body, companyId!);
+    const branchId = req.user?.branchId;
+    return InsuranceService.createInsurance(body, companyId!, branchId);
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public updateInsurance(@Path() id: string, @Body() body: UpdateInsuranceDto) {
-    return InsuranceService.updateInsurance(id, body);
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public updateInsurance(
+    @Path() id: string,
+    @Body() body: UpdateInsuranceDto,
+    @Request() req: ExpressRequest
+  ) {
+    const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
+    return InsuranceService.updateInsurance(id, body, companyId!, branchId);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public deleteInsurance(@Path() id: string) {
-    return InsuranceService.deleteInsurance(id);
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public deleteInsurance(@Path() id: string, @Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
+    return InsuranceService.deleteInsurance(id, companyId!, branchId);
   }
 }

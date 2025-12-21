@@ -8,9 +8,13 @@ export async function assertCompanyExists(companyId: string): Promise<void> {
   }
 }
 
-export async function getItemOrThrow(itemId: string, companyId: string) {
-  const item = await prisma.items.findUnique({
-    where: { id: itemId, companyId },
+export async function getItemOrThrow(
+  itemId: string,
+  companyId: string,
+  branchId?: string | null,
+) {
+  const item = await prisma.items.findFirst({
+    where: { id: itemId, companyId, ...(branchId ? { branchId } : {}) },
   });
   if (!item) {
     throw new AppError("Item not found or doesn't belong to your company", 404);
@@ -21,9 +25,10 @@ export async function getItemOrThrow(itemId: string, companyId: string) {
 export async function getSupplierOrThrow(
   supplierId: string,
   companyId: string,
+  branchId?: string | null,
 ) {
-  const supplier = await prisma.suppliers.findUnique({
-    where: { id: supplierId, companyId },
+  const supplier = await prisma.suppliers.findFirst({
+    where: { id: supplierId, companyId, ...(branchId ? { branchId } : {}) },
   });
   if (!supplier) {
     throw new AppError(
@@ -37,9 +42,10 @@ export async function getSupplierOrThrow(
 export async function getWarehouseOrThrow(
   warehouseId: string,
   companyId: string,
+  branchId?: string | null,
 ) {
-  const warehouse = await prisma.warehouse.findUnique({
-    where: { id: warehouseId, companyId },
+  const warehouse = await prisma.warehouse.findFirst({
+    where: { id: warehouseId, companyId, ...(branchId ? { branchId } : {}) },
   });
   if (!warehouse) {
     throw new AppError(

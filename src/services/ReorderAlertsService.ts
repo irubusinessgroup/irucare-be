@@ -109,10 +109,12 @@ export class ReorderAlertsService {
     }
 
     // Create new rule
+    const branchId = req.user?.branchId;
     const rule = await prisma.reorderRule.create({
       data: {
         itemId: data.itemId,
         companyId,
+        branchId: branchId as any,
         warehouseId: data.warehouseId,
         minLevel: data.minLevel,
         maxLevel: data.maxLevel,
@@ -154,7 +156,9 @@ export class ReorderAlertsService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const branchId = req.user?.branchId;
     const where: any = { companyId };
+    if (branchId) where.branchId = branchId;
     if (filters?.itemId) where.itemId = filters.itemId;
     if (filters?.warehouseId) where.warehouseId = filters.warehouseId;
 
@@ -193,6 +197,7 @@ export class ReorderAlertsService {
           stockReceipt: {
             itemId: rule.itemId,
             companyId,
+            ...((rule as any).branchId ? { branchId: (rule as any).branchId } : {}),
           },
           status: { in: ["AVAILABLE", "RESERVED"] },
         };
@@ -288,9 +293,10 @@ export class ReorderAlertsService {
       warehouseName?: string;
     }> = [];
 
+    const branchId = req.user?.branchId;
     // Get all reorder rules
     const rules = await prisma.reorderRule.findMany({
-      where: { companyId },
+      where: { companyId, ...(branchId ? { branchId } : {}) },
       include: {
         item: true,
         warehouse: true,
@@ -303,6 +309,7 @@ export class ReorderAlertsService {
         stockReceipt: {
           itemId: rule.itemId,
           companyId,
+          ...((rule as any).branchId ? { branchId: (rule as any).branchId } : {}),
         },
         status: { in: ["AVAILABLE", "RESERVED"] },
       };
@@ -336,6 +343,7 @@ export class ReorderAlertsService {
         await prisma.stockAlert.create({
           data: {
             companyId,
+            branchId: (rule as any).branchId,
             itemId: rule.itemId,
             warehouseId: rule.warehouseId,
             alertType: "LOW_STOCK",
@@ -344,7 +352,7 @@ export class ReorderAlertsService {
             threshold: rule.minLevel,
             message: `${rule.item.itemFullName} is at critically low stock: ${currentStock} units`,
             status: "ACTIVE",
-          },
+          } as any,
         });
       }
       // Check for reorder point
@@ -364,6 +372,7 @@ export class ReorderAlertsService {
         await prisma.stockAlert.create({
           data: {
             companyId,
+            branchId: (rule as any).branchId,
             itemId: rule.itemId,
             warehouseId: rule.warehouseId,
             alertType: "REORDER_POINT",
@@ -372,7 +381,7 @@ export class ReorderAlertsService {
             threshold: rule.reorderPoint,
             message: `${rule.item.itemFullName} has reached reorder point: ${currentStock} units`,
             status: "ACTIVE",
-          },
+          } as any,
         });
 
         // Auto-generate PO if enabled
@@ -397,6 +406,7 @@ export class ReorderAlertsService {
         await prisma.stockAlert.create({
           data: {
             companyId,
+            branchId: (rule as any).branchId,
             itemId: rule.itemId,
             warehouseId: rule.warehouseId,
             alertType: "OVER_STOCK",
@@ -405,7 +415,7 @@ export class ReorderAlertsService {
             threshold: rule.maxLevel,
             message: `${rule.item.itemFullName} is overstocked: ${currentStock} units`,
             status: "ACTIVE",
-          },
+          } as any,
         });
       }
     }
@@ -418,6 +428,7 @@ export class ReorderAlertsService {
     const expiringReceipts = await prisma.stockReceipts.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         expiryDate: {
           not: null,
           gt: now,
@@ -464,6 +475,7 @@ export class ReorderAlertsService {
       await prisma.stockAlert.create({
         data: {
           companyId,
+          branchId: (receipt as any).branchId,
           itemId: receipt.itemId,
           warehouseId: receipt.warehouseId,
           alertType: "EXPIRING_SOON",
@@ -471,7 +483,7 @@ export class ReorderAlertsService {
           message: `${receipt.item.itemFullName} expires in ${daysUntilExpiry} days`,
           expiryDate: receipt.expiryDate,
           status: "ACTIVE",
-        },
+        } as any,
       });
     }
 
@@ -517,7 +529,9 @@ export class ReorderAlertsService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const branchId = req.user?.branchId;
     const where: any = { companyId, status: "ACTIVE" };
+    if (branchId) where.branchId = branchId;
     if (filters?.alertType) where.alertType = filters.alertType;
     if (filters?.severity) where.severity = filters.severity;
     if (filters?.itemId) where.itemId = filters.itemId;
@@ -593,7 +607,7 @@ export class ReorderAlertsService {
    * Auto-generate purchase order when reorder point is reached
    */
   private static async autoGeneratePurchaseOrder(rule: any, companyId: string) {
-    const { PONumberGenerator } = await import("../utils/PONumberGenerator ");
+    const { PONumberGenerator } = await import("../utils/PONumberGenerator");
 
     const poNumber = await PONumberGenerator.generatePONumber(companyId);
 
@@ -607,6 +621,7 @@ export class ReorderAlertsService {
       data: {
         poNumber,
         companyId,
+        branchId: (rule as any).branchId,
         supplierId: rule.preferredSupplierId,
         notes: `Auto-generated PO: Stock below reorder point (${rule.reorderPoint})`,
         expectedDeliveryDate,
@@ -618,7 +633,7 @@ export class ReorderAlertsService {
             },
           ],
         },
-      },
+      } as any,
     });
   }
 }

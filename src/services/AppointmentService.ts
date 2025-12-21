@@ -27,7 +27,7 @@ interface WeekViewAppointment {
 export class AppointmentService {
   public static async createAppointment(
     data: CreateAppointmentDto,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     const userId = req.user?.id;
@@ -58,7 +58,7 @@ export class AppointmentService {
         data.providerId,
         new Date(data.scheduledDate),
         data.duration,
-        companyId,
+        companyId
       );
       if (conflict) throw new AppError("Time slot already booked", 409);
     }
@@ -104,7 +104,7 @@ export class AppointmentService {
     date: string,
     providerId: string | undefined,
     room: string | undefined,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -159,7 +159,7 @@ export class AppointmentService {
     startDate: string,
     providerId: string | undefined,
     room: string | undefined,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -215,7 +215,7 @@ export class AppointmentService {
     year: number,
     month: number,
     providerId: string | undefined,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -397,7 +397,7 @@ export class AppointmentService {
   public static async transferPatient(
     id: string,
     transferTo: string,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -438,7 +438,7 @@ export class AppointmentService {
     status?: string,
     providerId?: string,
     startDate?: string,
-    endDate?: string,
+    endDate?: string
   ) {
     try {
       const companyId = req.user?.company?.companyId;
@@ -446,7 +446,7 @@ export class AppointmentService {
 
       const searchOptions = QueryOptions(
         ["patient.name", "patient.phone", "patient.patientNO", "provider.name"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -507,7 +507,7 @@ export class AppointmentService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ) {
     try {
       const companyId = req.user?.company?.companyId;
@@ -520,7 +520,7 @@ export class AppointmentService {
 
       const searchOptions = QueryOptions(
         ["patient.name", "patient.phone", "patient.patientNO", "provider.name"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -568,7 +568,7 @@ export class AppointmentService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ) {
     try {
       const companyId = req.user?.company?.companyId;
@@ -580,7 +580,7 @@ export class AppointmentService {
 
       const searchOptions = QueryOptions(
         ["patient.name", "patient.phone", "patient.patientNO", "provider.name"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -629,7 +629,7 @@ export class AppointmentService {
     req: Request,
     searchq?: string,
     limit?: number,
-    currentPage?: number,
+    currentPage?: number
   ) {
     try {
       const companyId = req.user?.company?.companyId;
@@ -637,7 +637,7 @@ export class AppointmentService {
 
       const searchOptions = QueryOptions(
         ["patient.name", "patient.phone", "patient.patientNO", "provider.name"],
-        searchq,
+        searchq
       );
 
       const pagination = Paginations(currentPage, limit);
@@ -714,7 +714,7 @@ export class AppointmentService {
   public static async updateAppointment(
     id: string,
     data: UpdateAppointmentDto,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -737,7 +737,7 @@ export class AppointmentService {
         scheduledDate,
         duration,
         companyId,
-        id,
+        id
       );
       if (conflict) throw new AppError("Time slot conflict", 409);
     }
@@ -782,7 +782,7 @@ export class AppointmentService {
   public static async cancelAppointment(
     id: string,
     reason: string,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -840,7 +840,7 @@ export class AppointmentService {
   public static async completeAppointment(
     id: string,
     encounterId: string | undefined,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);
@@ -871,7 +871,7 @@ export class AppointmentService {
     scheduledDate: Date,
     duration: number,
     companyId: string,
-    excludeId?: string,
+    excludeId?: string
   ): Promise<boolean> {
     const endTime = new Date(scheduledDate.getTime() + duration * 60000);
 
@@ -895,7 +895,7 @@ export class AppointmentService {
     providerId: string,
     date: string,
     duration: number = 30,
-    req: Request,
+    req: Request
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) throw new AppError("Company ID is missing", 400);

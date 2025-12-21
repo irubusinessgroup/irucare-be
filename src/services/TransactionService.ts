@@ -10,6 +10,7 @@ export class TransactionService {
     page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
@@ -17,9 +18,13 @@ export class TransactionService {
     const whereClause = searchq
       ? {
           companyId,
+          ...(branchId ? { branchId } : {}),
           OR: [{ client: { name: { contains: searchq } } }],
         }
-      : { companyId };
+      : {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        };
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -49,12 +54,17 @@ export class TransactionService {
 
   public static async getTransactionById(id: string, req: Request) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
     const transaction = await prisma.transaction.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         client: true,
       },

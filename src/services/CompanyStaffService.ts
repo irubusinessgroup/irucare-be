@@ -266,6 +266,20 @@ export class CompanyStaffService {
       (company.industry || "").toLowerCase(),
     );
 
+    // Validate Branch Assignment
+    if (data.branchId) {
+      const branch = await prisma.branch.findUnique({
+        where: { id: data.branchId },
+      });
+      if (!branch) throw new AppError("The specified branch does not exist", 404);
+      if (branch.companyId !== companyId) {
+        throw new AppError(
+          "The specified branch does not belong to your company",
+          403,
+        );
+      }
+    }
+
     // Check if the role is a ClinicRole
     const isClinicRole = Object.values(ClinicRole).includes(data.role as any);
 
@@ -309,6 +323,7 @@ export class CompanyStaffService {
         idNumber: data.idNumber ?? "N/A",
         idAttachment:
           typeof data.idAttachment === "string" ? data.idAttachment : undefined,
+        branchId: data.branchId,
       },
     });
 
@@ -325,6 +340,20 @@ export class CompanyStaffService {
       const errors = await companyStaffValidations.onUpdate(id, data);
       if (errors[0]) {
         throw new ValidationError(errors);
+      }
+
+      // Validate Branch Assignment if provided
+      if (data.branchId) {
+        const branch = await prisma.branch.findUnique({
+          where: { id: data.branchId },
+        });
+        if (!branch) throw new AppError("The specified branch does not exist", 404);
+        if (branch.companyId !== companyId) {
+          throw new AppError(
+            "The specified branch does not belong to your company",
+            403,
+          );
+        }
       }
 
       const updatedCompanyStaff = await prisma.user.update({
@@ -346,6 +375,7 @@ export class CompanyStaffService {
             typeof data.idAttachment === "string"
               ? data.idAttachment
               : undefined,
+          branchId: data.branchId,
         },
       });
 

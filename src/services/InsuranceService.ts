@@ -11,16 +11,25 @@ export class InsuranceService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number,
+    page?: number
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
-    const queryOptions = searchq
-      ? { companyId, name: { contains: searchq } }
-      : { companyId };
+    const branchId = req.user?.branchId;
+    console.log(`[InsuranceService DEBUG] companyId: ${companyId}, branchId: ${branchId}`);
+    const queryOptions: any = searchq
+      ? {
+          companyId,
+          branchId: branchId || null, // Explicitly filter
+          name: { contains: searchq },
+        }
+      : {
+          companyId,
+          branchId: branchId || null, // Explicitly filter
+        };
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -46,6 +55,7 @@ export class InsuranceService {
   public static async createInsurance(
     data: CreateInsuranceDto,
     companyId: string,
+    branchId?: string | null
   ) {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
@@ -59,12 +69,30 @@ export class InsuranceService {
         description: data.description,
         address: data.address,
         companyId,
+        branchId: branchId as any,
       },
     });
     return { message: "Insurance created successfully", data: insurance };
   }
 
-  public static async updateInsurance(id: string, data: UpdateInsuranceDto) {
+  public static async updateInsurance(
+    id: string,
+    data: UpdateInsuranceDto,
+    companyId: string,
+    branchId?: string | null
+  ) {
+    const existingInsurance = await prisma.insurance.findFirst({
+      where: {
+        id,
+        companyId,
+        branchId: branchId || null,
+      },
+    });
+
+    if (!existingInsurance) {
+      throw new AppError("Insurance not found", 404);
+    }
+
     const insurance = await prisma.insurance.update({
       where: { id },
       data: {
@@ -79,7 +107,23 @@ export class InsuranceService {
     return { message: "Insurance updated successfully", data: insurance };
   }
 
-  public static async deleteInsurance(id: string) {
+  public static async deleteInsurance(
+    id: string,
+    companyId: string,
+    branchId?: string | null
+  ) {
+    const existingInsurance = await prisma.insurance.findFirst({
+      where: {
+        id,
+        companyId,
+        branchId: branchId || null,
+      },
+    });
+
+    if (!existingInsurance) {
+      throw new AppError("Insurance not found", 404);
+    }
+
     await prisma.insurance.delete({ where: { id } });
     return { message: "Insurance deleted successfully" };
   }

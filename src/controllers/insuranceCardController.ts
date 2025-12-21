@@ -26,38 +26,52 @@ import { checkRole } from "../middlewares";
 @Tags("Insurance Cards")
 export class InsuranceCardController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getAllInsuranceCards(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     return InsuranceCardService.getAllInsuranceCards(req, searchq, limit, page);
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public createInsuranceCard(
     @Body() body: CreateInsuranceCardDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
-    return InsuranceCardService.createInsuranceCard(body, companyId!);
+    const branchId = req.user?.branchId;
+    return InsuranceCardService.createInsuranceCard(body, companyId!, branchId);
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public updateInsuranceCard(
     @Path() id: string,
     @Body() body: UpdateInsuranceCardDto,
+    @Request() req: ExpressRequest
   ) {
-    return InsuranceCardService.updateInsuranceCard(id, body);
+    const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
+    return InsuranceCardService.updateInsuranceCard(
+      id,
+      body,
+      companyId!,
+      branchId
+    );
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public deleteInsuranceCard(@Path() id: string) {
-    return InsuranceCardService.deleteInsuranceCard(id);
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public deleteInsuranceCard(
+    @Path() id: string,
+    @Request() req: ExpressRequest
+  ) {
+    const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
+    return InsuranceCardService.deleteInsuranceCard(id, companyId!, branchId);
   }
 }

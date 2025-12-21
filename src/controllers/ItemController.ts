@@ -29,55 +29,63 @@ import { appendBarcodeQrCode } from "../middlewares/appendBarcodeQrCode";
 export class ItemController {
   @Post("/")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN),
+    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
     upload.any(),
-    appendBarcodeQrCode,
+    appendBarcodeQrCode
   )
   public async createItem(
     @Body() data: CreateItemDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId as string;
-    return ItemService.createItem(data, companyId);
+    const branchId = req.user?.branchId;
+    return ItemService.createItem(data, companyId, branchId);
   }
 
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public getItem(@Path() id: string) {
-    return ItemService.getItem(id);
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public getItem(@Path() id: string, @Request() req: ExpressRequest) {
+    const branchId = req.user?.branchId;
+    return ItemService.getItem(id, branchId);
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN), upload.any())
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN), upload.any())
   public updateItem(
     @Path() id: string,
     @Body() body: UpdateItemDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId as string;
-    return ItemService.updateItem(id, body, companyId);
+    const branchId = req.user?.branchId;
+    return ItemService.updateItem(id, body, companyId, branchId);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public deleteItem(@Path() id: string, @Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId as string;
-    return ItemService.deleteItem(id, companyId);
+    const branchId = req.user?.branchId;
+    return ItemService.deleteItem(id, companyId, branchId);
   }
 
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getAllItems(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
-    return ItemService.getItems(req, searchq, limit, page);
+    const branchId = req.user?.branchId;
+    return ItemService.getItems(req, searchq, limit, page, branchId);
   }
 
   @Post("/import")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN), uploadToMemory.single("file"))
+  @Middlewares(
+    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
+    uploadToMemory.single("file")
+  )
   public async importItems(@Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId as string;
     const file = req.file;
@@ -86,22 +94,23 @@ export class ItemController {
       throw new Error("No file uploaded");
     }
 
-    return ItemService.importItems(file, companyId);
+    const branchId = req.user?.branchId;
+    return ItemService.importItems(file, companyId, branchId);
   }
 
   @Get("/template/download")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async downloadTemplate(@Request() req: ExpressRequest): Promise<void> {
     const buffer = await ItemService.downloadTemplate(req);
 
     const res = req.res as ExpressResponse;
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=items-import-template.xlsx",
+      "attachment; filename=items-import-template.xlsx"
     );
 
     res.send(buffer);
@@ -113,9 +122,17 @@ export class ItemController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     const companyId = req.user?.company?.companyId as string;
-    return ItemService.getMedications(req, companyId, searchq, limit, page);
+    const branchId = req.user?.branchId;
+    return ItemService.getMedications(
+      req,
+      companyId,
+      searchq,
+      limit,
+      page,
+      branchId
+    );
   }
 }

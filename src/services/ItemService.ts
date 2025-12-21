@@ -99,6 +99,7 @@ export class ItemService {
   public static async importItems(
     file: Express.Multer.File,
     companyId: string,
+    branchId?: string | null,
   ) {
     try {
       // Ensure file buffer is available (requires memory storage)
@@ -229,6 +230,7 @@ export class ItemService {
       const { validItems, errors } = await this.validateItems(
         normalizedData,
         companyId,
+        branchId,
       );
 
       if (errors.length > 0) {
@@ -253,6 +255,7 @@ export class ItemService {
       const importedItems = await this.bulkCreateOrUpdateItems(
         validItems,
         companyId,
+        branchId,
       );
       // Remove DB duplicates after import
       await ItemService.removeDbDuplicates(companyId);
@@ -323,6 +326,7 @@ export class ItemService {
   private static async validateItems(
     data: ImportItemRow[],
     companyId: string,
+    branchId?: string | null,
   ): Promise<{ validItems: ImportItemRow[]; errors: ValidationError[] }> {
     const validItems: ImportItemRow[] = [];
     const errors: ValidationError[] = [];
@@ -434,11 +438,12 @@ export class ItemService {
   private static async bulkCreateOrUpdateItems(
     items: ImportItemRow[],
     companyId: string,
+    branchId?: string | null,
   ) {
     const importedItems = [];
     // Get all categories upfront
     const categories = await prisma.itemCategories.findMany({
-      where: { companyId },
+      where: { companyId, ...(branchId ? { branchId } : {}) },
     });
     const categoryMap = new Map(
       categories.map((c) => [c.categoryName.toLowerCase().trim(), c]),
@@ -453,6 +458,7 @@ export class ItemService {
             data: {
               categoryName: item.categoryName.trim(),
               companyId,
+              branchId,
             },
           });
           categoryMap.set(normalizedCategoryName, createdCategory);
@@ -465,6 +471,7 @@ export class ItemService {
             where: {
               productCode: String(item.productCode).trim(),
               companyId,
+              ...(branchId ? { branchId } : {}),
             },
           });
         }
@@ -506,6 +513,7 @@ export class ItemService {
               ...ItemService.normalizeTaxFields(item as unknown),
               insurancePrice: item.insurancePrice,
               companyId,
+              branchId,
             },
             include: {
               category: true,
@@ -663,7 +671,11 @@ export class ItemService {
     return buffer;
   }
 
-  public static async createItem(data: CreateItemDto, companyId: string) {
+  public static async createItem(
+    data: CreateItemDto,
+    companyId: string,
+    branchId?: string | null,
+  ) {
     const category = await prisma.itemCategories.findUnique({
       where: { id: data.categoryId },
     });
@@ -688,6 +700,7 @@ export class ItemService {
         insurancePrice: data.insurancePrice,
         itemCodeSku: itemCode,
         companyId: companyId,
+        branchId: branchId,
       },
       include: {
         category: true,
@@ -699,9 +712,13 @@ export class ItemService {
     return { message: "Item created successfully", data: item };
   }
 
-  public static async getItem(id: string) {
+  public static async getItem(id: string, branchId?: string | null) {
+    const where: any = { id };
+    if (branchId) {
+      where.branchId = branchId;
+    }
     const item = await prisma.items.findUnique({
-      where: { id },
+      where,
       include: {
         category: true,
         company: true,
@@ -730,9 +747,14 @@ export class ItemService {
     id: string,
     data: UpdateItemDto,
     companyId: string,
+    branchId?: string | null,
   ) {
+    const where: any = { id, companyId: companyId };
+    if (branchId) {
+      where.branchId = branchId;
+    }
     const item = await prisma.items.findUnique({
-      where: { id, companyId: companyId },
+      where,
       include: {
         category: true,
         company: true,
@@ -755,7 +777,7 @@ export class ItemService {
 
     const tax = ItemService.normalizeTaxFields(data as unknown);
     const updatedItem = await prisma.items.update({
-      where: { id, companyId: companyId },
+      where: { id },
       data: {
         ...data,
         isTaxable: tax.isTaxable,
@@ -777,9 +799,17 @@ export class ItemService {
     };
   }
 
-  public static async deleteItem(id: string, companyId: string) {
+  public static async deleteItem(
+    id: string,
+    companyId: string,
+    branchId?: string | null,
+  ) {
+    const where: any = { id, companyId: companyId };
+    if (branchId) {
+      where.branchId = branchId;
+    }
     const item = await prisma.items.findUnique({
-      where: { id, companyId: companyId },
+      where,
       include: { stockReceipts: true },
     });
 
@@ -805,6 +835,7 @@ export class ItemService {
     searchq?: string,
     limit?: number,
     page?: number,
+    branchId?: string | null,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -825,13 +856,22 @@ export class ItemService {
             // { brandManufacturer: { contains: searchq } },
           ],
         }
-      : { companyId };
+      : {};
+
+    const where: any = {
+      ...queryOptions,
+      companyId,
+    };
+
+    if (branchId) {
+      where.branchId = branchId;
+    }
 
     const skip = (pageNum - 1) * limitNum;
     const take = limitNum;
 
     const items = await prisma.items.findMany({
-      where: queryOptions,
+      where,
       include: {
         category: true,
         company: true,
@@ -852,7 +892,7 @@ export class ItemService {
       orderBy: { createdAt: "desc" },
     });
 
-    const totalItems = await prisma.items.count({ where: queryOptions });
+    const totalItems = await prisma.items.count({ where });
 
     return {
       data: items.map((item) => {
@@ -888,16 +928,18 @@ export class ItemService {
       },
       orderBy: { createdAt: "asc" },
     });
-    // Group by productCode
-    const codeMap = new Map<string, Array<(typeof duplicates)[0]>>();
+    // Group by [productCode, branchId]
+    const groupMap = new Map<string, Array<(typeof duplicates)[0]>>();
     for (const item of duplicates) {
       const code = String(item.productCode).trim();
+      const bid = item.branchId || "COMPANY";
+      const key = `${code}|${bid}`;
       if (!code) continue;
-      if (!codeMap.has(code)) codeMap.set(code, []);
-      codeMap.get(code)!.push(item);
+      if (!groupMap.has(key)) groupMap.set(key, []);
+      groupMap.get(key)!.push(item);
     }
     // For each group, delete all but the first
-    for (const items of codeMap.values()) {
+    for (const items of groupMap.values()) {
       if (items.length > 1) {
         const toDelete = items.slice(1).map((i) => i.id);
         await prisma.items.deleteMany({
@@ -917,6 +959,7 @@ export class ItemService {
     searchq?: string,
     limit?: number,
     page?: number,
+    branchId?: string | null,
   ) {
     const pageNum = Number(page) > 0 ? Number(page) : 1;
     const limitNum = Number(limit) > 0 ? Number(limit) : 15;
@@ -939,6 +982,7 @@ export class ItemService {
 
     const where: Record<string, unknown> = {
       companyId,
+      branchId: branchId ?? null,
       deletedAt: null,
     };
 

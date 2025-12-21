@@ -94,6 +94,7 @@ export class UserService extends BaseService {
             id: userData.id,
             email: userData.email,
             userRoles: allRoles,
+            branchId: userData.company?.branchId,
           },
           process.env.JWT_SECRET!,
         );
@@ -113,6 +114,7 @@ export class UserService extends BaseService {
             id: userData.id,
             roles: allRoles,
             photo: userData.photo,
+            branchId: userData.company?.branchId,
             industry,
           },
         };

@@ -6,7 +6,7 @@ export type StockSelectStrategy = "FIFO" | "LIFO";
 
 export async function countAvailableStock(
   tx: Tx,
-  params: { itemIds: string[] | string; companyId: string },
+  params: { itemIds: string[] | string; companyId: string; branchId?: string | null },
 ): Promise<number> {
   const itemIds = Array.isArray(params.itemIds)
     ? params.itemIds
@@ -14,7 +14,11 @@ export async function countAvailableStock(
   if (itemIds.length === 0) return 0;
   return tx.stock.count({
     where: {
-      stockReceipt: { itemId: { in: itemIds }, companyId: params.companyId },
+      stockReceipt: {
+        itemId: { in: itemIds },
+        companyId: params.companyId,
+        ...(params.branchId ? { branchId: params.branchId } : {}),
+      },
       status: "AVAILABLE",
     },
   });
@@ -25,6 +29,7 @@ export async function selectAvailableStock(
   params: {
     itemIds: string[] | string;
     companyId: string;
+    branchId?: string | null;
     take: number;
     strategy?: StockSelectStrategy;
   },
@@ -49,7 +54,11 @@ export async function selectAvailableStock(
 
   const stocks = await tx.stock.findMany({
     where: {
-      stockReceipt: { itemId: { in: itemIds }, companyId: params.companyId },
+      stockReceipt: {
+        itemId: { in: itemIds },
+        companyId: params.companyId,
+        ...(params.branchId ? { branchId: params.branchId } : {}),
+      },
       status: "AVAILABLE",
     },
     select: { id: true },
@@ -119,6 +128,7 @@ export async function createBuyerStockFromDeliveryItem(
     delivery: {
       id: string;
       buyerCompanyId: string;
+      branchId?: string | null;
       purchaseOrderId: string | null;
       supplierCompanyId: string;
     };
@@ -145,6 +155,7 @@ export async function createBuyerStockFromDeliveryItem(
       purchaseOrderItemId: params.deliveryItem.purchaseOrderItemId,
       supplierId: null,
       companyId: params.delivery.buyerCompanyId,
+      branchId: params.delivery.branchId ?? null,
       dateReceived: new Date(),
       quantityReceived: params.quantityReceived,
       unitCost: params.unitCost,

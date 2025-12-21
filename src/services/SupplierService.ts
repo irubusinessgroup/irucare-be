@@ -14,6 +14,7 @@ export class SupplierService {
   static async createSupplier(
     data: CreateSupplierRequest,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<SupplierResponse>> {
     await assertCompanyExists(companyId);
     // Normalize optional foreign keys to avoid empty-string FK violations
@@ -47,6 +48,7 @@ export class SupplierService {
         ...data,
         supplierCompanyId: normalizedSupplierCompanyId,
         companyId: companyId,
+        branchId: branchId,
       },
       include: {
         company: true,
@@ -70,9 +72,15 @@ export class SupplierService {
   static async getSupplier(
     id: string,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<SupplierResponse>> {
+    const where: any = { id, companyId: companyId };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const supplier = await prisma.suppliers.findUnique({
-      where: { id, companyId: companyId },
+      where,
       include: {
         company: true,
         supplierCompany: {
@@ -99,6 +107,8 @@ export class SupplierService {
   static async updateSupplier(
     id: string,
     data: UpdateSupplierRequest,
+    companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<SupplierResponse>> {
     // Normalize optional foreign keys
     const normalizedSupplierCompanyId =
@@ -108,8 +118,12 @@ export class SupplierService {
       await assertCompanyExists(normalizedSupplierCompanyId);
     }
 
-    const existingSupplier = await prisma.suppliers.findUnique({
-      where: { id },
+    const existingSupplier = await prisma.suppliers.findFirst({
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: { company: true },
     });
 
@@ -143,9 +157,17 @@ export class SupplierService {
     };
   }
 
-  static async deleteSupplier(id: string): Promise<void> {
-    const supplier = await prisma.suppliers.findUnique({
-      where: { id },
+  static async deleteSupplier(
+    id: string,
+    companyId: string,
+    branchId?: string | null,
+  ): Promise<void> {
+    const supplier = await prisma.suppliers.findFirst({
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         stockReceipts: true,
       },
@@ -169,6 +191,7 @@ export class SupplierService {
 
   static async getSuppliers(
     companyId: string,
+    branchId?: string | null,
     searchq?: string,
     limit?: number,
     currentPage?: number,
@@ -185,6 +208,7 @@ export class SupplierService {
         where: {
           ...searchOptions,
           companyId: companyId,
+          ...(branchId ? { branchId } : {}),
         },
         ...pagination,
         orderBy: { createdAt: "desc" },
@@ -192,7 +216,11 @@ export class SupplierService {
       });
 
       const totalItems = await prisma.suppliers.count({
-        where: { companyId: companyId, ...searchOptions },
+        where: {
+          companyId: companyId,
+          ...searchOptions,
+          ...(branchId ? { branchId } : {}),
+        },
       });
 
       return {

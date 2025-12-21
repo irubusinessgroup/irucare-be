@@ -1,13 +1,14 @@
 import { prisma } from "../utils/client";
 import { IResponse } from "../utils/interfaces/common";
 import AppError from "../utils/error";
-import { PONumberGenerator } from "../utils/PONumberGenerator ";
+import { PONumberGenerator } from "../utils/PONumberGenerator";
 import type { Request } from "express";
 
 type AuthRequest = Request & {
   user?: {
     id?: string;
     company?: { companyId?: string };
+    branchId?: string | null;
   };
 };
 export class DashboardService {
@@ -20,9 +21,14 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
+
       // Get total items count
       const totalItems = await prisma.items.count({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       });
 
       // Get active shipments (deliveries with PENDING, IN_TRANSIT, DISPATCHED status)
@@ -32,23 +38,41 @@ export class DashboardService {
           status: {
             in: ["PENDING", "IN_TRANSIT"],
           },
+          // Note: deliveries might need branchId if they were updated to have it
+          ...(branchId ? { branchId } : {}),
         },
       });
 
       // Get reorder alerts (items where current stock < minLevel)
-      const reorderAlerts = await this.getReorderAlertsCount(companyId);
+      const reorderAlerts = await this.getReorderAlertsCount(
+        companyId,
+        branchId,
+      );
 
       // Get efficiency (on-time deliveries percentage)
-      const efficiency = await this.calculateDeliveryEfficiency(companyId);
+      const efficiency = await this.calculateDeliveryEfficiency(
+        companyId,
+        branchId,
+      );
 
       // Get total value (sum of current stock * avg unit cost)
-      const totalValue = await this.calculateTotalInventoryValue(companyId);
+      const totalValue = await this.calculateTotalInventoryValue(
+        companyId,
+        branchId,
+      );
 
       // Get low stock items count
-      const lowStockItems = await this.getLowStockItemsCount(companyId);
+      const lowStockItems = await this.getLowStockItemsCount(
+        companyId,
+        undefined,
+        branchId,
+      );
 
       // Get expiring items count (expiring within 30 days)
-      const expiringItems = await this.getExpiringItemsCount(companyId);
+      const expiringItems = await this.getExpiringItemsCount(
+        companyId,
+        branchId,
+      );
 
       // Get monthly growth percentage
       const monthlyGrowth = await this.calculateMonthlyGrowth(companyId);
@@ -81,14 +105,19 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get categories with their items and stock information
       const categories = await prisma.itemCategories.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           items: {
             include: {
               stockReceipts: {
                 where: {
+                  ...(branchId ? { branchId } : {}),
                   OR: [
                     { approvals: { some: { approvalStatus: "APPROVED" } } },
                     { receiptType: "DIRECT_ADDITION" },
@@ -175,13 +204,18 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get items that need reordering
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -283,10 +317,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get recent deliveries
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
         include: {
           deliveryItems: {
@@ -381,6 +417,7 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const trends: unknown[] = [];
       const now = new Date();
 
@@ -404,6 +441,7 @@ export class DashboardService {
         const items = await prisma.items.findMany({
           where: {
             companyId,
+            ...(branchId ? { branchId } : {}),
             createdAt: { lte: endDate },
           },
           include: {
@@ -445,6 +483,7 @@ export class DashboardService {
         const incomingShipments = await prisma.delivery.count({
           where: {
             buyerCompanyId: companyId,
+            ...(branchId ? { branchId } : {}),
             status: "DELIVERED",
             actualDeliveryDate: {
               gte: startDate,
@@ -457,6 +496,7 @@ export class DashboardService {
         const outgoingShipments = await prisma.delivery.count({
           where: {
             supplierCompanyId: companyId,
+            ...(branchId ? { branchId } : {}),
             status: "DELIVERED",
             actualDeliveryDate: {
               gte: startDate,
@@ -469,6 +509,7 @@ export class DashboardService {
         const lowStockAlerts = await this.getLowStockItemsCount(
           companyId,
           endDate,
+          branchId,
         );
 
         trends.push({
@@ -495,12 +536,14 @@ export class DashboardService {
   // Helper methods
   private static async getReorderAlertsCount(
     companyId: string,
+    branchId?: string | null,
   ): Promise<number> {
     const items = await prisma.items.findMany({
-      where: { companyId },
+      where: { companyId, ...(branchId ? { branchId } : {}) },
       include: {
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -525,10 +568,12 @@ export class DashboardService {
 
   private static async calculateDeliveryEfficiency(
     companyId: string,
+    branchId?: string | null,
   ): Promise<number> {
     const deliveries = await prisma.delivery.findMany({
       where: {
         OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+        ...(branchId ? { branchId } : {}),
         status: "DELIVERED",
       },
       select: {
@@ -554,12 +599,14 @@ export class DashboardService {
 
   private static async calculateTotalInventoryValue(
     companyId: string,
+    branchId?: string | null,
   ): Promise<number> {
     const items = await prisma.items.findMany({
-      where: { companyId },
+      where: { companyId, ...(branchId ? { branchId } : {}) },
       include: {
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -593,15 +640,18 @@ export class DashboardService {
   private static async getLowStockItemsCount(
     companyId: string,
     beforeDate?: Date,
+    branchId?: string | null,
   ): Promise<number> {
     const items = await prisma.items.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         ...(beforeDate && { createdAt: { lte: beforeDate } }),
       },
       include: {
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             ...(beforeDate && { dateReceived: { lte: beforeDate } }),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
@@ -627,6 +677,7 @@ export class DashboardService {
 
   private static async getExpiringItemsCount(
     companyId: string,
+    branchId?: string | null,
   ): Promise<number> {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
@@ -634,6 +685,7 @@ export class DashboardService {
     const stockReceipts = await prisma.stockReceipts.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         expiryDate: {
           lte: thirtyDaysFromNow,
           gte: new Date(),
@@ -783,9 +835,11 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const stockReceipts = await prisma.stockReceipts.findMany({
         where: {
           companyId,
+          ...(branchId ? { branchId } : {}),
           OR: [
             { approvals: { some: { approvalStatus: "APPROVED" } } },
             { receiptType: "DIRECT_ADDITION" },
@@ -856,12 +910,17 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -988,13 +1047,18 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const categories = await prisma.itemCategories.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           items: {
             include: {
               stockReceipts: {
                 where: {
+                  ...(branchId ? { branchId } : {}),
                   OR: [
                     { approvals: { some: { approvalStatus: "APPROVED" } } },
                     { receiptType: "DIRECT_ADDITION" },
@@ -1062,10 +1126,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get storage locations from stock receipts
       const stockReceipts = await prisma.stockReceipts.findMany({
         where: {
           companyId,
+          ...(branchId ? { branchId } : {}),
           OR: [
             { approvals: { some: { approvalStatus: "APPROVED" } } },
             { receiptType: "DIRECT_ADDITION" },
@@ -1130,12 +1196,17 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -1261,12 +1332,17 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -1392,12 +1468,18 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
+
       // Get suppliers with their items that need reordering
       const suppliers = await prisma.suppliers.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -1523,11 +1605,13 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
-      // Validate item exists and belongs to company
+      const branchId = req.user?.branchId;
+      // Validate item exists and belongs to company/branch
       const item = await prisma.items.findFirst({
         where: {
           id: data.itemId,
           companyId,
+          ...(branchId ? { branchId } : {}),
         },
       });
 
@@ -1535,11 +1619,12 @@ export class DashboardService {
         throw new AppError("Item not found", 404);
       }
 
-      // Validate supplier exists and belongs to company
+      // Validate supplier exists and belongs to company/branch
       const supplier = await prisma.suppliers.findFirst({
         where: {
           id: data.supplierId,
           companyId,
+          ...(branchId ? { branchId } : {}),
         },
       });
 
@@ -1554,6 +1639,7 @@ export class DashboardService {
         data: {
           poNumber,
           companyId,
+          branchId: branchId as any,
           supplierId: data.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
           notes: `Reorder request for ${item.itemFullName} - Priority: ${data.priority}`,
@@ -1594,9 +1680,11 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const deliveries = await prisma.delivery.findMany({
         where: {
           buyerCompanyId: companyId,
+          ...(branchId ? { branchId: branchId } : {}),
         },
         include: {
           deliveryItems: {
@@ -1725,9 +1813,11 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const deliveries = await prisma.delivery.findMany({
         where: {
           supplierCompanyId: companyId,
+          ...(branchId ? { branchId: branchId } : {}),
         },
         include: {
           deliveryItems: {
@@ -1879,10 +1969,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
-      // Get all deliveries for the company
+      const branchId = req.user?.branchId;
+      // Get all deliveries for the company/branch
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
           status: "DELIVERED",
         },
         select: {
@@ -1977,6 +2069,7 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get recent delivery tracking entries
       const trackingEntries = await prisma.deliveryTracking.findMany({
         where: {
@@ -1985,6 +2078,7 @@ export class DashboardService {
               { supplierCompanyId: companyId },
               { buyerCompanyId: companyId },
             ],
+            ...(branchId ? { branchId } : {}),
           },
         },
         include: {
@@ -2019,13 +2113,13 @@ export class DashboardService {
 
         if (entry.status === "DELIVERED") {
           type = "success";
-          message = `${entry.delivery.deliveryNumber} delivered successfully`;
+          message = `${(entry as any).delivery?.deliveryNumber || entry.deliveryId} delivered successfully`;
         } else if (entry.status === "IN_TRANSIT") {
           type = "info";
-          message = `${entry.delivery.deliveryNumber} is in transit`;
+          message = `${(entry as any).delivery?.deliveryNumber || entry.deliveryId} is in transit`;
         } else if (entry.status === "CANCELLED") {
           type = "error";
-          message = `${entry.delivery.deliveryNumber} was cancelled`;
+          message = `${(entry as any).delivery?.deliveryNumber || entry.deliveryId} was cancelled`;
         }
 
         return {
@@ -2033,7 +2127,8 @@ export class DashboardService {
           time: timeAgo,
           message,
           type,
-          shipmentId: entry.delivery.deliveryNumber,
+          shipmentId:
+            (entry as any).delivery?.deliveryNumber || entry.deliveryId,
           userId: entry.updatedById,
         };
       });
@@ -2057,10 +2152,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get deliveries grouped by carrier
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
         select: {
           courierService: true,
@@ -2167,10 +2264,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get all delivery charges
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
         select: {
           deliveryCharges: true,
@@ -2256,6 +2355,7 @@ export class DashboardService {
         });
         const year = startDate.getFullYear();
 
+        const branchId = req.user?.branchId;
         // Get deliveries for this month
         const deliveries = await prisma.delivery.findMany({
           where: {
@@ -2263,6 +2363,7 @@ export class DashboardService {
               { supplierCompanyId: companyId },
               { buyerCompanyId: companyId },
             ],
+            ...(branchId ? { branchId } : {}),
             createdAt: {
               gte: startDate,
               lte: endDate,
@@ -2336,11 +2437,13 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Find the delivery
       const delivery = await prisma.delivery.findFirst({
         where: {
           deliveryNumber: shipmentId,
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
       });
 

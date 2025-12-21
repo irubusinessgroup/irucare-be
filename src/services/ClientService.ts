@@ -11,6 +11,7 @@ export class ClientService {
     page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
@@ -18,13 +19,17 @@ export class ClientService {
     const queryOptions = searchq
       ? {
           companyId,
+          ...(branchId ? { branchId } : {}),
           OR: [
             { name: { contains: searchq } },
             { email: { contains: searchq } },
             { phone: { contains: searchq } },
           ],
         }
-      : { companyId };
+      : {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        };
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -58,12 +63,17 @@ export class ClientService {
 
   public static async getClientById(id: string, req: Request) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
     const client = await prisma.client.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         sells: {
           include: {
@@ -90,7 +100,11 @@ export class ClientService {
     };
   }
 
-  public static async createClient(data: CreateClientDto, companyId: string) {
+  public static async createClient(
+    data: CreateClientDto,
+    companyId: string,
+    branchId?: string | null,
+  ) {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
@@ -99,6 +113,7 @@ export class ClientService {
       where: {
         phone: data.phone,
         companyId,
+        branchId,
       },
     });
 
@@ -110,6 +125,7 @@ export class ClientService {
       data: {
         ...data,
         companyId,
+        branchId,
       },
     });
 
@@ -122,12 +138,17 @@ export class ClientService {
     req: Request,
   ) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
     const existingClient = await prisma.client.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existingClient) {
@@ -139,6 +160,7 @@ export class ClientService {
         where: {
           phone: data.phone,
           companyId,
+          ...(branchId ? { branchId } : {}),
           id: { not: id },
         },
       });
@@ -158,12 +180,17 @@ export class ClientService {
 
   public static async deleteClient(id: string, req: Request) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
     const existingClient = await prisma.client.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existingClient) {

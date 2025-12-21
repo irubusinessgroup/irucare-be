@@ -21,7 +21,11 @@ import { checkRole } from "../middlewares";
 import { roles } from "../utils/roles";
 
 type AuthRequest = ExpressRequest & {
-  user?: { company?: { companyId?: string } };
+  user?: {
+    id?: string;
+    company?: { companyId?: string };
+    branchId?: string | null;
+  };
 };
 
 @Security("jwt")
@@ -29,68 +33,68 @@ type AuthRequest = ExpressRequest & {
 @Tags("Purchase Order Processing")
 export class OrderProcessingController {
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public create(
     @Body() body: CreateProcessingEntryDto,
-    @Request() req: AuthRequest,
+    @Request() req: AuthRequest
   ) {
     const io = req.app.get("io");
     return OrderProcessingService.createUpdateProcessingDraft(body, req, io);
   }
 
   @Get("/performa")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getRecivedPerforma(@Request() req: AuthRequest) {
     return OrderProcessingService.getSupplierPerforma(req);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public delete(@Path() id: string, @Request() req: AuthRequest) {
     return OrderProcessingService.deleteProcessingEntry(id, req);
   }
 
   @Put("/{id}/complete")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public complete(@Path() id: string, @Request() req: AuthRequest) {
     const io = req.app.get("io");
     return OrderProcessingService.completeAndSend(id, req, io);
   }
 
   @Put("/po/{poNumber}/approve")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public approveItems(
     @Path() poNumber: string,
     @Body() body: ApproveItemsDto,
-    @Request() req: AuthRequest,
+    @Request() req: AuthRequest
   ) {
     const io = req.app.get("io");
     return OrderProcessingService.approveItems(poNumber, body, req, io);
   }
 
   @Get("/client/performa")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getClientPerforma(@Request() req: AuthRequest) {
     return OrderProcessingService.getClientPerforma(req);
   }
 
   @Get("/supplier/performa")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getSupplierPerforma(@Request() req: AuthRequest) {
     return OrderProcessingService.getSupplierPerforma(req);
   }
 
   @Get("/po/{poNumber}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getOrderByPONumber(
     @Path() poNumber: string,
-    @Request() req: AuthRequest,
+    @Request() req: AuthRequest
   ) {
     return OrderProcessingService.getOrdersByPONumber(poNumber, req);
   }
 
   @Get("/processed-items")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getProcessedItems(@Request() req: AuthRequest) {
     return OrderProcessingService.getProcessedItems(req);
   }

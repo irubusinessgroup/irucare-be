@@ -29,11 +29,14 @@ export class InventoryService {
         }
       : {};
 
+    const branchId = req.user?.branchId;
     const items = await prisma.items.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         stockReceipts: {
           some: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -52,6 +55,7 @@ export class InventoryService {
         },
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -231,11 +235,14 @@ export class InventoryService {
         }
       : {};
 
+    const branchId = req.user?.branchId;
     const items = await prisma.items.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         stockReceipts: {
           some: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -259,6 +266,7 @@ export class InventoryService {
         },
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -432,11 +440,14 @@ export class InventoryService {
         }
       : {};
 
+    const branchId = req.user?.branchId;
     const items = await prisma.items.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         stockReceipts: {
           some: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -459,6 +470,7 @@ export class InventoryService {
         },
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -653,10 +665,12 @@ export class InventoryService {
 
     const totalCost = stockData.unitCost * stockData.quantityReceived;
 
+    const branchId = req.user?.branchId;
     const stockReceipt = await prisma.stockReceipts.create({
       data: {
         itemId: stockData.itemId,
         companyId: companyId,
+        branchId: branchId as any,
         supplierId: stockData.supplierId,
         dateReceived: stockData.dateReceived,
         expiryDate: stockData.expiryDate,
@@ -773,6 +787,7 @@ export class InventoryService {
     file: Express.Multer.File,
     companyId: string,
     userId: string,
+    branchId?: string | null,
   ) {
     if (!file || !file.buffer) {
       throw new AppError(
@@ -939,6 +954,7 @@ export class InventoryService {
     const existingItems = await prisma.items.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         itemFullName: { in: uniqueItemNames, mode: "insensitive" },
       },
       select: { id: true, itemFullName: true },
@@ -958,6 +974,7 @@ export class InventoryService {
     let generalCategory = await prisma.itemCategories.findFirst({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         categoryName: { equals: "General", mode: "insensitive" },
       },
     });
@@ -967,6 +984,7 @@ export class InventoryService {
         data: {
           categoryName: "General",
           companyId,
+          branchId: branchId as any,
           description: "Default category for imported items",
         },
       });
@@ -993,6 +1011,7 @@ export class InventoryService {
               itemFullName: repRow!.itemName, // Use original casing
               categoryId,
               companyId,
+              branchId: branchId as any,
               itemCodeSku: itemCode,
               minLevel: 10,
               maxLevel: 100,
@@ -1033,6 +1052,7 @@ export class InventoryService {
                 data: {
                   itemId,
                   companyId,
+                  branchId: branchId as any,
                   dateReceived: new Date(),
                   quantityReceived: row.quantity,
                   unitCost: row.unitCost,

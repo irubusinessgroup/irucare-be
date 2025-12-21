@@ -27,20 +27,26 @@ export class ItemCategoriesController {
   @Security("jwt")
   public async createCategory(
     @Body() data: CreateCategoryRequest,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IResponse<CategoryResponse>> {
     const companyId = req.user?.company?.companyId as string;
-    return ItemCategoriesService.createCategory(data, companyId);
+    const branchId = req.user?.branchId;
+    return ItemCategoriesService.createCategory(data, companyId, branchId);
   }
 
   @Get("/{categoryId}")
   @Security("jwt")
   public async getCategoryById(
     @Path() categoryId: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IResponse<CategoryResponse>> {
     const companyId = req.user?.company?.companyId as string;
-    return ItemCategoriesService.getCategoryById(categoryId, companyId);
+    const branchId = req.user?.branchId;
+    return ItemCategoriesService.getCategoryById(
+      categoryId,
+      companyId,
+      branchId
+    );
   }
 
   @Put("/{categoryId}")
@@ -48,37 +54,50 @@ export class ItemCategoriesController {
   public async updateCategory(
     @Path() categoryId: string,
     @Body() data: UpdateCategoryRequest,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IResponse<CategoryResponse>> {
     const companyId = req.user?.company?.companyId as string;
-    return ItemCategoriesService.updateCategory(categoryId, data, companyId);
+    const branchId = req.user?.branchId;
+    return ItemCategoriesService.updateCategory(
+      categoryId,
+      data,
+      companyId,
+      branchId
+    );
   }
 
   @Delete("/{categoryId}")
   @Security("jwt")
   public async deleteCategory(
     @Path() categoryId: string,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId as string;
-    return ItemCategoriesService.deleteCategory(categoryId, companyId);
+    const branchId = req.user?.branchId;
+    return ItemCategoriesService.deleteCategory(
+      categoryId,
+      companyId,
+      branchId
+    );
   }
 
   @Get("/")
   @Security("jwt")
   public async getCategories(
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ): Promise<IPaged<CategoryResponse[]>> {
     const { searchq, limit, page } = req.query as Record<string, string>;
     const currentPage = page ? parseInt(page as string, 10) : undefined;
     const parsedLimit = limit ? parseInt(limit as string, 10) : undefined;
     const companyId = req.user?.company?.companyId as string;
+    const branchId = req.user?.branchId;
 
     return ItemCategoriesService.getCategories(
       companyId,
+      branchId,
       (searchq as string) || undefined,
       parsedLimit,
-      currentPage,
+      currentPage
     );
   }
 }
