@@ -21,6 +21,7 @@ export class EncounterService {
     filters?: EncounterFilters,
   ): Promise<IPaged<unknown[]>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const pageNum = Number(page) > 0 ? Number(page) : 1;
@@ -46,8 +47,9 @@ export class EncounterService {
       }
     }
 
-    const where = {
+    const where: any = {
       companyId,
+      ...(branchId ? { branchId } : {}),
       patientId: filters?.patientId,
       providerId: filters?.providerId,
       appointmentId: filters?.appointmentId,
@@ -106,10 +108,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const encounter = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         patient: true,
         provider: true,
@@ -171,15 +178,24 @@ export class EncounterService {
   ): Promise<IResponse<unknown>> {
     const userId = req.user?.id;
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!userId || !companyId) throw new AppError("Not Authorized", 401);
 
     // Verify patient and provider belong to company
     const [patient, provider] = await Promise.all([
       prisma.patient.findFirst({
-        where: { id: dto.patientId, companyId },
+        where: {
+          id: dto.patientId,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       }),
       prisma.provider.findFirst({
-        where: { id: dto.providerId, companyId },
+        where: {
+          id: dto.providerId,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       }),
     ]);
 
@@ -196,12 +212,13 @@ export class EncounterService {
         providerId: dto.providerId,
         appointmentId: dto.appointmentId,
         companyId,
+        branchId: branchId as any,
         visitType: dto.visitType || "OUTPATIENT",
         visitNumber,
         scheduledTime: dto.scheduledTime ? new Date(dto.scheduledTime) : null,
         status: "SCHEDULED",
         createdBy: userId,
-      },
+      } as any,
       include: {
         patient: true,
         provider: true,
@@ -224,10 +241,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const existing = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existing) throw new AppError("Encounter not found", 404);
@@ -267,10 +289,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const encounter = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!encounter) throw new AppError("Encounter not found", 404);
@@ -302,10 +329,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const encounter = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!encounter) throw new AppError("Encounter not found", 404);
@@ -336,10 +368,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const encounter = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!encounter) throw new AppError("Encounter not found", 404);
@@ -370,10 +407,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<unknown>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const encounter = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!encounter) throw new AppError("Encounter not found", 404);
@@ -406,10 +448,15 @@ export class EncounterService {
     req: Request,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const existing = await prisma.encounter.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
     });
 
     if (!existing) throw new AppError("Encounter not found", 404);
@@ -440,6 +487,7 @@ export class EncounterService {
     limit?: number,
   ) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) throw new AppError("Company ID required", 400);
 
     const pageNum = Number(page) > 0 ? Number(page) : 1;
@@ -448,6 +496,7 @@ export class EncounterService {
 
     const where = {
       companyId,
+      ...(branchId ? { branchId } : {}),
       patientId,
       status: { in: [EncounterStatus.COMPLETED, EncounterStatus.IN_PROGRESS] },
     };

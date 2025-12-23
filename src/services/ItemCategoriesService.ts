@@ -13,6 +13,7 @@ export class ItemCategoriesService {
   static async createCategory(
     data: CreateCategoryRequest,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<CategoryResponse>> {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -38,6 +39,7 @@ export class ItemCategoriesService {
         categoryName: data.categoryName,
         description: data.description,
         companyId: companyId,
+        branchId: branchId,
       },
     });
 
@@ -51,12 +53,18 @@ export class ItemCategoriesService {
   static async getCategoryById(
     categoryId: string,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<CategoryResponse>> {
+    const where: any = {
+      id: categoryId,
+      companyId: companyId,
+    };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const category = await prisma.itemCategories.findFirst({
-      where: {
-        id: categoryId,
-        companyId: companyId,
-      },
+      where,
     });
 
     if (!category) {
@@ -74,12 +82,18 @@ export class ItemCategoriesService {
     categoryId: string,
     data: UpdateCategoryRequest,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<CategoryResponse>> {
+    const where: any = {
+      id: categoryId,
+      companyId: companyId,
+    };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const existingCategory = await prisma.itemCategories.findFirst({
-      where: {
-        id: categoryId,
-        companyId: companyId,
-      },
+      where,
     });
 
     if (!existingCategory) {
@@ -121,11 +135,13 @@ export class ItemCategoriesService {
   static async deleteCategory(
     categoryId: string,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<null>> {
     const category = await prisma.itemCategories.findFirst({
       where: {
         id: categoryId,
         companyId: companyId,
+        ...(branchId ? { branchId } : {}),
       },
       include: { items: true },
     });
@@ -150,6 +166,7 @@ export class ItemCategoriesService {
 
   static async getCategories(
     companyId: string,
+    branchId?: string | null,
     searchq?: string,
     limit?: number,
     currentPage?: number,
@@ -166,13 +183,18 @@ export class ItemCategoriesService {
         where: {
           ...searchOptions,
           companyId: companyId,
+          ...(branchId ? { branchId } : {}),
         },
         ...pagination,
         orderBy: { categoryName: "asc" },
       });
 
       const totalItems = await prisma.itemCategories.count({
-        where: searchOptions,
+        where: {
+          ...searchOptions,
+          companyId: companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       });
 
       // const data = categories.map((category) =>

@@ -7,7 +7,7 @@ import { verifyToken } from "./jwt";
 
 export const expressAuthentication = (
   request: express.Request,
-  securityName: string,
+  securityName: string
 ) => {
   if (securityName === "jwt") {
     const token = request.headers["authorization"] as string;
@@ -44,8 +44,11 @@ export const expressAuthentication = (
             return;
           }
 
-          request.user = user as unknown as TUser;
-          resolve(user);
+          request.user = {
+            ...user,
+            branchId: user.company?.branchId,
+          } as unknown as TUser;
+          resolve(request.user);
         } else {
           // New format - token is an object
           if (decoded.email && decoded.id) {
@@ -68,8 +71,11 @@ export const expressAuthentication = (
               return;
             }
 
-            request.user = user as unknown as TUser;
-            resolve(user);
+            request.user = {
+              ...user,
+              branchId: user.company?.branchId,
+            } as unknown as TUser;
+            resolve(request.user);
           } else {
             // Old format - token contains just email in object form
             const email = decoded.email;
@@ -91,8 +97,11 @@ export const expressAuthentication = (
               return;
             }
 
-            request.user = user as unknown as TUser;
-            resolve(user);
+            request.user = {
+              ...user,
+              branchId: user.company?.branchId,
+            } as unknown as TUser;
+            resolve(request.user);
           }
         }
       } catch (error) {

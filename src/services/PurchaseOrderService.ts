@@ -8,7 +8,7 @@ import {
   UpdateClientOrderDto,
 } from "../utils/interfaces/common";
 import type { Request } from "express";
-import { PONumberGenerator } from "../utils/PONumberGenerator ";
+import { PONumberGenerator } from "../utils/PONumberGenerator";
 import { Prisma } from "@prisma/client";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Server as SocketIOServer } from "socket.io";
@@ -127,13 +127,22 @@ export class PurchaseOrderService {
             },
           ],
         }
-      : { companyId };
+      : {};
+
+      const where: any = {
+        ...queryOptions,
+        companyId,
+      };
+
+      if (req.user?.branchId) {
+        where.branchId = req.user.branchId;
+      }
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
 
     const purchaseOrders = await prisma.purchaseOrder.findMany({
-      where: queryOptions,
+      where,
       skip,
       take,
       orderBy: { createdAt: "desc" },
@@ -170,7 +179,7 @@ export class PurchaseOrderService {
     });
 
     const totalItems = await prisma.purchaseOrder.count({
-      where: queryOptions,
+      where,
     });
 
     return {
@@ -212,6 +221,7 @@ export class PurchaseOrderService {
         suppliers: { supplierCompanyId: companyId },
         // overallStatus: { in: ["NOT_YET", "SOME_APPROVED"] },
         ...searchConditions,
+        ...(req.user?.branchId ? { branchId: req.user.branchId } : {}),
       },
       include: {
         items: { include: { item: true } },
@@ -230,6 +240,7 @@ export class PurchaseOrderService {
         suppliers: { supplierCompanyId: companyId },
         overallStatus: { in: ["NOT_YET", "SOME_APPROVED"] },
         ...searchConditions,
+        ...(req.user?.branchId ? { branchId: req.user.branchId } : {}),
       },
     });
 
@@ -265,8 +276,13 @@ export class PurchaseOrderService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const where: any = { id, companyId };
+    if (req.user?.branchId) {
+      where.branchId = req.user.branchId;
+    }
+
     const purchaseOrder = await prisma.purchaseOrder.findFirst({
-      where: { id, companyId },
+      where,
       include: {
         items: { include: { item: { include: { category: true } } } },
         suppliers: true,
@@ -292,6 +308,7 @@ export class PurchaseOrderService {
     io?: SocketIOServer,
   ) {
     const userId = req.user?.id;
+    const branchId = req.user?.branchId;
     if (!userId) {
       throw new AppError("User ID is missing", 400);
     }
@@ -311,7 +328,7 @@ export class PurchaseOrderService {
       throw new AppError("At least one item is required", 400);
     }
 
-    await getSupplierOrThrow(data.supplierId, companyId);
+    await getSupplierOrThrow(data.supplierId, companyId, branchId);
 
     const poNumber =
       data.poNumber || (await PONumberGenerator.generatePONumber(companyId));
@@ -331,6 +348,7 @@ export class PurchaseOrderService {
       data: {
         poNumber,
         companyId,
+        branchId,
         supplierId: data.supplierId,
         notes: data.notes,
         reqById: userId!,
@@ -380,6 +398,7 @@ export class PurchaseOrderService {
     data: UpdatePurchaseOrderDto,
     req: Request,
   ) {
+    const branchId = req.user?.branchId;
     const userId = req.user?.id;
     if (!userId) {
       throw new AppError("User ID is missing", 400);
@@ -389,8 +408,13 @@ export class PurchaseOrderService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const where: any = { id, companyId };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const existingPO = await prisma.purchaseOrder.findFirst({
-      where: { id, companyId },
+      where,
       include: { stockReceipts: true, items: true },
     });
 
@@ -399,7 +423,7 @@ export class PurchaseOrderService {
     }
 
     if (data.supplierId) {
-      await getSupplierOrThrow(data.supplierId, companyId);
+      await getSupplierOrThrow(data.supplierId, companyId, branchId);
     }
 
     if (data.poNumber && data.poNumber !== existingPO.poNumber) {
@@ -502,8 +526,13 @@ export class PurchaseOrderService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const where: any = { id, companyId };
+    if (req.user?.branchId) {
+      where.branchId = req.user.branchId;
+    }
+
     const existingPO = await prisma.purchaseOrder.findFirst({
-      where: { id, companyId },
+      where,
     });
 
     if (!existingPO) {
@@ -528,9 +557,15 @@ export class PurchaseOrderService {
   public static async getPurchaseOrderForStockReceipt(
     poNumber: string,
     companyId: string,
+    branchId?: string | null,
   ) {
+    const query: any = { poNumber, companyId };
+    if (branchId) {
+      query.branchId = branchId;
+    }
+
     const purchaseOrder = await prisma.purchaseOrder.findFirst({
-      where: { poNumber, companyId },
+      where: query,
       include: {
         items: {
           include: {
@@ -637,9 +672,15 @@ export class PurchaseOrderService {
       throw new AppError("At least one item is required", 400);
     }
 
+    const branchId = req.user?.branchId;
     const poNumber = await PONumberGenerator.generatePONumber(sellerCompanyId);
+    const where: any = { poNumber, supplierId: supplierRecord.id };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const existingPO = await prisma.purchaseOrder.findFirst({
-      where: { poNumber, supplierId: supplierRecord.id },
+      where,
     });
 
     if (existingPO) {
@@ -651,6 +692,7 @@ export class PurchaseOrderService {
         poNumber,
         companyId:
           data.companyId && data.companyId !== "" ? data.companyId : null,
+        branchId,
         // use the Suppliers.id (not Company id) for supplierId
         supplierId: supplierRecord.id,
         notes: data.notes,
@@ -714,7 +756,11 @@ export class PurchaseOrderService {
     }
 
     const existingPO = await prisma.purchaseOrder.findFirst({
-      where: { id, supplierId: supplierRecord.id },
+      where: {
+        id,
+        supplierId: supplierRecord.id,
+        ...(req.user?.branchId ? { branchId: req.user.branchId } : {}),
+      },
       include: { stockReceipts: true, items: true },
     });
 
@@ -812,7 +858,11 @@ export class PurchaseOrderService {
     }
 
     const existingPO = await prisma.purchaseOrder.findFirst({
-      where: { id, supplierId: supplierRecord.id },
+      where: {
+        id,
+        supplierId: supplierRecord.id,
+        ...(req.user?.branchId ? { branchId: req.user.branchId } : {}),
+      },
     });
     if (!existingPO) {
       throw new AppError(

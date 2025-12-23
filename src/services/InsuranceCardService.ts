@@ -18,15 +18,21 @@ export class InsuranceCardService {
       throw new AppError("Company ID is missing", 400);
     }
 
-    const queryOptions = searchq
+    const branchId = req.user?.branchId;
+    console.log(`[InsuranceCardService DEBUG] companyId: ${companyId}, branchId: ${branchId}`);
+    const queryOptions: any = searchq
       ? {
           companyId,
+          branchId: branchId || null, // Explicitly filter
           OR: [
             { affiliationNumber: { contains: searchq } },
             { affiliateName: { contains: searchq } },
           ],
         }
-      : { companyId };
+      : {
+          companyId,
+          branchId: branchId || null, // Explicitly filter
+        };
 
     const skip = page && limit ? (page - 1) * limit : undefined;
     const take = limit;
@@ -59,7 +65,8 @@ export class InsuranceCardService {
 
   public static async createInsuranceCard(
     data: CreateInsuranceCardDto,
-    companyId: string
+    companyId: string,
+    branchId?: string | null
   ) {
     return prisma.$transaction(async (tx) => {
       if (!data.patientId && !data.clientId) {
@@ -69,6 +76,7 @@ export class InsuranceCardService {
       const insuranceCard = await tx.insuranceCard.create({
         data: {
           companyId,
+          branchId: branchId as any,
           patientId: data.patientId,
           clientId: data.clientId,
           insuranceId: data.insuranceId,
@@ -85,16 +93,29 @@ export class InsuranceCardService {
         },
       });
 
-
       return insuranceCard;
     });
   }
 
   public static async updateInsuranceCard(
     id: string,
-    data: UpdateInsuranceCardDto
+    data: UpdateInsuranceCardDto,
+    companyId: string,
+    branchId?: string | null
   ) {
     return prisma.$transaction(async (tx) => {
+      const existingCard = await tx.insuranceCard.findFirst({
+        where: {
+          id,
+          companyId,
+          branchId: branchId || null,
+        },
+      });
+
+      if (!existingCard) {
+        throw new AppError("Insurance card not found", 404);
+      }
+
       const insuranceCard = await tx.insuranceCard.update({
         where: { id },
         data: {
@@ -114,15 +135,21 @@ export class InsuranceCardService {
         },
       });
 
-
-
       return insuranceCard;
     });
   }
 
-  public static async deleteInsuranceCard(id: string) {
-    const insuranceCard = await prisma.insuranceCard.findUnique({
-      where: { id },
+  public static async deleteInsuranceCard(
+    id: string,
+    companyId: string,
+    branchId?: string | null
+  ) {
+    const insuranceCard = await prisma.insuranceCard.findFirst({
+      where: {
+        id,
+        companyId,
+        branchId: branchId || null,
+      },
     });
     if (!insuranceCard) throw new AppError("Insurance card not found", 404);
 

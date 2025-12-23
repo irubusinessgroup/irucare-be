@@ -13,6 +13,7 @@ export class WarehouseService {
   static async createWarehouse(
     data: CreateWarehouseRequest,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<WarehouseResponse>> {
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -38,6 +39,7 @@ export class WarehouseService {
         warehousename: data.warehousename,
         description: data.description,
         companyId: companyId,
+        branchId: branchId,
       },
     });
 
@@ -51,12 +53,18 @@ export class WarehouseService {
   static async getWarehouseById(
     warehouseId: string,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<WarehouseResponse>> {
+    const where: any = {
+      id: warehouseId,
+      companyId: companyId,
+    };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
-        id: warehouseId,
-        companyId: companyId,
-      },
+      where,
     });
 
     if (!warehouse) {
@@ -74,12 +82,18 @@ export class WarehouseService {
     warehouseId: string,
     data: UpdateWarehouseRequest,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<WarehouseResponse>> {
+    const where: any = {
+      id: warehouseId,
+      companyId: companyId,
+    };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const existingWarehouse = await prisma.warehouse.findFirst({
-      where: {
-        id: warehouseId,
-        companyId: companyId,
-      },
+      where,
     });
 
     if (!existingWarehouse) {
@@ -121,12 +135,18 @@ export class WarehouseService {
   static async deleteWarehouse(
     warehouseId: string,
     companyId: string,
+    branchId?: string | null,
   ): Promise<IResponse<null>> {
+    const where: any = {
+      id: warehouseId,
+      companyId: companyId,
+    };
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
-        id: warehouseId,
-        companyId: companyId,
-      },
+      where,
       include: { stockReceipts: true },
     });
 
@@ -150,6 +170,7 @@ export class WarehouseService {
 
   static async getWarehouse(
     companyId: string,
+    branchId?: string | null,
     searchq?: string,
     limit?: number,
     currentPage?: number,
@@ -166,13 +187,18 @@ export class WarehouseService {
         where: {
           ...searchOptions,
           companyId: companyId,
+          ...(branchId ? { branchId } : {}),
         },
         ...pagination,
         orderBy: { warehousename: "asc" },
       });
 
       const totalItems = await prisma.warehouse.count({
-        where: searchOptions,
+        where: {
+          ...searchOptions,
+          companyId: companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       });
 
       return {

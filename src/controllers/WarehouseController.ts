@@ -30,7 +30,8 @@ export class WarehouseController {
     @Request() req: ExpressRequest,
   ): Promise<IResponse<WarehouseResponse>> {
     const companyId = req.user?.company?.companyId as string;
-    return WarehouseService.createWarehouse(data, companyId);
+    const branchId = req.user?.branchId;
+    return WarehouseService.createWarehouse(data, companyId, branchId);
   }
 
   @Get("/{warehouseId}")
@@ -40,7 +41,8 @@ export class WarehouseController {
     @Request() req: ExpressRequest,
   ): Promise<IResponse<WarehouseResponse>> {
     const companyId = req.user?.company?.companyId as string;
-    return WarehouseService.getWarehouseById(warehouseId, companyId);
+    const branchId = req.user?.branchId;
+    return WarehouseService.getWarehouseById(warehouseId, companyId, branchId);
   }
 
   @Put("/{warehouseId}")
@@ -51,7 +53,8 @@ export class WarehouseController {
     @Request() req: ExpressRequest,
   ): Promise<IResponse<WarehouseResponse>> {
     const companyId = req.user?.company?.companyId as string;
-    return WarehouseService.updateWarehouse(warehouseId, data, companyId);
+    const branchId = req.user?.branchId;
+    return WarehouseService.updateWarehouse(warehouseId, data, companyId, branchId);
   }
 
   @Delete("/{warehouseId}")
@@ -61,7 +64,8 @@ export class WarehouseController {
     @Request() req: ExpressRequest,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId as string;
-    return WarehouseService.deleteWarehouse(warehouseId, companyId);
+    const branchId = req.user?.branchId;
+    return WarehouseService.deleteWarehouse(warehouseId, companyId, branchId);
   }
 
   @Get("/")
@@ -73,9 +77,11 @@ export class WarehouseController {
     const currentPage = page ? parseInt(page as string, 10) : undefined;
     const parsedLimit = limit ? parseInt(limit as string, 10) : undefined;
     const companyId = req.user?.company?.companyId as string;
+    const branchId = req.user?.branchId;
 
     return WarehouseService.getWarehouse(
       companyId,
+      branchId,
       (searchq as string) || undefined,
       parsedLimit,
       currentPage,

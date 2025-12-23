@@ -3,79 +3,76 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id                 String         @id @default(uuid())
-  email              String         @unique
-  password           String
-  firstName          String
-  lastName           String
-  phoneNumber        String         @default("0781234568")
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  otp                String?
-  otpExpiresAt       DateTime? 
-  photo              String         @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
-  userRoles          UserRole[]  
-  likes              Likes[]  
-  testimonials       Testimony[]
-  agents              Agents[]
-  company            CompanyUser?
-  notification       Notification[]
-  approvals           Approvals[]
-  purchaseOrders     PurchaseOrder[]
-  createdDeliveries   Delivery[]
-  deliveryTracking    DeliveryTracking[]
+  id                         String                @id @default(uuid())
+  email                      String                @unique
+  password                   String
+  firstName                  String
+  lastName                   String
+  phoneNumber                String                @default("0781234568")
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+  otp                        String?
+  otpExpiresAt               DateTime?
+  photo                      String                @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
+  userRoles                  UserRole[]
+  likes                      Likes[]
+  testimonials               Testimony[]
+  agents                     Agents[]
+  company                    CompanyUser?
+  notification               Notification[]
+  approvals                  Approvals[]
+  purchaseOrders             PurchaseOrder[]
+  createdDeliveries          Delivery[]
+  deliveryTracking           DeliveryTracking[]
   pharmacyDispensesDispensed PharmacyDispenses[]
   otcSalesSold               OtcSales[]
   pharmacyReturnsProcessed   PharmacyReturns[]
   pharmacyAdjustmentsMade    PharmacyAdjustments[]
- 
-  createdAppointments  Appointment[] @relation("AppointmentCreatedBy")
-  resetToken ResetToken?
 
-  encountersCreated        Encounter[]         @relation("EncounterCreatedBy")
+  createdAppointments Appointment[] @relation("AppointmentCreatedBy")
+  resetToken          ResetToken?
+
+  encountersCreated             Encounter[]             @relation("EncounterCreatedBy")
   // emrsCreated              EMR[]               @relation("EMRCreatedBy")
-  prescriptionsPrescribed     Prescription[]      @relation("PrescriptionPrescribedBy")
-  prescriptionsDispensed   Prescription[]      @relation("PrescriptionDispensedBy")
-  labOrdersOrdered         LabOrder[]          @relation("LabOrderOrderedBy")
-  labOrdersCollected         LabOrder[]          @relation("LabOrderCollectedBy")
-  clinicalNotesCreated   ClinicalNote[]  @relation("ClinicalNoteCreatedBy")
-  imagingOrdersOrdered   ImagingOrder[]  @relation("ImagingOrderOrderedBy")
-  imagingOrdersReported   ImagingOrder[]  @relation("ImagingOrderReportedBy")
-  procedureOrderOrdered ProcedureOrder[] @relation("ProcedureOrderOrderedBy")
-  proceduresPerformed    ProcedureOrder[] @relation("ProcedureOrderPerformedBy")
-  triageCaptured   Triage[]      @relation("TriageCapturedBy")
-  consultationsConsulted   Consultation[]      @relation("ConsultationConsultedBy")
-  diagnosisDiagnosed   Diagnosis[]      @relation("DiagnosisDiagnosedBy")
+  prescriptionsPrescribed       Prescription[]          @relation("PrescriptionPrescribedBy")
+  prescriptionsDispensed        Prescription[]          @relation("PrescriptionDispensedBy")
+  labOrdersOrdered              LabOrder[]              @relation("LabOrderOrderedBy")
+  labOrdersCollected            LabOrder[]              @relation("LabOrderCollectedBy")
+  clinicalNotesCreated          ClinicalNote[]          @relation("ClinicalNoteCreatedBy")
+  imagingOrdersOrdered          ImagingOrder[]          @relation("ImagingOrderOrderedBy")
+  imagingOrdersReported         ImagingOrder[]          @relation("ImagingOrderReportedBy")
+  procedureOrderOrdered         ProcedureOrder[]        @relation("ProcedureOrderOrderedBy")
+  proceduresPerformed           ProcedureOrder[]        @relation("ProcedureOrderPerformedBy")
+  triageCaptured                Triage[]                @relation("TriageCapturedBy")
+  consultationsConsulted        Consultation[]          @relation("ConsultationConsultedBy")
+  diagnosisDiagnosed            Diagnosis[]             @relation("DiagnosisDiagnosedBy")
   careProgramEnrollmentsCreated CareProgramEnrollment[] @relation("CareProgramEnrollmentEnrolledBy")
-  careProgramCreated CareProgram[] @relation("CareProgramCreatedBy")
-  labTestsCreated LabTest[] @relation("LabTestCreatedBy")
-  careProgramVisits CareProgramVisit[] @relation("CareProgramVisitConductedBy")
-  labResultEntered LabResult[] @relation("LabResultEnteredBy")
-  labResultApproved LabResult[] @relation("LabResultApprovedBy")
-  labQCPerformed LabQualityControl[] @relation("LabQCPerformedBy")
-  labQCReviewed LabQualityControl[] @relation("LabQCReviewedBy")
-  insuranceClaimCreated InsuranceClaim[] @relation("InsuranceClaimCreatedBy")
-  clinicBillingCreated ClinicBilling[] @relation("ClinicBillingCreatedBy")
+  careProgramCreated            CareProgram[]           @relation("CareProgramCreatedBy")
+  labTestsCreated               LabTest[]               @relation("LabTestCreatedBy")
+  careProgramVisits             CareProgramVisit[]      @relation("CareProgramVisitConductedBy")
+  labResultEntered              LabResult[]             @relation("LabResultEnteredBy")
+  labResultApproved             LabResult[]             @relation("LabResultApprovedBy")
+  labQCPerformed                LabQualityControl[]     @relation("LabQCPerformedBy")
+  labQCReviewed                 LabQualityControl[]     @relation("LabQCReviewedBy")
+  insuranceClaimCreated         InsuranceClaim[]        @relation("InsuranceClaimCreatedBy")
+  clinicBillingCreated          ClinicBilling[]         @relation("ClinicBillingCreatedBy")
 
-  auditLogs                AuditLog[]
+  auditLogs AuditLog[]
 
-  issuedStocks       StockIssuance[] @relation("IssuedBy")
+  issuedStocks       StockIssuance[]   @relation("IssuedBy")
   transferredStocks  StockTransfer[]
   adjustedStocks     StockAdjustment[]
   performedMovements StockMovement[]
   dismissedAlerts    StockAlert[]
 
   clinicUserRoles ClinicUserRole[]
-   providers        Provider[] 
-
+  providers       Provider[]
 }
-
-
 
 enum RoleType {
   ADMIN
@@ -87,136 +84,142 @@ enum RoleType {
   MANAGER
   STAFF
   CLIENT
+  BRANCH_ADMIN
 }
 
 model UserRole {
-  id          String  @id @default(uuid())
-  userId      String
-  name        RoleType
-  user        User    @relation(fields: [userId], references: [id])
+  id     String   @id @default(uuid())
+  userId String
+  name   RoleType
+  user   User     @relation(fields: [userId], references: [id])
 }
 
 model ItemCategories {
-  id                 String         @id @default(uuid())
-  categoryName       String      
-  description        String?
-  items              Items[]
-  companyId         String
-  company            Company      @relation(fields: [companyId], references: [id])
+  id           String  @id @default(uuid())
+  categoryName String
+  description  String?
+  items        Items[]
+  companyId    String
+  company      Company @relation(fields: [companyId], references: [id])
+  branchId     String?
 }
 
 model Suppliers {
-  id                 String         @id @default(uuid())
-  supplierName      String         
-  contactPerson     String
-  phoneNumber       String 
-  email              String         @unique 
-  address            String? 
-  TIN                String?        
-  createdAt         DateTime       @default(now()) 
-  companyId         String
-  company           Company      @relation(fields: [companyId], references: [id])
+  id            String   @id @default(uuid())
+  supplierName  String
+  contactPerson String
+  phoneNumber   String
+  email         String   @unique
+  address       String?
+  TIN           String?
+  createdAt     DateTime @default(now())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id])
+  branchId      String?
 
   supplierCompanyId String?
-  supplierCompany   Company?     @relation("supplier_company", fields: [supplierCompanyId], references: [id])
-  
-  stockReceipts             StockReceipts[]
-  purchaseOrders     PurchaseOrder[]
-  reorderRules       ReorderRule[]
+  supplierCompany   Company? @relation("supplier_company", fields: [supplierCompanyId], references: [id])
+
+  stockReceipts  StockReceipts[]
+  purchaseOrders PurchaseOrder[]
+  reorderRules   ReorderRule[]
 }
 
 model Items {
-  id                 String         @id @default(uuid())
-  itemCodeSku      String         @unique        
-  itemFullName     String
-  categoryId        String 
-  productCode       String?
-  category           ItemCategories @relation(fields: [categoryId], references: [id])
-  companyId        String
-  company           Company      @relation(fields: [companyId], references: [id])
-  description        String?
-  minLevel           Decimal         @db.Decimal(10, 2)
-  maxLevel           Decimal         @db.Decimal(10, 2)
+  id                  String                @id @default(uuid())
+  itemCodeSku         String                @unique
+  itemFullName        String
+  categoryId          String
+  productCode         String?
+  category            ItemCategories        @relation(fields: [categoryId], references: [id])
+  companyId           String
+  company             Company               @relation(fields: [companyId], references: [id])
+  branchId            String?
+  description         String?
+  minLevel            Decimal               @db.Decimal(10, 2)
+  maxLevel            Decimal               @db.Decimal(10, 2)
   // Tax fields
-  isTaxable          Boolean         @default(false)
-  taxCode            String          @db.VarChar(1) @default("A")
-  taxRate            Decimal         @db.Decimal(5, 2) @default(0)
-  insurancePrice     Decimal?        @db.Decimal(18, 2) @default(0)
-  createdAt         DateTime       @default(now()) 
-  updatedAt         DateTime       @updatedAt
-  stockReceipts      StockReceipts[]
-  purchaseOrderItems PurchaseOrderItem[]
-  sells             Sell[]  
-  sellItems         SellItem[]
-  deliveries        DeliveryItem[]
-  directInvoiceItems DirectInvoiceItem[]
-  prescriptions      Prescription[]
-  pharmacyDispenses    PharmacyDispenses[]
-  otcSales             OtcSales[]
-  pharmacyReturns      PharmacyReturns[]
-  pharmacyAdjustments  PharmacyAdjustments[]
+  isTaxable           Boolean               @default(false)
+  taxCode             String                @default("A") @db.VarChar(1)
+  taxRate             Decimal               @default(0) @db.Decimal(5, 2)
+  insurancePrice      Decimal?              @default(0) @db.Decimal(18, 2)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  stockReceipts       StockReceipts[]
+  purchaseOrderItems  PurchaseOrderItem[]
+  sells               Sell[]
+  sellItems           SellItem[]
+  deliveries          DeliveryItem[]
+  directInvoiceItems  DirectInvoiceItem[]
+  prescriptions       Prescription[]
+  pharmacyDispenses   PharmacyDispenses[]
+  otcSales            OtcSales[]
+  pharmacyReturns     PharmacyReturns[]
+  pharmacyAdjustments PharmacyAdjustments[]
 
-  stockIssuances     StockIssuance[]
-  stockTransfers     StockTransfer[]
-  stockAdjustments   StockAdjustment[]
-  stockMovements     StockMovement[]
-  reorderRules       ReorderRule[]
-  stockAlerts        StockAlert[]
+  stockIssuances   StockIssuance[]
+  stockTransfers   StockTransfer[]
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  reorderRules     ReorderRule[]
+  stockAlerts      StockAlert[]
 }
 
 model StockReceipts {
-  id                 String          @id @default(uuid())
-  itemId            String           
-  item               Items           @relation(fields: [itemId], references: [id])               
-  purchaseOrderId              String?
-  purchaseOrderNo     PurchaseOrder?   @relation(fields: [purchaseOrderId], references: [id])
-  purchaseOrderItemId String?  
-  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
-  manualPoNumber     String?
-  invoiceNo         String?            
-  supplierId        String?           
-  supplier           Suppliers?       @relation(fields: [supplierId], references: [id]) 
-  companyId        String
-  company           Company      @relation(fields: [companyId], references: [id]) 
-  dateReceived      DateTime
-  expiryDate        DateTime? 
-  quantityReceived  Decimal         @db.Decimal(10, 2)  
-  unitCost          Decimal         @db.Decimal(18, 4)  
-  totalCost         Decimal         @db.Decimal(18, 2)
-  packSize          Decimal? 	      @db.Decimal(10, 2) 
-  uom                String? 
-  tempReq           String? 
-  currency           String?
-  condition          String?
-  warehouseId        String? 
-  warehouse           Warehouse?   @relation(fields: [warehouseId], references: [id])
-  specialHandlingNotes      String? 	
-  receiptType        String          @default("PURCHASE_ORDER")      
-  remarksNotes       String?
-  createdAt          DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  approvals           Approvals[]	
-  stocks              Stock[]
+  id                   String             @id @default(uuid())
+  itemId               String
+  item                 Items              @relation(fields: [itemId], references: [id])
+  purchaseOrderId      String?
+  purchaseOrderNo      PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderItemId  String?
+  purchaseOrderItem    PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  manualPoNumber       String?
+  invoiceNo            String?
+  supplierId           String?
+  supplier             Suppliers?         @relation(fields: [supplierId], references: [id])
+  companyId            String
+  company              Company            @relation(fields: [companyId], references: [id])
+  branchId             String?
+  dateReceived         DateTime
+  expiryDate           DateTime?
+  quantityReceived     Decimal            @db.Decimal(10, 2)
+  unitCost             Decimal            @db.Decimal(18, 4)
+  totalCost            Decimal            @db.Decimal(18, 2)
+  packSize             Decimal?           @db.Decimal(10, 2)
+  uom                  String?
+  tempReq              String?
+  currency             String?
+  condition            String?
+  warehouseId          String?
+  warehouse            Warehouse?         @relation(fields: [warehouseId], references: [id])
+  specialHandlingNotes String?
+  receiptType          String             @default("PURCHASE_ORDER")
+  remarksNotes         String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  approvals            Approvals[]
+  stocks               Stock[]
 
   @@index([manualPoNumber])
 }
 
-model Stock{
-id                 String         @id @default(uuid())
-stockReceiptId     String
-stockReceipt       StockReceipts  @relation(fields: [stockReceiptId], references: [id])
-status             String          @default("PENDING")
-quantity           Decimal        @db.Decimal(18, 2)  
-quantityAvailable  Decimal        @db.Decimal(18, 2)  
-companyId       String?
-sellId            String?
-sell              Sell?      @relation(fields: [sellId], references: [id])
-directInvoiceId   String?
-directInvoice      DirectInvoice? @relation(fields: [directInvoiceId], references: [id])
-deliveryItemId     String?       
-deliveryItem       DeliveryItem?  @relation(fields: [deliveryItemId], references: [id])
-prescriptions      Prescription[]
-issuanceDetails    StockIssuanceDetail[]
+model Stock {
+  id                String                @id @default(uuid())
+  stockReceiptId    String
+  stockReceipt      StockReceipts         @relation(fields: [stockReceiptId], references: [id])
+  status            String                @default("PENDING")
+  quantity          Decimal               @db.Decimal(18, 2)
+  quantityAvailable Decimal               @db.Decimal(18, 2)
+  companyId         String?
+  branchId          String?
+  sellId            String?
+  sell              Sell?                 @relation(fields: [sellId], references: [id])
+  directInvoiceId   String?
+  directInvoice     DirectInvoice?        @relation(fields: [directInvoiceId], references: [id])
+  deliveryItemId    String?
+  deliveryItem      DeliveryItem?         @relation(fields: [deliveryItemId], references: [id])
+  prescriptions     Prescription[]
+  issuanceDetails   StockIssuanceDetail[]
 }
 
 enum ProcessingStatus {
@@ -240,182 +243,188 @@ enum ItemApprovalStatus {
 }
 
 model Approvals {
-  id                 String         @id @default(uuid())
-  stockReceiptId     String
-  stockReceipts             StockReceipts          @relation(fields: [stockReceiptId], references: [id])
-  approvedByUserId String 
+  id                String        @id @default(uuid())
+  stockReceiptId    String
+  stockReceipts     StockReceipts @relation(fields: [stockReceiptId], references: [id])
+  approvedByUserId  String
   approvedByUser    User          @relation(fields: [approvedByUserId], references: [id])
-  ExpectedSellPrice          Decimal?         @db.Decimal(18, 2)
-  dateApproved      DateTime         
-  approvalStatus    String         @default("PENDING")
-  comments           String?       
-  createdAt          DateTime       @default(now())     
+  ExpectedSellPrice Decimal?      @db.Decimal(18, 2)
+  dateApproved      DateTime
+  approvalStatus    String        @default("PENDING")
+  comments          String?
+  createdAt         DateTime      @default(now())
 }
 
-model PurchaseOrder{
-  id                 String         @id @default(uuid())
-  poNumber           String         @unique  
-  companyId          String?
-  reqById            String?
-  reqClientId        String?
-  isDelivered        Boolean        @default(false)
-  deliveredAt        DateTime? 
-  company      Company?  @relation(fields: [companyId], references: [id])
-  items              PurchaseOrderItem[]
-  supplierId         String
-  suppliers          Suppliers @relation(fields: [supplierId], references: [id])
-  user                    User? @relation(fields: [reqById], references: [id])
-  client                    Client? @relation(fields: [reqClientId], references: [id])
-  notes               String?
+model PurchaseOrder {
+  id                   String                    @id @default(uuid())
+  poNumber             String                    @unique
+  companyId            String?
+  branchId             String?
+  reqById              String?
+  reqClientId          String?
+  isDelivered          Boolean                   @default(false)
+  deliveredAt          DateTime?
+  company              Company?                  @relation(fields: [companyId], references: [id])
+  items                PurchaseOrderItem[]
+  supplierId           String
+  suppliers            Suppliers                 @relation(fields: [supplierId], references: [id])
+  user                 User?                     @relation(fields: [reqById], references: [id])
+  client               Client?                   @relation(fields: [reqClientId], references: [id])
+  notes                String?
   expectedDeliveryDate DateTime
-  overallStatus      POApprovalStatus @default(NOT_YET)
-  grandTotal           Decimal? @db.Decimal(18, 4)
-  subtotal             Decimal? @db.Decimal(18, 4)
-  vat                  Decimal? @db.Decimal(18, 4)
+  overallStatus        POApprovalStatus          @default(NOT_YET)
+  grandTotal           Decimal?                  @db.Decimal(18, 4)
+  subtotal             Decimal?                  @db.Decimal(18, 4)
+  vat                  Decimal?                  @db.Decimal(18, 4)
   vatRate              Float?
   clientAddress        String?
-  createdAt            DateTime    @default(now())
+  createdAt            DateTime                  @default(now())
   stockReceipts        StockReceipts[]
   processingEntries    PurchaseOrderProcessing[]
-  deliveries          Delivery[]
+  deliveries           Delivery[]
 }
 
 model PurchaseOrderItem {
-  id              String   @id @default(uuid())
+  id              String             @id @default(uuid())
   purchaseOrderId String
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
   itemId          String
-  item            Items    @relation(fields: [itemId], references: [id])
-  quantity        Decimal  @db.Decimal(10, 2)
-  packSize          Decimal? 	      @db.Decimal(10, 2)
+  item            Items              @relation(fields: [itemId], references: [id])
+  quantity        Decimal            @db.Decimal(10, 2)
+  packSize        Decimal?           @db.Decimal(10, 2)
   itemStatus      ItemApprovalStatus @default(NOT_ACTED)
-  quantityIssued       Decimal? @db.Decimal(10, 2)
-  batchNo              String?
-  expiryDate           DateTime?
-  unitPrice            Decimal? @db.Decimal(18, 4)
-  totalPrice           Decimal? @db.Decimal(18, 2)
+  quantityIssued  Decimal?           @db.Decimal(10, 2)
+  batchNo         String?
+  expiryDate      DateTime?
+  unitPrice       Decimal?           @db.Decimal(18, 4)
+  totalPrice      Decimal?           @db.Decimal(18, 2)
   stockReceipts   StockReceipts[]
-  deliveryItems       DeliveryItem[]
+  deliveryItems   DeliveryItem[]
 }
 
-
 model PurchaseOrderProcessing {
-  id                   String   @id @default(uuid())
-  purchaseOrderId      String
-  purchaseOrder        PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
-  companyFromId        String
-  companyFrom          Company @relation("processing_from", fields: [companyFromId], references: [id])
-  companyToId          String
-  companyTo            Company @relation("processing_to", fields: [companyToId], references: [id])
-  status               ProcessingStatus @default(PENDING)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id              String           @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder    @relation(fields: [purchaseOrderId], references: [id])
+  companyFromId   String
+  companyFrom     Company          @relation("processing_from", fields: [companyFromId], references: [id])
+  companyToId     String
+  companyTo       Company          @relation("processing_to", fields: [companyToId], references: [id])
+  status          ProcessingStatus @default(PENDING)
+  branchId        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model Client {
-    id                 String         @id @default(uuid())
-    companyId          String
-    name               String
-    email              String?
-    phone              String
-    address            String?
-    tin                String?
-    createdAt         DateTime      @default(now())
-    updatedAt         DateTime      @updatedAt
-    sells             Sell[]
-    purchaseOrders     PurchaseOrder[]
-    transactions       Transaction[]
-    directInvoices     DirectInvoice[]
-    insuranceCards     InsuranceCard[]
+  id             String          @id @default(uuid())
+  companyId      String
+  branchId       String?
+  name           String
+  email          String?
+  phone          String
+  address        String?
+  tin            String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  sells          Sell[]
+  purchaseOrders PurchaseOrder[]
+  transactions   Transaction[]
+  directInvoices DirectInvoice[]
+  insuranceCards InsuranceCard[]
 }
 
 model Sell {
-    id                 String         @id @default(uuid())
-    clientId           String?
-    companyId          String
-     company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-    client             Client?         @relation(fields: [clientId], references: [id])
-    totalAmount        Decimal         @db.Decimal(18, 2)
-    taxAmount          Decimal?        @db.Decimal(18, 2)
-    notes              String?
-    createdAt         DateTime      @default(now())
-    updatedAt         DateTime      @updatedAt
-    sellItems          SellItem[]
-    stocks             Stock[]
-    // Insurance fields (PHARMACY)
-    patientId           String?
-    patient             Patient?        @relation(fields: [patientId], references: [id], onDelete: SetNull)
-    insuranceCardId     String?
-    insuranceCard       InsuranceCard?  @relation(fields: [insuranceCardId], references: [id], onDelete: SetNull)
-    subtotal            Decimal        @db.Decimal(18, 2) @default(0)
-    insuranceCoveredAmount Decimal     @db.Decimal(18, 2) @default(0)
-    patientPayableAmount  Decimal      @db.Decimal(18, 2) @default(0)
-    insurancePercentage   Decimal?     @db.Decimal(5, 2)
-    
-    // Legacy fields for backward compatibility
-    itemId             String?
-    item               Items?         @relation(fields: [itemId], references: [id])
-    quantity           Decimal?        @db.Decimal(10, 2)
-    sellPrice          Decimal?        @db.Decimal(18, 2)
-    
-    // New fields for Pharmacy Sales Flow
-    clientType    ClientType?  @default(PRIVATE)
-    paymentMode   PaymentMode? // Optional as per requirements
-    doctorId      String?
-    doctor        Doctor?      @relation(fields: [doctorId], references: [id])
-    hospital      String?      // Name of hospital/clinic (optional)
+  id                     String         @id @default(uuid())
+  clientId               String?
+  companyId              String
+  branchId               String?
+  company                Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client                 Client?        @relation(fields: [clientId], references: [id])
+  totalAmount            Decimal        @db.Decimal(18, 2)
+  taxAmount              Decimal?       @db.Decimal(18, 2)
+  notes                  String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  sellItems              SellItem[]
+  stocks                 Stock[]
+  // Insurance fields (PHARMACY)
+  patientId              String?
+  patient                Patient?       @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  insuranceCardId        String?
+  insuranceCard          InsuranceCard? @relation(fields: [insuranceCardId], references: [id], onDelete: SetNull)
+  subtotal               Decimal        @default(0) @db.Decimal(18, 2)
+  insuranceCoveredAmount Decimal        @default(0) @db.Decimal(18, 2)
+  patientPayableAmount   Decimal        @default(0) @db.Decimal(18, 2)
+  insurancePercentage    Decimal?       @db.Decimal(5, 2)
 
-    @@index([patientId])
-    @@index([insuranceCardId])
+  // Legacy fields for backward compatibility
+  itemId    String?
+  item      Items?   @relation(fields: [itemId], references: [id])
+  quantity  Decimal? @db.Decimal(10, 2)
+  sellPrice Decimal? @db.Decimal(18, 2)
+
+  // New fields for Pharmacy Sales Flow
+  clientType  ClientType?  @default(PRIVATE)
+  paymentMode PaymentMode? // Optional as per requirements
+  paymentMethod PaymentMethod?
+  doctorId    String?
+  doctor      Doctor?      @relation(fields: [doctorId], references: [id])
+  hospital    String? // Name of hospital/clinic (optional)
+
+  @@index([patientId])
+  @@index([insuranceCardId])
 }
 
 model SellItem {
-    id                 String         @id @default(uuid())
-    sellId             String
-    sell               Sell           @relation(fields: [sellId], references: [id], onDelete: Cascade)
-    itemId             String
-    item               Items          @relation(fields: [itemId], references: [id])
-    quantity           Decimal         @db.Decimal(10, 2)
-    sellPrice          Decimal         @db.Decimal(18, 2)
-    totalAmount        Decimal         @db.Decimal(18, 2)
-    taxAmount          Decimal         @db.Decimal(18, 2)
-    // Optional per-item split for insurance (PHARMACY)
-    insuranceCoveredPerUnit Decimal     @db.Decimal(18, 2) @default(0)
-    patientPricePerUnit     Decimal     @db.Decimal(18, 2) @default(0)
-    createdAt         DateTime      @default(now())
-    updatedAt         DateTime      @updatedAt
+  id                      String   @id @default(uuid())
+  sellId                  String
+  sell                    Sell     @relation(fields: [sellId], references: [id], onDelete: Cascade)
+  itemId                  String
+  item                    Items    @relation(fields: [itemId], references: [id])
+  quantity                Decimal  @db.Decimal(10, 2)
+  sellPrice               Decimal  @db.Decimal(18, 2)
+  totalAmount             Decimal  @db.Decimal(18, 2)
+  taxAmount               Decimal  @db.Decimal(18, 2)
+  // Optional per-item split for insurance (PHARMACY)
+  insuranceCoveredPerUnit Decimal  @default(0) @db.Decimal(18, 2)
+  patientPricePerUnit     Decimal  @default(0) @db.Decimal(18, 2)
+  branchId                String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 }
 
 model Transaction {
-  id         String   @id @default(uuid())
-  clientId   String?
-  companyId  String
-  amount     Decimal  @db.Decimal(18, 2)
-  date       DateTime
+  id        String   @id @default(uuid())
+  clientId  String?
+  companyId String
+  branchId  String?
+  amount    Decimal  @db.Decimal(18, 2)
+  date      DateTime
 
-  client     Client?   @relation(fields: [clientId], references: [id])
-  company    Company  @relation(fields: [companyId], references: [id])
+  client  Client? @relation(fields: [clientId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Notification {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  message     String
-  type        NotificationType @default(info)
-  isRead      Boolean  @default(false)
-  actionUrl   String?  @db.VarChar(500)
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(info)
+  isRead    Boolean          @default(false)
+  actionUrl String?          @db.VarChar(500)
 
-  entityType  String?  @db.VarChar(50)
-  entityId    String?
-  metadata    Json?
+  entityType String? @db.VarChar(50)
+  entityId   String?
+  metadata   Json?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum NotificationType {
@@ -425,64 +434,62 @@ enum NotificationType {
   error
 }
 
-
 model Services {
-  id                      String           @id @default(uuid())
-  title                   String
-  description             String
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Testimony {
-  id                      String           @id @default(uuid())
-  name                    String
-  message                 String
-  photo                   String?
-  rating                  Int?
-  reviewsId               String?
-  agentReviewId           String?
-  userId                  String?
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  reviews                 Reviews?       @relation(fields: [reviewsId], references: [id])
-  agentReviews            AgentReview?   @relation(fields: [agentReviewId], references: [id])
-  user                    User? @relation(fields: [userId], references: [id])
+  id            String       @id @default(uuid())
+  name          String
+  message       String
+  photo         String?
+  rating        Int?
+  reviewsId     String?
+  agentReviewId String?
+  userId        String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  reviews       Reviews?     @relation(fields: [reviewsId], references: [id])
+  agentReviews  AgentReview? @relation(fields: [agentReviewId], references: [id])
+  user          User?        @relation(fields: [userId], references: [id])
 }
 
 model Reviews {
-  id                      String           @id @default(uuid())
-  productId              String           @unique
-  count                   Int           @default(0)       
-  rating                  Float            
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  product                Product         @relation(fields: [productId], references: [id])
-  testimonials            Testimony[]
+  id           String      @id @default(uuid())
+  productId    String      @unique
+  count        Int         @default(0)
+  rating       Float
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  product      Product     @relation(fields: [productId], references: [id])
+  testimonials Testimony[]
 }
 
 model Contact {
-  id        String   @id @default(cuid())
-  name      String
-  email     String
-  company   String?
-  message   String
-  status           ContactStatus @default(PENDING)  
-  conversationId   String?  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  replies   ContactReply[]
-
+  id             String         @id @default(cuid())
+  name           String
+  email          String
+  company        String?
+  message        String
+  status         ContactStatus  @default(PENDING)
+  conversationId String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  replies        ContactReply[]
 }
 
 model ContactReply {
-  id         String   @id @default(cuid())
-  contact    Contact  @relation(fields: [contactId], references: [id])
-  contactId  String
-  message    String
-  adminName  String? 
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id])
+  contactId String
+  message   String
+  adminName String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ContactStatus {
@@ -535,244 +542,253 @@ enum PaymentMethod {
   AIRTEL_MONEY
   BANK_TRANSFER
   MTN_MOBILE_MONEY
+  CASH
+  MOMO
+  CHEQUE
 }
 
-
 model Faq {
-  id                      String           @id @default(uuid())
-  question                String
-  solution                String
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
+  id        String   @id @default(uuid())
+  question  String
+  solution  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Blog {
-  id                      String           @id @default(uuid())
-  title                   String
-  thumbnail               String
-  teaser                  String
-  description             String
-  category                String
-  likes                   Int           @default(0)
-  views                   Int           @default(0)
-  featured                Boolean
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt      
-  likesModel              Likes[]            
+  id          String   @id @default(uuid())
+  title       String
+  thumbnail   String
+  teaser      String
+  description String
+  category    String
+  likes       Int      @default(0)
+  views       Int      @default(0)
+  featured    Boolean
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  likesModel  Likes[]
 }
 
 model Likes {
-  id                      String           @id  @default(uuid())
-  userId                  String
-  blogId                  String
-  blog                    Blog @relation(fields: [blogId], references: [id])  
-  user                    User @relation(fields: [userId], references: [id])  
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt    
+  id        String   @id @default(uuid())
+  userId    String
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([blogId, userId])
 }
 
 model Ads {
-  id                      String           @id @default(uuid())
-  thumbnail               String
-  title                   String
-  location                String
-  description             String
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
+  id          String   @id @default(uuid())
+  thumbnail   String
+  title       String
+  location    String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Agents {
-  id                      String           @id @default(uuid())
-  userId                  String
-  description             String  
-  experience              String
-  speciality              String[]
-  whatsapp                String
-  joined                  String
-  languages               String
-  about                   String
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt  
-  user                    User @relation(fields: [userId], references: [id])
-  agentReviews            AgentReview? 
-  enquiryProperty         EnquiryProperty[]               
+  id              String            @id @default(uuid())
+  userId          String
+  description     String
+  experience      String
+  speciality      String[]
+  whatsapp        String
+  joined          String
+  languages       String
+  about           String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  user            User              @relation(fields: [userId], references: [id])
+  agentReviews    AgentReview?
+  enquiryProperty EnquiryProperty[]
 }
 
 model AgentReview {
-  id                      String           @id @default(uuid())
-  agentId                 String           @unique
-  count                   Int           @default(0)       
-  rating                  Float         @default(0.0) 
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  agent                   Agents         @relation(fields: [agentId], references: [id])
-  testimonials            Testimony[]
+  id           String      @id @default(uuid())
+  agentId      String      @unique
+  count        Int         @default(0)
+  rating       Float       @default(0.0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  agent        Agents      @relation(fields: [agentId], references: [id])
+  testimonials Testimony[]
 }
-
 
 model Product {
-  id                      String           @id @default(uuid())
-  name                    String
-  isFeatured                Boolean  @default(true)
-  description             String
-  teaser                  String
-  model                   String?
-  warranty                   String?
-  brand                   String?
-  category                ProductCategory
-  price                   Float  
-  featuresOne            String?
-  featuresTwo            String?
-  featuresThree          String?
-  featuresFour           String?
-  featuresFive           String?
-  featuresFix            String?
-  featuresSeven          String?
-  featuresEight          String?
-  featuresNine           String?
-  featuresTen            String?
-  discountPercentage      Float? 
-  stockQuantity           Int      @default(0)
-  isActive                Boolean  @default(true)
-  thumbnail               String
-  galleryImages           String[] @default([])
-  rating                  Float?   @default(4.5)
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  reviews                 Reviews?
-  orderItem               OrderItem[]
+  id                 String          @id @default(uuid())
+  name               String
+  isFeatured         Boolean         @default(true)
+  description        String
+  teaser             String
+  model              String?
+  warranty           String?
+  brand              String?
+  category           ProductCategory
+  price              Float
+  featuresOne        String?
+  featuresTwo        String?
+  featuresThree      String?
+  featuresFour       String?
+  featuresFive       String?
+  featuresFix        String?
+  featuresSeven      String?
+  featuresEight      String?
+  featuresNine       String?
+  featuresTen        String?
+  discountPercentage Float?
+  stockQuantity      Int             @default(0)
+  isActive           Boolean         @default(true)
+  thumbnail          String
+  galleryImages      String[]        @default([])
+  rating             Float?          @default(4.5)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  reviews            Reviews?
+  orderItem          OrderItem[]
 }
 
-
 model EnquiryProperty {
-  id                      String           @id @default(uuid())
-  agentId                 String           @unique
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  agent                   Agents         @relation(fields: [agentId], references: [id])
+  id        String   @id @default(uuid())
+  agentId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agent     Agents   @relation(fields: [agentId], references: [id])
 }
 
 model Order {
-  id             String       @id @default(uuid())
-  orderNumber    String
-  status         OrderStatus  @default(PENDING)
-  totalAmount    Float
-  subTotal       Float
-  deliveryFee    Float? 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id          String      @id @default(uuid())
+  orderNumber String
+  status      OrderStatus @default(PENDING)
+  totalAmount Float
+  subTotal    Float
+  deliveryFee Float?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
-  orderItems     OrderItem[]
+  orderItems OrderItem[]
 }
 
-
 model OrderItem {
-  id         String   @id @default(uuid())
-  orderId    String
-  productId  String
-  discount       Float? 
-  quantity   Int      @default(1)
-  unitPrice  Float    
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id])
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  discount  Float?
+  quantity  Int     @default(1)
+  unitPrice Float
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 model Payment {
-  id           String        @id @default(uuid())
-  subscriptionId      String        @unique
-  amount       Float
-  kind         String
-  method       PaymentMethod
-  status       PaymentStatus @default(PENDING)
-  paidAt       DateTime?
-  accountNumber String
+  id              String        @id @default(uuid())
+  subscriptionId  String        @unique
+  amount          Float
+  kind            String
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  paidAt          DateTime?
+  accountNumber   String
   accountProvider String?
-  refId        String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  refId           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  subscription        Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
 
-
-
-
 model Company {
-  id             String          @id @default(uuid())
-  name           String
-  email          String        @unique
-  phoneNumber    String        @unique
-  industry       String?
-  website        String       
-  TIN            String        @unique
-  type           String
-  certificate    String
-  logo           String?
-  country        String
-  province       String
-  district       String
-  sector         String
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  CompanyUser    CompanyUser[]
-  insurance      Insurance[]
-  items          Items[]
-  itemCategories ItemCategories[]
-  suppliers      Suppliers[]
+  id                     String                    @id @default(uuid())
+  name                   String
+  email                  String                    @unique
+  phoneNumber            String                    @unique
+  industry               String?
+  website                String
+  TIN                    String                    @unique
+  type                   String
+  certificate            String
+  logo                   String?
+  country                String
+  province               String
+  district               String
+  sector                 String
+  isActive               Boolean                   @default(true)
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  CompanyUser            CompanyUser[]
+  insurance              Insurance[]
+  items                  Items[]
+  itemCategories         ItemCategories[]
+  suppliers              Suppliers[]
   stockReceipts          StockReceipts[]
-  processingFrom  PurchaseOrderProcessing[] @relation("processing_from")
-  processingTo    PurchaseOrderProcessing[] @relation("processing_to")
-  supplierFor    Suppliers[] @relation("supplier_company")
-  purchaseOrders PurchaseOrder[]
-  companyTools     CompanyTools[]
-  supplierDeliveries  Delivery[] @relation("DeliverySupplier")
-  buyerDeliveries     Delivery[] @relation("DeliveryBuyer")
-  warehouse          Warehouse[]
-  transactions       Transaction[]
-  subscription        Subscription[]
-  directInvoices      DirectInvoice[]
-  invoiceSequences    InvoiceSequence[]
-  sell                Sell[]
+  processingFrom         PurchaseOrderProcessing[] @relation("processing_from")
+  processingTo           PurchaseOrderProcessing[] @relation("processing_to")
+  supplierFor            Suppliers[]               @relation("supplier_company")
+  purchaseOrders         PurchaseOrder[]
+  companyTools           CompanyTools[]
+  supplierDeliveries     Delivery[]                @relation("DeliverySupplier")
+  buyerDeliveries        Delivery[]                @relation("DeliveryBuyer")
+  warehouse              Warehouse[]
+  transactions           Transaction[]
+  subscription           Subscription[]
+  directInvoices         DirectInvoice[]
+  invoiceSequences       InvoiceSequence[]
+  sell                   Sell[]
   // Appointment relations
-  appointments        Appointment[]
-  provider Provider[]
+  appointments           Appointment[]
+  provider               Provider[]
   encounters             Encounter[]
   clinicalNotes          ClinicalNote[]
   imagingOrders          ImagingOrder[]
   procedureOrders        ProcedureOrder[]
   carePrograms           CareProgram[]
   careProgramEnrollments CareProgramEnrollment[]
-  triages Triage[]
-  consultations Consultation[]
-  prescriptions Prescription[]
-  diagnosis Diagnosis[]
-  labOrders LabOrder[]
-  labTests LabTest[]
-  careProgramVisits CareProgramVisit[]
-  labResults LabResult[]
-  labQualityControls LabQualityControl[]
-  labTurnaroundStats LabTurnaroundStats[]
-  pharmacyDispenses    PharmacyDispenses[]
-  otcSales             OtcSales[]
-  pharmacyReturns      PharmacyReturns[]
-  pharmacyAdjustments  PharmacyAdjustments[]
-  patientAllergies PatientAllergies[]
+  triages                Triage[]
+  consultations          Consultation[]
+  prescriptions          Prescription[]
+  diagnosis              Diagnosis[]
+  labOrders              LabOrder[]
+  labTests               LabTest[]
+  careProgramVisits      CareProgramVisit[]
+  labResults             LabResult[]
+  labQualityControls     LabQualityControl[]
+  labTurnaroundStats     LabTurnaroundStats[]
+  pharmacyDispenses      PharmacyDispenses[]
+  otcSales               OtcSales[]
+  pharmacyReturns        PharmacyReturns[]
+  pharmacyAdjustments    PharmacyAdjustments[]
+  patientAllergies       PatientAllergies[]
+  patients               Patient[]
 
-  stockIssuances     StockIssuance[]
-  stockTransfers     StockTransfer[]
-  stockAdjustments   StockAdjustment[]
-  stockMovements     StockMovement[]
-  reorderRules       ReorderRule[]
-  stockAlerts        StockAlert[]
+  stockIssuances   StockIssuance[]
+  stockTransfers   StockTransfer[]
+  stockAdjustments StockAdjustment[]
+  stockMovements   StockMovement[]
+  reorderRules     ReorderRule[]
+  stockAlerts      StockAlert[]
+  branches         Branch[]
+}
+
+model Branch {
+  id        String        @id @default(uuid())
+  name      String
+  location  String?
+  companyId String
+  company   Company       @relation(fields: [companyId], references: [id])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  users     CompanyUser[]
 }
 
 model CompanyUser {
-  id           String      @id @default(uuid())
+  id           String   @id @default(uuid())
   companyId    String
-  userId       String      @unique
+  userId       String   @unique
   title        String?
   idNumber     String?
   idAttachment String?
@@ -781,76 +797,80 @@ model CompanyUser {
   updatedAt    DateTime @updatedAt
   company      Company  @relation(fields: [companyId], references: [id])
   user         User     @relation(fields: [userId], references: [id])
+  branchId     String?
+  branch       Branch?  @relation(fields: [branchId], references: [id])
 }
 
 model Patient {
-  id                 String          @id @default(uuid())
-  name               String
-  identificationType String
-  phone              String
-  gender             String
-  birthDate          DateTime
-  patientNO          String          @unique
-  NID                String
-  motherName         String?         
-  fatherName         String?         
-  email              String?         
-  nextOfKinName      String?         
-  nextOfKinPhone     String?         
-  nextOfKinRelation  String?         
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  companyId          String
-  address            PatientAddress[]
-  insuranceCards     InsuranceCard[]
-  sells              Sell[]
-  appointments       Appointment[]
+  id                     String                  @id @default(uuid())
+  name                   String
+  identificationType     String
+  phone                  String
+  gender                 String
+  birthDate              DateTime
+  companyId              String
+  branchId               String?
+  patientNO              String                  @unique
+  NID                    String
+  motherName             String?
+  fatherName             String?
+  email                  String?
+  nextOfKinName          String?
+  nextOfKinPhone         String?
+  nextOfKinRelation      String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  company                Company                 @relation(fields: [companyId], references: [id])
+  address                PatientAddress[]
+  insuranceCards         InsuranceCard[]
+  sells                  Sell[]
+  appointments           Appointment[]
   // Clinic module back-relations
-  encounters         Encounter[]
+  encounters             Encounter[]
   // emrRecords         EMR[]
-  prescriptions      Prescription[]
-  labOrders          LabOrder[]
-  referrals     Referral[]
+  prescriptions          Prescription[]
+  labOrders              LabOrder[]
+  referrals              Referral[]
   clinicalNotes          ClinicalNote[]
   imagingOrders          ImagingOrder[]
   procedureOrders        ProcedureOrder[]
   careProgramEnrollments CareProgramEnrollment[]
-  consultations Consultation[]
-  triage Triage[]
-  diagnosis Diagnosis[]
-  careProgramVisits CareProgramVisit[]
-  labResults LabResult[]
-  insuranceClaims InsuranceClaim[]
-  clinicBilling ClinicBilling[]
-  pharmacyDispenses PharmacyDispenses[]
-  otcSales          OtcSales[]
-  patientAllergies     PatientAllergies[]
+  consultations          Consultation[]
+  triage                 Triage[]
+  diagnosis              Diagnosis[]
+  careProgramVisits      CareProgramVisit[]
+  labResults             LabResult[]
+  insuranceClaims        InsuranceClaim[]
+  clinicBilling          ClinicBilling[]
+  pharmacyDispenses      PharmacyDispenses[]
+  otcSales               OtcSales[]
+  patientAllergies       PatientAllergies[]
 }
 
 model PatientAddress {
-  id          String   @id @default(uuid())
-  patientId   String
+  id        String   @id @default(uuid())
+  patientId String
   // city        String?
-  province    String?  
-  district    String?  
-  sector      String?  
-  cell        String?  
-  village     String?  
-  street      String
-  country     String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  patient     Patient  @relation(fields: [patientId], references: [id])
+  province  String?
+  district  String?
+  sector    String?
+  cell      String?
+  village   String?
+  street    String
+  country   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  patient   Patient  @relation(fields: [patientId], references: [id])
 }
 
 model InsuranceCard {
-  id                String   @id @default(uuid())
+  id                String            @id @default(uuid())
   companyId         String
   patientId         String?
   clientId          String?
   insuranceId       String
-  affiliationNumber String   @unique // Renamed from cardNumber
-  policeNumber      String?  @default("0")
+  affiliationNumber String            @unique // Renamed from cardNumber
+  policeNumber      String?           @default("0")
   relationship      String
   affiliateName     String
   birthDate         DateTime
@@ -858,58 +878,60 @@ model InsuranceCard {
   phone             String?
   workDepartment    String?
   workplace         String?
-  percentage        Float    @default(0.0)
+  percentage        Float             @default(0.0)
   deletedAt         DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @default(now())
-  patient           Patient?  @relation(fields: [patientId], references: [id])
-  client            Client?   @relation(fields: [clientId], references: [id])
-  insurance         Insurance  @relation(fields: [insuranceId], references: [id])
+  branchId          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @default(now())
+  patient           Patient?          @relation(fields: [patientId], references: [id])
+  client            Client?           @relation(fields: [clientId], references: [id])
+  insurance         Insurance         @relation(fields: [insuranceId], references: [id])
   insuranceDetails  InsuranceDetail[]
   sells             Sell[]
   insuranceClaims   InsuranceClaim[]
 }
 
 model InsuranceDetail {
-  id              String   @id @default(uuid())
+  id              String        @id @default(uuid())
   insuranceCardId String
   key             String
   value           String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   insuranceCard   InsuranceCard @relation(fields: [insuranceCardId], references: [id])
 }
 
 model Insurance {
-  id           String      @id @default(uuid())
-  companyId    String
-  name         String
-  tin          String?
-  phone        String?
-  description  String?
-  address      String?
+  id          String  @id @default(uuid())
+  companyId   String
+  name        String
+  tin         String?
+  phone       String?
+  description String?
+  address     String?
 
-  company      Company      @relation(fields: [companyId], references: [id])
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  company       Company         @relation(fields: [companyId], references: [id])
+  branchId      String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   insuranceCard InsuranceCard[]
 }
 
-model  CompanyTools {
-  id                  String         @id @default(uuid())
-  companyId           String
-  markupPrice   Int?
-  taxRate             Float? 
-  companySignature    String?
-  companyStamp        String?
-  bankAccounts        Json?
-    businessTin           String?        
-  taxReportingFrequency String? 
+model CompanyTools {
+  id                    String  @id @default(uuid())
+  companyId             String
+  markupPrice           Int?
+  taxRate               Float?
+  companySignature      String?
+  companyStamp          String?
+  bankAccounts          Json?
+  businessTin           String?
+  taxReportingFrequency String?
 
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  company      Company      @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 }
 
 enum DeliveryStatus {
@@ -926,73 +948,74 @@ enum DeliveryType {
 }
 
 model Delivery {
-  id                    String            @id @default(uuid())
-  deliveryNumber        String            @unique
-  purchaseOrderId       String?
-  purchaseOrder         PurchaseOrder?    @relation(fields: [purchaseOrderId], references: [id])
+  id              String         @id @default(uuid())
+  deliveryNumber  String         @unique
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+  branchId        String?
 
-  supplierCompanyId     String
-  supplierCompany       Company           @relation("DeliverySupplier", fields: [supplierCompanyId], references: [id])
-  buyerCompanyId        String
-  buyerCompany          Company           @relation("DeliveryBuyer", fields: [buyerCompanyId], references: [id])
+  supplierCompanyId String
+  supplierCompany   Company @relation("DeliverySupplier", fields: [supplierCompanyId], references: [id])
+  buyerCompanyId    String
+  buyerCompany      Company @relation("DeliveryBuyer", fields: [buyerCompanyId], references: [id])
 
-  status                DeliveryStatus    @default(PENDING)
-  deliveryType          DeliveryType      @default(FULL_DELIVERY)
+  status       DeliveryStatus @default(PENDING)
+  deliveryType DeliveryType   @default(FULL_DELIVERY)
 
-  plannedDeliveryDate   DateTime
-  actualDeliveryDate    DateTime?
-  dispatchDate          DateTime?
+  plannedDeliveryDate DateTime
+  actualDeliveryDate  DateTime?
+  dispatchDate        DateTime?
 
-  deliveryAddress       String?
-  contactPerson         String?
-  contactPhone          String?
-  contactEmail          String?
+  deliveryAddress String?
+  contactPerson   String?
+  contactPhone    String?
+  contactEmail    String?
 
-  courierService        String?
-  trackingNumber        String?
-  vehicleDetails        String?
-  driverName            String?
-  driverPhone           String?
+  courierService String?
+  trackingNumber String?
+  vehicleDetails String?
+  driverName     String?
+  driverPhone    String?
 
-  deliveryNotes         String?
-  specialInstructions   String?
+  deliveryNotes       String?
+  specialInstructions String?
 
-  deliveryCharges       Decimal?          @db.Decimal(18, 2)
-  
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  createdById           String?
-  createdBy             User?             @relation(fields: [createdById], references: [id])
+  deliveryCharges Decimal? @db.Decimal(18, 2)
 
-  deliveryItems         DeliveryItem[]
-  deliveryTracking      DeliveryTracking[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+
+  deliveryItems    DeliveryItem[]
+  deliveryTracking DeliveryTracking[]
 }
 
 model DeliveryItem {
-  id                    String            @id @default(uuid())
-  deliveryId            String
-  delivery              Delivery          @relation(fields: [deliveryId], references: [id])
-  purchaseOrderItemId   String?
-  purchaseOrderItem     PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
-  itemId                String?           // For direct stock deliveries
-  item                  Items?            @relation(fields: [itemId], references: [id])
+  id                  String             @id @default(uuid())
+  deliveryId          String
+  delivery            Delivery           @relation(fields: [deliveryId], references: [id])
+  purchaseOrderItemId String?
+  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  itemId              String? // For direct stock deliveries
+  item                Items?             @relation(fields: [itemId], references: [id])
 
-  quantityToDeliver     Decimal           @db.Decimal(10, 2)
-  quantityDelivered     Decimal?          @db.Decimal(10, 2)
-  quantityDamaged       Decimal?          @db.Decimal(10, 2)
-  quantityRejected      Decimal?          @db.Decimal(10, 2)
+  quantityToDeliver Decimal  @db.Decimal(10, 2)
+  quantityDelivered Decimal? @db.Decimal(10, 2)
+  quantityDamaged   Decimal? @db.Decimal(10, 2)
+  quantityRejected  Decimal? @db.Decimal(10, 2)
 
-  actualBatchNo         String?
-  actualExpiryDate      DateTime?
-  actualUnitPrice       Decimal?          @db.Decimal(18, 4)
+  actualBatchNo    String?
+  actualExpiryDate DateTime?
+  actualUnitPrice  Decimal?  @db.Decimal(18, 4)
 
-  itemStatus            DeliveryItemStatus @default(PENDING)
-  notes                 String?
-  
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  itemStatus DeliveryItemStatus @default(PENDING)
+  notes      String?
 
-  stocks                Stock[] 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks Stock[]
 }
 
 enum DeliveryItemStatus {
@@ -1005,207 +1028,207 @@ enum DeliveryItemStatus {
 }
 
 model DeliveryTracking {
-  id              String    @id @default(uuid())
-  deliveryId      String
-  delivery        Delivery  @relation(fields: [deliveryId], references: [id])
-  
-  status          DeliveryStatus
-  location        String?
-  description     String?
-  timestamp       DateTime  @default(now())
-  updatedById     String?
-  updatedBy       User?     @relation(fields: [updatedById], references: [id])
-  
-  createdAt       DateTime  @default(now())
+  id         String   @id @default(uuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+
+  status      DeliveryStatus
+  location    String?
+  description String?
+  timestamp   DateTime       @default(now())
+  updatedById String?
+  updatedBy   User?          @relation(fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model Warehouse {
-  id                 String         @id @default(uuid())
-  warehousename       String      
-  description        String?
-  stockReceipts             StockReceipts[]
-  companyId         String
-  company            Company      @relation(fields: [companyId], references: [id])
-  prescriptions      Prescription[]
+  id            String          @id @default(uuid())
+  warehousename String
+  description   String?
+  stockReceipts StockReceipts[]
+  companyId     String
+  company       Company         @relation(fields: [companyId], references: [id])
+  branchId      String?
+  prescriptions Prescription[]
 
-  stockIssuances     StockIssuance[]
-  transfersFrom      StockTransfer[] @relation("TransferFrom")
-  transfersTo        StockTransfer[] @relation("TransferTo")
-  stockAdjustments   StockAdjustment[]
-  movementsFrom      StockMovement[] @relation("MovementFrom")
-  movementsTo        StockMovement[] @relation("MovementTo")
-  reorderRules       ReorderRule[]
-  stockAlerts        StockAlert[]
+  stockIssuances   StockIssuance[]
+  transfersFrom    StockTransfer[]   @relation("TransferFrom")
+  transfersTo      StockTransfer[]   @relation("TransferTo")
+  stockAdjustments StockAdjustment[]
+  movementsFrom    StockMovement[]   @relation("MovementFrom")
+  movementsTo      StockMovement[]   @relation("MovementTo")
+  reorderRules     ReorderRule[]
+  stockAlerts      StockAlert[]
 }
 
 model Plan {
-  id                  String    @id @default(uuid())
+  id String @id @default(uuid())
 
-  name                String 
-  description         String? 
-  price        Float
-  setupFee            Float?
-  additionalUser Float?
+  name               String
+  description        String?
+  price              Float
+  setupFee           Float?
+  additionalUser     Float?
   additionalLocation Float?
 
-  features            String[]
+  features String[]
 
-  period                 String?
-  userRange              String?
-  locationRange          String?
+  period        String?
+  userRange     String?
+  locationRange String?
 
-  isActive            Boolean  @default(true)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  subscription        Subscription[]
+  subscription Subscription[]
 }
 
 model Subscription {
-  id               String   @id @default(uuid())
-  companyId    String
+  id          String  @id @default(uuid())
+  companyId   String
   // Subscriber details
-  firstName        String
-  lastName         String
-  email            String
-  phone            String
-  companyName      String?
-  address          String?
-  city             String?
-  country          String?
+  firstName   String
+  lastName    String
+  email       String
+  phone       String
+  companyName String?
+  address     String?
+  city        String?
+  country     String?
 
   // Payment details
-  paymentMethod    String   // e.g. "mobile-money", "credit-card"
-  paymentPhone     String?  // for mobile money payments
-  billingAddress   String?
-  cardNumber       String?  // ⚠️ better store tokenized value, not raw card numbers
-  expiryDate       String?  // MM/YY format if card
-  cvv              String?  // ⚠️ same — better not store, use payment gateway
-  nameOnCard       String?
+  paymentMethod  String // e.g. "mobile-money", "credit-card"
+  paymentPhone   String? // for mobile money payments
+  billingAddress String?
+  cardNumber     String? // ⚠️ better store tokenized value, not raw card numbers
+  expiryDate     String? // MM/YY format if card
+  cvv            String? // ⚠️ same — better not store, use payment gateway
+  nameOnCard     String?
 
   // Plan details
-  selectedPlan     String   // Plan display name e.g. "Essential Partner"
-  planId           String   // Reference key (e.g. "essential")
-  planPrice        Float
-  setupFee         Float?
-  totalDueToday    Float
-  billingCycle     String   // e.g. "month", "year"
-  periodLabel      String   // e.g. "/month"
+  selectedPlan  String // Plan display name e.g. "Essential Partner"
+  planId        String // Reference key (e.g. "essential")
+  planPrice     Float
+  setupFee      Float?
+  totalDueToday Float
+  billingCycle  String // e.g. "month", "year"
+  periodLabel   String // e.g. "/month"
 
   // Relations
-  company          Company      @relation(fields: [companyId], references: [id])
-  plan             Plan?    @relation(fields: [planId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+  plan    Plan?   @relation(fields: [planId], references: [id])
 
-  payment        Payment?
+  payment Payment?
 
   // Metadata
-  isActive         Boolean  @default(true)
-  startDate        DateTime @default(now())
-  endDate          DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
-
 model TrialApplication {
-  id                    String   @id @default(uuid())
-  applicationNumber     String   @unique 
+  id                String @id @default(uuid())
+  applicationNumber String @unique
 
-  organizationName      String
-  organizationType      String  
-  countryCity           String
-  businessRegNumber     String?
-  website               String?
+  organizationName  String
+  organizationType  String
+  countryCity       String
+  businessRegNumber String?
+  website           String?
 
-  contactFirstName      String
-  contactLastName       String
-  contactPosition       String
-  contactPhone          String
-  contactEmail          String
-  contactWhatsApp       String?
+  contactFirstName String
+  contactLastName  String
+  contactPosition  String
+  contactPhone     String
+  contactEmail     String
+  contactWhatsApp  String?
 
-  modules               String[] 
-  approximateUsers      Int
-  preferredLanguage     String   
-  hasStableInternet     Boolean
-  devices               String[] 
+  modules           String[]
+  approximateUsers  Int
+  preferredLanguage String
+  hasStableInternet Boolean
+  devices           String[]
 
-  preferredStartDate    DateTime?
-  trialDuration         Int      
+  preferredStartDate DateTime?
+  trialDuration      Int
 
-  ndaSigned             Boolean   @default(false)
-  ndaSignedAt           DateTime?
-  ndaAgreed             Boolean   @default(false)
-  feedbackAgreed        Boolean   @default(false)
-  dataUsageAgreed       Boolean   @default(false)
-  trialUnderstanding    Boolean   @default(false)
+  ndaSigned                Boolean   @default(false)
+  ndaSignedAt              DateTime?
+  ndaAgreed                Boolean   @default(false)
+  feedbackAgreed           Boolean   @default(false)
+  dataUsageAgreed          Boolean   @default(false)
+  trialUnderstanding       Boolean   @default(false)
   authorizedRepresentative String?
-  signature             String?
-  signatureDate         DateTime?
+  signature                String?
+  signatureDate            DateTime?
 
-  status                TrialStatus @default(PENDING)
-  reviewedBy            String?
-  reviewedAt            DateTime?
-  approvedBy            String?
-  approvedAt            DateTime?
-  rejectionReason       String?
+  status          TrialStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
 
-  trialAccountId        String?   @unique
-  trialStartDate        DateTime?
-  trialEndDate          DateTime?
-  demoScheduled         Boolean   @default(false)
-  demoScheduledDate     DateTime?
+  trialAccountId    String?   @unique
+  trialStartDate    DateTime?
+  trialEndDate      DateTime?
+  demoScheduled     Boolean   @default(false)
+  demoScheduledDate DateTime?
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  feedbacks             TrialFeedback[]
-  demoRequests          DemoRequest[]
+  feedbacks    TrialFeedback[]
+  demoRequests DemoRequest[]
 }
 
 model DemoRequest {
-  id                    String   @id @default(uuid())
-  trialApplicationId    String?
-  trialApplication      TrialApplication? @relation(fields: [trialApplicationId], references: [id], onDelete: SetNull)
+  id                 String            @id @default(uuid())
+  trialApplicationId String?
+  trialApplication   TrialApplication? @relation(fields: [trialApplicationId], references: [id], onDelete: SetNull)
 
-  companyName           String
-  contactName           String
-  contactEmail          String
-  contactPhone          String
-  interestedModules     String[] 
-  
-  preferredDate         DateTime?
-  preferredTime         String?
-  timezone              String?
-  
-  additionalNotes       String?  @db.Text
-  
-  status                DemoStatus @default(REQUESTED)
-  scheduledDate         DateTime?
-  meetingLink           String?
-  assignedTo            String? 
-  
-  completedAt           DateTime?
-  followUpNotes         String?  @db.Text
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  companyName       String
+  contactName       String
+  contactEmail      String
+  contactPhone      String
+  interestedModules String[]
+
+  preferredDate DateTime?
+  preferredTime String?
+  timezone      String?
+
+  additionalNotes String? @db.Text
+
+  status        DemoStatus @default(REQUESTED)
+  scheduledDate DateTime?
+  meetingLink   String?
+  assignedTo    String?
+
+  completedAt   DateTime?
+  followUpNotes String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model TrialFeedback {
-  id                    String   @id @default(uuid())
-  trialApplicationId    String
-  trialApplication      TrialApplication @relation(fields: [trialApplicationId], references: [id], onDelete: Cascade)
-  
-  feedbackMonth         Int
-  rating                Int
-  comments              String   @db.Text
-  improvements          String?  @db.Text
-  wouldRecommend        Boolean
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  
+  id                 String           @id @default(uuid())
+  trialApplicationId String
+  trialApplication   TrialApplication @relation(fields: [trialApplicationId], references: [id], onDelete: Cascade)
+
+  feedbackMonth  Int
+  rating         Int
+  comments       String  @db.Text
+  improvements   String? @db.Text
+  wouldRecommend Boolean
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([trialApplicationId])
 }
 
@@ -1236,24 +1259,25 @@ enum DirectInvoiceStatus {
 }
 
 model DirectInvoice {
-  id             String               @id @default(uuid())
-  invoiceNumber    String               @unique
-  clientId       String
-  companyId      String
-  subtotal       Decimal             @db.Decimal(15, 2) @default(0)
-  grandTotal     Decimal             @db.Decimal(15, 2) @default(0)
-  currency       String              @default("RWF")
-  invoiceDate    DateTime            @default(now())
-  dueDate        DateTime
-  status         DirectInvoiceStatus @default(DRAFT)
-  notes          String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id            String              @id @default(uuid())
+  invoiceNumber String              @unique
+  clientId      String
+  companyId     String
+  branchId      String?
+  subtotal      Decimal             @default(0) @db.Decimal(15, 2)
+  grandTotal    Decimal             @default(0) @db.Decimal(15, 2)
+  currency      String              @default("RWF")
+  invoiceDate   DateTime            @default(now())
+  dueDate       DateTime
+  status        DirectInvoiceStatus @default(DRAFT)
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
-  client         Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  company        Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  items          DirectInvoiceItem[]
-  stocks         Stock[]
+  client  Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  company Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items   DirectInvoiceItem[]
+  stocks  Stock[]
 
   @@index([invoiceNumber])
   @@index([clientId])
@@ -1264,83 +1288,84 @@ model DirectInvoice {
 }
 
 model DirectInvoiceItem {
-  id           String         @id @default(uuid())
-  invoiceId    String
-  itemId       String
-  quantity     Decimal        @db.Decimal(10, 3)
-  unitPrice    Decimal        @db.Decimal(15, 2)
-  totalPrice   Decimal        @db.Decimal(15, 2)
-  isTaxable    Boolean        @default(false)
-  taxRate      Decimal        @db.Decimal(5, 2) @default(0)
-  taxAmount    Decimal        @db.Decimal(15, 2) @default(0)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id         String   @id @default(uuid())
+  invoiceId  String
+  itemId     String
+  quantity   Decimal  @db.Decimal(10, 3)
+  unitPrice  Decimal  @db.Decimal(15, 2)
+  totalPrice Decimal  @db.Decimal(15, 2)
+  isTaxable  Boolean  @default(false)
+  taxRate    Decimal  @default(0) @db.Decimal(5, 2)
+  taxAmount  Decimal  @default(0) @db.Decimal(15, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  invoice      DirectInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  item         Items          @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  invoice DirectInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  item    Items         @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([itemId])
 }
 
 model InvoiceSequence {
-  id             String   @id @default(uuid())
-  companyId      String
-  prefix         String   @default("INV")
-  currentNumber  Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(uuid())
+  companyId     String
+  prefix        String   @default("INV")
+  currentNumber Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, prefix])
 }
 
 model Appointment {
-  id                    String            @id @default(uuid())
-  patientId             String
-  providerId            String
-  companyId             String
-  
+  id         String  @id @default(uuid())
+  patientId  String
+  providerId String
+  companyId  String
+  branchId   String?
+
   // Appointment Details
-  appointmentType       AppointmentType
-  status                AppointmentStatus @default(SCHEDULED)
-  scheduledDate         DateTime
-  duration              Int               // minutes
-  reason                String
-  notes                 String?
-  room                  String?
-  
+  appointmentType AppointmentType
+  status          AppointmentStatus @default(SCHEDULED)
+  scheduledDate   DateTime
+  duration        Int // minutes
+  reason          String
+  notes           String?
+  room            String?
+
   // Walk-in specific
-  isWalkIn              Boolean           @default(false)
-  
+  isWalkIn Boolean @default(false)
+
   // Queue Management
-  queueNumber           Int?
-  queueStatus           QueueStatus?      // WAITING, IN_PROGRESS, COMPLETED, TRANSFERRED
-  calledAt              DateTime?
-  checkInTime           DateTime?
-  transferredTo         String?           // Service transferred to (lab, pharmacy, etc.)
-  
+  queueNumber   Int?
+  queueStatus   QueueStatus? // WAITING, IN_PROGRESS, COMPLETED, TRANSFERRED
+  calledAt      DateTime?
+  checkInTime   DateTime?
+  transferredTo String? // Service transferred to (lab, pharmacy, etc.)
+
   // Status timestamps
-  confirmedAt           DateTime?
-  cancelledAt           DateTime?
-  cancellationReason    String?
-  noShowAt              DateTime?
-  completedAt           DateTime?
-  
-  // Relations
-  createdBy             String
-  encounterId           String?
-  
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+  confirmedAt        DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  noShowAt           DateTime?
+  completedAt        DateTime?
 
   // Relations
-  patient               Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  provider              Provider          @relation("AppointmentProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  company               Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByUser         User              @relation("AppointmentCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  encounter             Encounter[]       
+  createdBy   String
+  encounterId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider      Provider    @relation("AppointmentProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser User        @relation("AppointmentCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  encounter     Encounter[]
 
   @@index([patientId])
   @@index([providerId])
@@ -1381,69 +1406,67 @@ enum QueueStatus {
 }
 
 model ResetToken {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  token     String   @unique
+  id        String    @id @default(uuid())
+  userId    String    @unique
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([expiresAt])
 }
 
-
 model Provider {
-  id            String   @id @default(uuid())
-  name          String
-  email         String
-  specialty     String?
-  licenseNumber String?
-  userId        String?  @unique 
-  companyId     String
-  company       Company  @relation(fields: [companyId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  labOrdersAsProvider      LabOrder[]          @relation("LabOrderProvider")
-  prescriptionsAsProvider  Prescription[]      @relation("PrescriptionProvider")
-  encountersAsProvider     Encounter[]         @relation("EncounterProvider")
-  providerAppointments Appointment[] @relation("AppointmentProvider")
-  referralsAsReferring     Referral[]          @relation("ReferringProvider")
-  referralsAsReferredTo    Referral[]          @relation("ReferredToProvider")
+  id                      String                  @id @default(uuid())
+  name                    String
+  email                   String
+  specialty               String?
+  licenseNumber           String?
+  userId                  String?                 @unique
+  companyId               String
+  company                 Company                 @relation(fields: [companyId], references: [id])
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+  labOrdersAsProvider     LabOrder[]              @relation("LabOrderProvider")
+  prescriptionsAsProvider Prescription[]          @relation("PrescriptionProvider")
+  encountersAsProvider    Encounter[]             @relation("EncounterProvider")
+  providerAppointments    Appointment[]           @relation("AppointmentProvider")
+  referralsAsReferring    Referral[]              @relation("ReferringProvider")
+  referralsAsReferredTo   Referral[]              @relation("ReferredToProvider")
   // clinicalNotes          ClinicalNote[]  @relation("ClinicalNoteProvider")
-  imagingOrders          ImagingOrder[]  @relation("ImagingOrderProvider")
-  procedureOrders        ProcedureOrder[] @relation("ProcedureOrderProvider")
-   user          User?    @relation(fields: [userId], references: [id]) 
-  schedules                ProviderSchedule[]
-  scheduleBlocks           ProviderScheduleBlock[]
-  
+  imagingOrders           ImagingOrder[]          @relation("ImagingOrderProvider")
+  procedureOrders         ProcedureOrder[]        @relation("ProcedureOrderProvider")
+  user                    User?                   @relation(fields: [userId], references: [id])
+  schedules               ProviderSchedule[]
+  scheduleBlocks          ProviderScheduleBlock[]
+
   @@index([companyId])
   @@index([email, companyId])
 }
 
-
 model Referral {
-  id                    String   @id @default(uuid())
-  patientId             String
-  encounterId           String?
-  referringProviderId   String
-  referredToProviderId  String
-  referralType          String?  // SPECIALIST, LAB, IMAGING, HOSPITAL, etc.
-  reason                String
-  priority              String?  @default("ROUTINE") // ROUTINE, URGENT, STAT
-  status                String   @default("PENDING") // PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
-  referralDate          DateTime @default(now())
-  appointmentDate       DateTime?
-  responseNotes         String?
-  completedDate         DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  patientId            String
+  encounterId          String?
+  referringProviderId  String
+  referredToProviderId String
+  referralType         String? // SPECIALIST, LAB, IMAGING, HOSPITAL, etc.
+  reason               String
+  priority             String?   @default("ROUTINE") // ROUTINE, URGENT, STAT
+  status               String    @default("PENDING") // PENDING, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED
+  referralDate         DateTime  @default(now())
+  appointmentDate      DateTime?
+  responseNotes        String?
+  completedDate        DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  patient               Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  encounter             Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  referringProvider     Provider  @relation("ReferringProvider", fields: [referringProviderId], references: [id], onDelete: Cascade)
-  referredToProvider    Provider  @relation("ReferredToProvider", fields: [referredToProviderId], references: [id], onDelete: Cascade)
+  patient            Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter          Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  referringProvider  Provider   @relation("ReferringProvider", fields: [referringProviderId], references: [id], onDelete: Cascade)
+  referredToProvider Provider   @relation("ReferredToProvider", fields: [referredToProviderId], references: [id], onDelete: Cascade)
 
   @@index([patientId])
   @@index([encounterId])
@@ -1454,16 +1477,16 @@ model Referral {
 }
 
 model ProviderSchedule {
-  id            String   @id @default(uuid())
-  providerId    String
-  dayOfWeek     Int      // 0=Sunday, 6=Saturday
-  startTime     String
-  endTime       String
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id         String   @id @default(uuid())
+  providerId String
+  dayOfWeek  Int // 0=Sunday, 6=Saturday
+  startTime  String
+  endTime    String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@unique([providerId, dayOfWeek])
   @@index([providerId])
@@ -1471,31 +1494,31 @@ model ProviderSchedule {
 }
 
 model ProviderScheduleBlock {
-  id            String   @id @default(uuid())
-  providerId    String
-  startDate     DateTime
-  endDate       DateTime
-  reason        String?
-  createdAt     DateTime @default(now())
+  id         String   @id @default(uuid())
+  providerId String
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+  createdAt  DateTime @default(now())
 
-  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@index([providerId])
   @@index([startDate, endDate])
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  userId      String?
-  entityType  String   // APPOINTMENT, ENCOUNTER, PRESCRIPTION, etc.
-  entityId    String
-  action      String   // CREATE, UPDATE, DELETE, VIEW
-  changes     Json?    // Before/after data
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String?
+  entityType String // APPOINTMENT, ENCOUNTER, PRESCRIPTION, etc.
+  entityId   String
+  action     String // CREATE, UPDATE, DELETE, VIEW
+  changes    Json? // Before/after data
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId])
   @@index([userId])
@@ -1574,34 +1597,34 @@ enum CareProgramType {
   OTHER
 }
 
-
 model Encounter {
-  id                String            @id @default(uuid())
-  patientId         String
-  providerId        String
-  appointmentId     String?
-  companyId         String
-  
-  visitType         VisitType         @default(OUTPATIENT)
-  visitNumber       String?           // Auto-generated visit number
-  status            EncounterStatus   @default(SCHEDULED)
-  
+  id            String  @id @default(uuid())
+  patientId     String
+  providerId    String
+  appointmentId String?
+  companyId     String
+  branchId      String?
+
+  visitType   VisitType       @default(OUTPATIENT)
+  visitNumber String? // Auto-generated visit number
+  status      EncounterStatus @default(SCHEDULED)
+
   // Timestamps
-  scheduledTime     DateTime?
-  checkInTime       DateTime?
-  startTime         DateTime?
-  endTime           DateTime?
-  
-  createdBy         String
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  scheduledTime DateTime?
+  checkInTime   DateTime?
+  startTime     DateTime?
+  endTime       DateTime?
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  patient           Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  provider          Provider          @relation("EncounterProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  appointment       Appointment?      @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
-  company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByUser     User              @relation("EncounterCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider      Provider     @relation("EncounterProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser User         @relation("EncounterCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
 
   // Child relations
   triage            Triage?
@@ -1612,10 +1635,10 @@ model Encounter {
   procedureOrders   ProcedureOrder[]
   clinicalNotes     ClinicalNote[]
   careProgramVisits CareProgramVisit[]
-  referrals Referral[]
-  insuranceClaim InsuranceClaim[]
-  clinicBilling ClinicBilling[]
-  diagnoses Diagnosis[]
+  referrals         Referral[]
+  insuranceClaim    InsuranceClaim[]
+  clinicBilling     ClinicBilling[]
+  diagnoses         Diagnosis[]
 
   @@index([patientId])
   @@index([providerId])
@@ -1628,39 +1651,40 @@ model Encounter {
 }
 
 model Triage {
-  id              String        @id @default(uuid())
-  encounterId     String        @unique
-  patientId       String
-  companyId       String
-  
-  triageLevel     TriageLevel   @default(ROUTINE)
-  chiefComplaint  String
-  triageNotes     String?
-  
-  // Vitals
-  temperature     Float?        // in Celsius
-  bloodPressureSystolic   Int?
-  bloodPressureDiastolic  Int?
-  heartRate       Int?          // bpm
-  respiratoryRate Int?          // breaths per minute
-  oxygenSaturation Float?       // SpO2 percentage
-  weight          Float?        // in kg
-  height          Float?        // in cm
-  bmi             Float?        // calculated
-  
-  painScore       Int?          // 0-10 scale
-  
-  allergies       String?
-  currentMedications String?
-  
-  capturedBy      String
-  capturedAt      DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id          String  @id @default(uuid())
+  encounterId String  @unique
+  patientId   String
+  companyId   String
+  branchId    String?
 
-  encounter       Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  capturedByUser  User          @relation("TriageCapturedBy", fields: [capturedBy], references: [id], onDelete: Cascade)
+  triageLevel    TriageLevel @default(ROUTINE)
+  chiefComplaint String
+  triageNotes    String?
+
+  // Vitals
+  temperature            Float? // in Celsius
+  bloodPressureSystolic  Int?
+  bloodPressureDiastolic Int?
+  heartRate              Int? // bpm
+  respiratoryRate        Int? // breaths per minute
+  oxygenSaturation       Float? // SpO2 percentage
+  weight                 Float? // in kg
+  height                 Float? // in cm
+  bmi                    Float? // calculated
+
+  painScore Int? // 0-10 scale
+
+  allergies          String?
+  currentMedications String?
+
+  capturedBy String
+  capturedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  encounter      Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient        Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  capturedByUser User      @relation("TriageCapturedBy", fields: [capturedBy], references: [id], onDelete: Cascade)
 
   @@index([encounterId])
   @@index([patientId])
@@ -1669,38 +1693,39 @@ model Triage {
 }
 
 model Consultation {
-  id                    String    @id @default(uuid())
-  encounterId           String    @unique
-  patientId             String
-  companyId             String
-  
-  chiefComplaint        String
+  id          String  @id @default(uuid())
+  encounterId String  @unique
+  patientId   String
+  companyId   String
+  branchId    String?
+
+  chiefComplaint             String
   historyOfPresentingIllness String?
-  pastMedicalHistory    String?
-  familyHistory         String?
-  socialHistory         String?
-  reviewOfSystems       Json?     // Structured data for each system
-  
-  physicalExamination   String?
-  generalAppearance     String?
-  systemicExamination   Json?     // Structured by body system
-  
+  pastMedicalHistory         String?
+  familyHistory              String?
+  socialHistory              String?
+  reviewOfSystems            Json? // Structured data for each system
+
+  physicalExamination String?
+  generalAppearance   String?
+  systemicExamination Json? // Structured by body system
+
   clinicalImpression    String?
   differentialDiagnosis String?
-  
-  treatmentPlan         String?
-  followUpInstructions  String?
-  
-  consultedBy           String
-  consultedAt           DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
 
-  encounter             Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient               Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  consultedByUser       User      @relation("ConsultationConsultedBy", fields: [consultedBy], references: [id], onDelete: Cascade)
-  
-  diagnoses             Diagnosis[]
+  treatmentPlan        String?
+  followUpInstructions String?
+
+  consultedBy String
+  consultedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  encounter       Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient         Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  consultedByUser User      @relation("ConsultationConsultedBy", fields: [consultedBy], references: [id], onDelete: Cascade)
+
+  diagnoses Diagnosis[]
 
   @@index([encounterId])
   @@index([patientId])
@@ -1709,31 +1734,32 @@ model Consultation {
 }
 
 model Diagnosis {
-  id              String         @id @default(uuid())
-  consultationId  String
-  encounterId     String
-  patientId       String
-  companyId       String
-  
-  icdCode         String
-  icdVersion      String         @default("ICD-10") // ICD-10, ICD-11
-  diagnosisName   String
-  diagnosisType   DiagnosisType  @default(PRIMARY)
-  
-  notes           String?
-  onsetDate       DateTime?
-  resolvedDate    DateTime?
-  isActive        Boolean        @default(true)
-  
-  diagnosedBy     String
-  diagnosedAt     DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id             String  @id @default(uuid())
+  consultationId String
+  encounterId    String
+  patientId      String
+  companyId      String
+  branchId       String?
 
-  consultation    Consultation   @relation(fields: [consultationId], references: [id], onDelete: Cascade)
-  patient         Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  diagnosedByUser User           @relation("DiagnosisDiagnosedBy", fields: [diagnosedBy], references: [id], onDelete: Cascade)
+  icdCode       String
+  icdVersion    String        @default("ICD-10") // ICD-10, ICD-11
+  diagnosisName String
+  diagnosisType DiagnosisType @default(PRIMARY)
+
+  notes        String?
+  onsetDate    DateTime?
+  resolvedDate DateTime?
+  isActive     Boolean   @default(true)
+
+  diagnosedBy String
+  diagnosedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+  patient         Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company         Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  encounter       Encounter    @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  diagnosedByUser User         @relation("DiagnosisDiagnosedBy", fields: [diagnosedBy], references: [id], onDelete: Cascade)
 
   @@index([consultationId])
   @@index([encounterId])
@@ -1744,56 +1770,57 @@ model Diagnosis {
 }
 
 model Prescription {
-  id                String              @id @default(uuid())
-  prescriptionNumber String?            // Auto-generated
-  patientId         String
-  providerId        String
-  encounterId       String?
-  companyId         String
-  
-  status            PrescriptionStatus  @default(DRAFT)
-  
+  id                 String  @id @default(uuid())
+  prescriptionNumber String? // Auto-generated
+  patientId          String
+  providerId         String
+  encounterId        String?
+  companyId          String
+  branchId           String?
+
+  status PrescriptionStatus @default(DRAFT)
+
   // Medication details
-  medicationName    String
-  itemId            String?             // Link to Items/Inventory
-  stockId           String?
-  dosage            String
-  frequency         String
-  route             String              // Oral, IV, IM, etc.
-  duration          String?
-  quantity          Float
-  unit              String              // tablets, ml, etc.
-  
-  instructions      String?
-  indicationForUse  String?
-  
-  startDate         DateTime?
-  endDate           DateTime?
-  
-  refillsAllowed    Int                 @default(0)
-  refillsUsed       Int                 @default(0)
-  
+  medicationName String
+  itemId         String? // Link to Items/Inventory
+  stockId        String?
+  dosage         String
+  frequency      String
+  route          String // Oral, IV, IM, etc.
+  duration       String?
+  quantity       Float
+  unit           String // tablets, ml, etc.
+
+  instructions     String?
+  indicationForUse String?
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  refillsAllowed Int @default(0)
+  refillsUsed    Int @default(0)
+
   // Dispensing info
-  isDispensed       Boolean             @default(false)
+  isDispensed       Boolean   @default(false)
   dispensedBy       String?
   dispensedDate     DateTime?
   quantityDispensed Float?
   warehouseId       String?
   batchNumber       String?
   expiryDate        DateTime?
-  
+
   // Pickup info
-  isPickedUp        Boolean             @default(false)
-  pickedUpBy        String?
-  pickedUpDate      DateTime?
-  
-  pharmacyNotes     String?
-  validationWarnings Json?              // Drug interactions, allergies, etc.
-  
-  prescribedBy      String
-  prescribedAt      DateTime            @default(now())
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  isPickedUp   Boolean   @default(false)
+  pickedUpBy   String?
+  pickedUpDate DateTime?
+
+  pharmacyNotes      String?
+  validationWarnings Json? // Drug interactions, allergies, etc.
+
+  prescribedBy String
+  prescribedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   patient           Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
   provider          Provider            @relation("PrescriptionProvider", fields: [providerId], references: [id], onDelete: Cascade)
@@ -1806,7 +1833,6 @@ model Prescription {
   warehouse         Warehouse?          @relation(fields: [warehouseId], references: [id])
   pharmacyDispenses PharmacyDispenses[]
   pharmacyReturns   PharmacyReturns[]
-  
 
   @@index([patientId])
   @@index([providerId])
@@ -1818,43 +1844,44 @@ model Prescription {
 }
 
 model LabOrder {
-  id              String        @id @default(uuid())
-  orderNumber     String?       // Auto-generated
-  encounterId     String
-  patientId       String
-  providerId      String
-  companyId       String
-  
-  testId          String        // Link to LabTest catalog
-  testName        String
-  testCategory    String?
-  
-  status          OrderStatus   @default(PENDING)
-  priority        String        @default("ROUTINE") // ROUTINE, URGENT, STAT
-  
-  clinicalNotes   String?
+  id          String  @id @default(uuid())
+  orderNumber String? // Auto-generated
+  encounterId String
+  patientId   String
+  providerId  String
+  companyId   String
+  branchId    String?
+
+  testId       String // Link to LabTest catalog
+  testName     String
+  testCategory String?
+
+  status   OrderStatus @default(PENDING)
+  priority String      @default("ROUTINE") // ROUTINE, URGENT, STAT
+
+  clinicalNotes       String?
   specialInstructions String?
-  
-  sampleType      String?       // Blood, Urine, etc.
+
+  sampleType        String? // Blood, Urine, etc.
   sampleCollectedAt DateTime?
   sampleCollectedBy String?
-  
-  scheduledDate   DateTime?
-  
-  orderedBy       String
-  orderedAt       DateTime      @default(now())
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
-  encounter       Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  provider        Provider      @relation("LabOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  orderedByUser   User          @relation("LabOrderOrderedBy", fields: [orderedBy], references: [id], onDelete: Cascade)
-  collectedByUser User?         @relation("LabOrderCollectedBy", fields: [sampleCollectedBy], references: [id])
-  test            LabTest       @relation(fields: [testId], references: [id])
-  
-  results         LabResult[]
+  scheduledDate DateTime?
+
+  orderedBy String
+  orderedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encounter       Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient         Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider        Provider  @relation("LabOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  orderedByUser   User      @relation("LabOrderOrderedBy", fields: [orderedBy], references: [id], onDelete: Cascade)
+  collectedByUser User?     @relation("LabOrderCollectedBy", fields: [sampleCollectedBy], references: [id])
+  test            LabTest   @relation(fields: [testId], references: [id])
+
+  results LabResult[]
 
   @@index([encounterId])
   @@index([patientId])
@@ -1866,44 +1893,45 @@ model LabOrder {
 }
 
 model ImagingOrder {
-  id              String        @id @default(uuid())
-  orderNumber     String?
-  encounterId     String
-  patientId       String
-  providerId      String
-  companyId       String
-  
-  imagingType     String        // X-Ray, CT, MRI, Ultrasound, etc.
-  bodyPart        String
-  
-  status          OrderStatus   @default(PENDING)
-  priority        String        @default("ROUTINE")
-  
-  clinicalNotes   String?
-  indication      String?
-  
-  scheduledDate   DateTime?
-  completedDate   DateTime?
-  
-  reportUrl       String?       // Link to uploaded report
-  imagesUrl       String?       // Link to uploaded images
-  findings        String?
-  impression      String?
-  
-  reportedBy      String?
-  reportedAt      DateTime?
-  
-  orderedBy       String
-  orderedAt       DateTime      @default(now())
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id          String  @id @default(uuid())
+  orderNumber String?
+  encounterId String
+  patientId   String
+  providerId  String
+  companyId   String
+  branchId    String?
 
-  encounter       Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  provider        Provider      @relation("ImagingOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  orderedByUser   User          @relation("ImagingOrderOrderedBy", fields: [orderedBy], references: [id], onDelete: Cascade)
-  reportedByUser  User?         @relation("ImagingOrderReportedBy", fields: [reportedBy], references: [id])
+  imagingType String // X-Ray, CT, MRI, Ultrasound, etc.
+  bodyPart    String
+
+  status   OrderStatus @default(PENDING)
+  priority String      @default("ROUTINE")
+
+  clinicalNotes String?
+  indication    String?
+
+  scheduledDate DateTime?
+  completedDate DateTime?
+
+  reportUrl  String? // Link to uploaded report
+  imagesUrl  String? // Link to uploaded images
+  findings   String?
+  impression String?
+
+  reportedBy String?
+  reportedAt DateTime?
+
+  orderedBy String
+  orderedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encounter      Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient        Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider       Provider  @relation("ImagingOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  orderedByUser  User      @relation("ImagingOrderOrderedBy", fields: [orderedBy], references: [id], onDelete: Cascade)
+  reportedByUser User?     @relation("ImagingOrderReportedBy", fields: [reportedBy], references: [id])
 
   @@index([encounterId])
   @@index([patientId])
@@ -1914,40 +1942,41 @@ model ImagingOrder {
 }
 
 model ProcedureOrder {
-  id              String        @id @default(uuid())
-  orderNumber     String?
-  encounterId     String
-  patientId       String
-  providerId      String
-  companyId       String
-  
-  procedureName   String
-  procedureCode   String?       // CPT code
-  
-  status          OrderStatus   @default(PENDING)
-  priority        String        @default("ROUTINE")
-  
-  indication      String?
-  notes           String?
-  
-  scheduledDate   DateTime?
-  performedDate   DateTime?
-  performedBy     String?
-  
-  findings        String?
-  complications   String?
-  
-  orderedBy       String
-  orderedAt       DateTime      @default(now())
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id          String  @id @default(uuid())
+  orderNumber String?
+  encounterId String
+  patientId   String
+  providerId  String
+  companyId   String
+  branchId    String?
 
-  encounter       Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  provider        Provider      @relation("ProcedureOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  orderedByUser   User          @relation("ProcedureOrderOrderedBy", fields: [orderedBy], references: [id], onDelete: Cascade)
-  performedByUser User?         @relation("ProcedureOrderPerformedBy", fields: [performedBy], references: [id])
+  procedureName String
+  procedureCode String? // CPT code
+
+  status   OrderStatus @default(PENDING)
+  priority String      @default("ROUTINE")
+
+  indication String?
+  notes      String?
+
+  scheduledDate DateTime?
+  performedDate DateTime?
+  performedBy   String?
+
+  findings      String?
+  complications String?
+
+  orderedBy String
+  orderedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encounter       Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient         Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider        Provider  @relation("ProcedureOrderProvider", fields: [providerId], references: [id], onDelete: Cascade)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  orderedByUser   User      @relation("ProcedureOrderOrderedBy", fields: [orderedBy], references: [id], onDelete: Cascade)
+  performedByUser User?     @relation("ProcedureOrderPerformedBy", fields: [performedBy], references: [id])
 
   @@index([encounterId])
   @@index([patientId])
@@ -1957,36 +1986,37 @@ model ProcedureOrder {
 }
 
 model ClinicalNote {
-  id              String        @id @default(uuid())
-  encounterId     String
-  patientId       String
-  companyId       String
-  
-  noteType        NoteType
-  title           String
-  content         String        @db.Text
-  
+  id          String  @id @default(uuid())
+  encounterId String
+  patientId   String
+  companyId   String
+  branchId    String?
+
+  noteType NoteType
+  title    String
+  content  String   @db.Text
+
   // For discharge summaries
-  admissionDate   DateTime?
-  dischargeDate   DateTime?
-  dischargeDiagnosis String?
+  admissionDate         DateTime?
+  dischargeDate         DateTime?
+  dischargeDiagnosis    String?
   dischargeInstructions String?
-  
+
   // For referrals
   referralTo      String?
   referralReason  String?
   referralUrgency String?
-  
-  attachments     Json?         // Array of file URLs
-  
-  createdBy       String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
-  encounter       Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByUser   User          @relation("ClinicalNoteCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  attachments Json? // Array of file URLs
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  encounter     Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser User      @relation("ClinicalNoteCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([encounterId])
   @@index([patientId])
@@ -1996,26 +2026,27 @@ model ClinicalNote {
 }
 
 model CareProgram {
-  id              String           @id @default(uuid())
-  companyId       String
-  
-  programName     String
-  programType     CareProgramType
-  description     String?
-  
-  eligibilityCriteria Json?
-  protocolSteps   Json?            // Structured program protocol
-  
-  isActive        Boolean          @default(true)
-  
-  createdBy       String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id        String  @id @default(uuid())
+  companyId String
+  branchId  String?
 
-  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByUser   User             @relation("CareProgramCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  
-  enrollments     CareProgramEnrollment[]
+  programName String
+  programType CareProgramType
+  description String?
+
+  eligibilityCriteria Json?
+  protocolSteps       Json? // Structured program protocol
+
+  isActive Boolean @default(true)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser User    @relation("CareProgramCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  enrollments CareProgramEnrollment[]
 
   @@index([companyId])
   @@index([programType])
@@ -2023,31 +2054,32 @@ model CareProgram {
 }
 
 model CareProgramEnrollment {
-  id              String        @id @default(uuid())
-  programId       String
-  patientId       String
-  companyId       String
-  
-  enrollmentDate  DateTime      @default(now())
+  id        String  @id @default(uuid())
+  programId String
+  patientId String
+  companyId String
+  branchId  String?
+
+  enrollmentDate  DateTime  @default(now())
   expectedEndDate DateTime?
   actualEndDate   DateTime?
-  
-  status          String        @default("ACTIVE") // ACTIVE, COMPLETED, DISCONTINUED
-  discontinuationReason String?
-  
-  currentStage    String?
-  notes           String?
-  
-  enrolledBy      String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
-  program         CareProgram   @relation(fields: [programId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  enrolledByUser  User          @relation("CareProgramEnrollmentEnrolledBy", fields: [enrolledBy], references: [id], onDelete: Cascade)
-  
-  visits          CareProgramVisit[]
+  status                String  @default("ACTIVE") // ACTIVE, COMPLETED, DISCONTINUED
+  discontinuationReason String?
+
+  currentStage String?
+  notes        String?
+
+  enrolledBy String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  program        CareProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  patient        Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company        Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enrolledByUser User        @relation("CareProgramEnrollmentEnrolledBy", fields: [enrolledBy], references: [id], onDelete: Cascade)
+
+  visits CareProgramVisit[]
 
   @@index([programId])
   @@index([patientId])
@@ -2056,32 +2088,33 @@ model CareProgramEnrollment {
 }
 
 model CareProgramVisit {
-  id              String        @id @default(uuid())
-  enrollmentId    String
-  encounterId     String?
-  patientId       String
-  companyId       String
-  
-  visitDate       DateTime
-  visitType       String        // ANC Visit 1, Follow-up, etc.
-  
-  observations    Json?         // Program-specific observations
-  measurements    Json?         // Program-specific measurements
-  assessments     Json?
-  interventions   Json?
-  
-  nextVisitDate   DateTime?
-  notes           String?
-  
-  conductedBy     String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id           String  @id @default(uuid())
+  enrollmentId String
+  encounterId  String?
+  patientId    String
+  companyId    String
+  branchId     String?
+
+  visitDate DateTime
+  visitType String // ANC Visit 1, Follow-up, etc.
+
+  observations  Json? // Program-specific observations
+  measurements  Json? // Program-specific measurements
+  assessments   Json?
+  interventions Json?
+
+  nextVisitDate DateTime?
+  notes         String?
+
+  conductedBy String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   enrollment      CareProgramEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  encounter       Encounter?    @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  conductedByUser User          @relation("CareProgramVisitConductedBy", fields: [conductedBy], references: [id], onDelete: Cascade)
+  encounter       Encounter?            @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  patient         Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company         Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  conductedByUser User                  @relation("CareProgramVisitConductedBy", fields: [conductedBy], references: [id], onDelete: Cascade)
 
   @@index([enrollmentId])
   @@index([encounterId])
@@ -2097,40 +2130,41 @@ enum LabTestType {
 }
 
 model LabTest {
-  id              String        @id @default(uuid())
-  companyId       String
-  
-  testCode        String
-  testName        String
-  testType        LabTestType   @default(SINGLE)
-  category        String        // Hematology, Chemistry, Microbiology, etc.
-  
-  description     String?
-  sampleType      String        // Blood, Urine, etc.
-  sampleVolume    String?
-  
-  turnaroundTime  Int?          // in hours
-  
-  // Pricing
-  price           Float         @default(0)
-  
-  // For panels - contains multiple tests
-  panelTests      Json?         // Array of test IDs if this is a panel
-  
-  // Reference ranges
-  referenceRanges Json?         // By age/gender
-  
-  isActive        Boolean       @default(true)
-  requiresApproval Boolean      @default(false)
-  
-  createdBy       String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id        String  @id @default(uuid())
+  companyId String
+  branchId  String?
 
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdByUser   User          @relation("LabTestCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  
-  orders          LabOrder[]
+  testCode String
+  testName String
+  testType LabTestType @default(SINGLE)
+  category String // Hematology, Chemistry, Microbiology, etc.
+
+  description  String?
+  sampleType   String // Blood, Urine, etc.
+  sampleVolume String?
+
+  turnaroundTime Int? // in hours
+
+  // Pricing
+  price Float @default(0)
+
+  // For panels - contains multiple tests
+  panelTests Json? // Array of test IDs if this is a panel
+
+  // Reference ranges
+  referenceRanges Json? // By age/gender
+
+  isActive         Boolean @default(true)
+  requiresApproval Boolean @default(false)
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdByUser User    @relation("LabTestCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  orders LabOrder[]
 
   @@unique([companyId, testCode])
   @@index([companyId])
@@ -2140,34 +2174,35 @@ model LabTest {
 }
 
 model LabResult {
-  id              String        @id @default(uuid())
-  labOrderId      String
-  patientId       String
-  companyId       String
-  
-  testParameter   String
-  result          String
-  unit            String?
-  referenceRange  String?
-  
-  isAbnormal      Boolean       @default(false)
-  abnormalFlag    String?       // HIGH, LOW, CRITICAL
-  
-  notes           String?
-  
-  resultDate      DateTime      @default(now())
-  enteredBy       String
-  approvedBy      String?
-  approvedAt      DateTime?
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id         String  @id @default(uuid())
+  labOrderId String
+  patientId  String
+  companyId  String
+  branchId   String?
 
-  labOrder        LabOrder      @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  enteredByUser   User          @relation("LabResultEnteredBy", fields: [enteredBy], references: [id], onDelete: Cascade)
-  approvedByUser  User?         @relation("LabResultApprovedBy", fields: [approvedBy], references: [id])
+  testParameter  String
+  result         String
+  unit           String?
+  referenceRange String?
+
+  isAbnormal   Boolean @default(false)
+  abnormalFlag String? // HIGH, LOW, CRITICAL
+
+  notes String?
+
+  resultDate DateTime  @default(now())
+  enteredBy  String
+  approvedBy String?
+  approvedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  labOrder       LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  patient        Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enteredByUser  User     @relation("LabResultEnteredBy", fields: [enteredBy], references: [id], onDelete: Cascade)
+  approvedByUser User?    @relation("LabResultApprovedBy", fields: [approvedBy], references: [id])
 
   @@index([labOrderId])
   @@index([patientId])
@@ -2176,32 +2211,33 @@ model LabResult {
 }
 
 model LabQualityControl {
-  id              String        @id @default(uuid())
-  companyId       String
-  testId          String?
-  
-  controlType     String        // DAILY, WEEKLY, MONTHLY
-  controlLevel    String        // NORMAL, HIGH, LOW
-  
-  testDate        DateTime
-  lotNumber       String?
-  expiryDate      DateTime?
-  
-  expectedValue   String
-  observedValue   String
-  result          String        // PASS, FAIL, WARNING
-  
-  deviation       Float?
-  comments        String?
-  
-  performedBy     String
-  reviewedBy      String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id        String  @id @default(uuid())
+  companyId String
+  branchId  String?
+  testId    String?
 
-  company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  performedByUser User          @relation("LabQCPerformedBy", fields: [performedBy], references: [id], onDelete: Cascade)
-  reviewedByUser  User?         @relation("LabQCReviewedBy", fields: [reviewedBy], references: [id])
+  controlType  String // DAILY, WEEKLY, MONTHLY
+  controlLevel String // NORMAL, HIGH, LOW
+
+  testDate   DateTime
+  lotNumber  String?
+  expiryDate DateTime?
+
+  expectedValue String
+  observedValue String
+  result        String // PASS, FAIL, WARNING
+
+  deviation Float?
+  comments  String?
+
+  performedBy String
+  reviewedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  performedByUser User    @relation("LabQCPerformedBy", fields: [performedBy], references: [id], onDelete: Cascade)
+  reviewedByUser  User?   @relation("LabQCReviewedBy", fields: [reviewedBy], references: [id])
 
   @@index([companyId])
   @@index([testDate])
@@ -2210,25 +2246,26 @@ model LabQualityControl {
 
 // Turnaround Time Statistics
 model LabTurnaroundStats {
-  id              String        @id @default(uuid())
-  companyId       String
-  testId          String
-  
-  orderDate       DateTime
+  id        String  @id @default(uuid())
+  companyId String
+  branchId  String?
+  testId    String
+
+  orderDate         DateTime
   sampleCollectedAt DateTime?
   resultEnteredAt   DateTime?
   resultApprovedAt  DateTime?
-  
-  collectionToEntry Int?        // minutes
-  entryToApproval   Int?        // minutes
-  totalTurnaround   Int?        // minutes
-  
-  isWithinTarget    Boolean     @default(true)
-  targetTime        Int?        // minutes
-  
-  createdAt         DateTime    @default(now())
 
-  company           Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  collectionToEntry Int? // minutes
+  entryToApproval   Int? // minutes
+  totalTurnaround   Int? // minutes
+
+  isWithinTarget Boolean @default(true)
+  targetTime     Int? // minutes
+
+  createdAt DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([testId])
@@ -2236,32 +2273,34 @@ model LabTurnaroundStats {
 }
 
 model InsuranceClaim {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   patientId       String
   insuranceCardId String
   encounterId     String?
   billingId       String?
-  claimNumber     String   @unique
-  status          String   @default("DRAFT") // DRAFT, SUBMITTED, PENDING, APPROVED, REJECTED, PARTIAL, PAID
+  companyId       String?
+  branchId        String?
+  claimNumber     String    @unique
+  status          String    @default("DRAFT") // DRAFT, SUBMITTED, PENDING, APPROVED, REJECTED, PARTIAL, PAID
   diagnosisCodes  String[]
   procedureCodes  String[]
-  totalAmount     Decimal  @db.Decimal(10, 2)
-  approvedAmount  Decimal? @db.Decimal(10, 2)
-  rejectedAmount  Decimal? @db.Decimal(10, 2)
+  totalAmount     Decimal   @db.Decimal(10, 2)
+  approvedAmount  Decimal?  @db.Decimal(10, 2)
+  rejectedAmount  Decimal?  @db.Decimal(10, 2)
   claimFileUrl    String?
   responseFileUrl String?
   submittedDate   DateTime?
   responseDate    DateTime?
   notes           String?
   createdBy       String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  patient         Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  insuranceCard   InsuranceCard  @relation(fields: [insuranceCardId], references: [id], onDelete: Cascade)
-  encounter       Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  billing         ClinicBilling? @relation(fields: [billingId], references: [id], onDelete: SetNull)
-  createdByUser   User          @relation("InsuranceClaimCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  insuranceCard InsuranceCard  @relation(fields: [insuranceCardId], references: [id], onDelete: Cascade)
+  encounter     Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  billing       ClinicBilling? @relation(fields: [billingId], references: [id], onDelete: SetNull)
+  createdByUser User           @relation("InsuranceClaimCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
 
   @@index([patientId])
   @@index([insuranceCardId])
@@ -2280,34 +2319,36 @@ enum BillingStatus {
 }
 
 model ClinicBilling {
-  id             String        @id @default(uuid())
-  patientId      String
-  encounterId    String?
-  invoiceNumber  String        @unique
-  billingType    String?
-  services       Json          // array of service lines
-  subtotal       Float         @default(0)
-  taxAmount      Float         @default(0)
-  discountAmount Float         @default(0)
-  totalAmount    Float         @default(0)
-  currency       String        @default("USD")
-  invoiceDate    DateTime      @default(now())
-  dueDate        DateTime?
-  paidDate       DateTime?
-  paymentMethod  String?
-  paymentGateway String?
-  transactionId String?
+  id                String        @id @default(uuid())
+  patientId         String
+  encounterId       String?
+  companyId         String?
+  branchId          String?
+  invoiceNumber     String        @unique
+  billingType       String?
+  services          Json // array of service lines
+  subtotal          Float         @default(0)
+  taxAmount         Float         @default(0)
+  discountAmount    Float         @default(0)
+  totalAmount       Float         @default(0)
+  currency          String        @default("USD")
+  invoiceDate       DateTime      @default(now())
+  dueDate           DateTime?
+  paidDate          DateTime?
+  paymentMethod     String?
+  paymentGateway    String?
+  transactionId     String?
   paymentReceiptUrl String?
-  status         BillingStatus @default(DRAFT)
-  notes          String?
-  createdBy      String
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  status            BillingStatus @default(DRAFT)
+  notes             String?
+  createdBy         String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  encounter      Encounter?    @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  createdByUser  User          @relation("ClinicBillingCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
-  payments       BillingPayment[]
+  patient         Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter       Encounter?       @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdByUser   User             @relation("ClinicBillingCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  payments        BillingPayment[]
   insuranceClaims InsuranceClaim[]
 
   @@index([patientId])
@@ -2330,7 +2371,7 @@ model BillingPayment {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  billing           ClinicBilling @relation(fields: [billingId], references: [id], onDelete: Cascade)
+  billing ClinicBilling @relation(fields: [billingId], references: [id], onDelete: Cascade)
 
   @@index([billingId])
   @@index([status])
@@ -2338,77 +2379,77 @@ model BillingPayment {
 }
 
 model PharmacyDispenses {
-  id                String        @id @default(uuid())
-  prescriptionId String?     
-  patientId      String     
-  companyId      String     
-  itemId         String     
-  quantity       Decimal     @db.Decimal(10, 2)
-  unit           String      
-  batchNumber    String?     
-  expiryDate     DateTime?   
-  status         String      @default("PENDING") @db.VarChar(20) // PENDING, DISPENSED, PARTIAL, CANCELLED
-  dispensedBy    String     
-  dispensedAt    DateTime?   
-  notes          String?     
-  createdAt      DateTime    @default(now()) 
-  updatedAt      DateTime    @default(now()) 
+  id             String    @id @default(uuid())
+  prescriptionId String?
+  patientId      String
+  companyId      String
+  branchId       String?
+  itemId         String
+  quantity       Decimal   @db.Decimal(10, 2)
+  unit           String
+  batchNumber    String?
+  expiryDate     DateTime?
+  status         String    @default("PENDING") @db.VarChar(20) // PENDING, DISPENSED, PARTIAL, CANCELLED
+  dispensedBy    String
+  dispensedAt    DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now())
 
   // Relations
-  prescription   Prescription? @relation(fields: [prescriptionId], references: [id])
-  patient        Patient       @relation(fields: [patientId], references: [id])
-  company        Company        @relation(fields: [companyId], references: [id])
-  item           Items          @relation(fields: [itemId], references: [id])
-  dispensedByUser User         @relation(fields: [dispensedBy], references: [id])
-  returns        PharmacyReturns[]
-
+  prescription    Prescription?     @relation(fields: [prescriptionId], references: [id])
+  patient         Patient           @relation(fields: [patientId], references: [id])
+  company         Company           @relation(fields: [companyId], references: [id])
+  item            Items             @relation(fields: [itemId], references: [id])
+  dispensedByUser User              @relation(fields: [dispensedBy], references: [id])
+  returns         PharmacyReturns[]
 }
 
 model OtcSales {
-  id                String        @id @default(uuid())
-  patientId   String?  
-  companyId   String   
-  itemId      String   
+  id          String   @id @default(uuid())
+  patientId   String?
+  companyId   String
+  branchId    String?
+  itemId      String
   quantity    Decimal  @db.Decimal(10, 2)
-  unit        String   
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  totalAmount Decimal   @db.Decimal(10, 2)
-  soldBy      String   
-  soldAt      DateTime @default(now()) 
-  notes       String?  
-  createdAt   DateTime @default(now()) 
-  updatedAt   DateTime @default(now()) 
+  unit        String
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  totalAmount Decimal  @db.Decimal(10, 2)
+  soldBy      String
+  soldAt      DateTime @default(now())
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
 
   // Relations
-  patient     Patient? @relation(fields: [patientId], references: [id])
-  company     Company   @relation(fields: [companyId], references: [id])
-  item        Items     @relation(fields: [itemId], references: [id])
-  soldByUser  User     @relation(fields: [soldBy], references: [id])
-
+  patient    Patient? @relation(fields: [patientId], references: [id])
+  company    Company  @relation(fields: [companyId], references: [id])
+  item       Items    @relation(fields: [itemId], references: [id])
+  soldByUser User     @relation(fields: [soldBy], references: [id])
 }
 
 model PharmacyReturns {
-  id                String        @id @default(uuid())
-  dispenseId     String?  
-  prescriptionId String?  
-  companyId      String   
-  itemId         String   
+  id             String   @id @default(uuid())
+  dispenseId     String?
+  prescriptionId String?
+  companyId      String
+  branchId       String?
+  itemId         String
   quantity       Decimal  @db.Decimal(10, 2)
   unit           String   @db.VarChar(50)
-  returnReason   String    // EXPIRED, DAMAGED, WRONG_ITEM, PATIENT_REFUSAL, OTHER
-  reasonNotes    String?  
-  returnedBy     String   
-  returnedAt     DateTime @default(now()) 
-  createdAt      DateTime @default(now()) 
-  updatedAt      DateTime @default(now()) 
+  returnReason   String // EXPIRED, DAMAGED, WRONG_ITEM, PATIENT_REFUSAL, OTHER
+  reasonNotes    String?
+  returnedBy     String
+  returnedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now())
 
   // Relations
   dispense       PharmacyDispenses? @relation(fields: [dispenseId], references: [id])
-  prescription   Prescription?     @relation(fields: [prescriptionId], references: [id])
+  prescription   Prescription?      @relation(fields: [prescriptionId], references: [id])
   company        Company            @relation(fields: [companyId], references: [id])
   item           Items              @relation(fields: [itemId], references: [id])
-  returnedByUser User              @relation(fields: [returnedBy], references: [id])
-
+  returnedByUser User               @relation(fields: [returnedBy], references: [id])
 }
 
 enum AdjustmentType {
@@ -2418,40 +2459,42 @@ enum AdjustmentType {
 }
 
 model PharmacyAdjustments {
-  id                String        @id @default(uuid())
-  companyId      String   
-  itemId         String   
-  adjustmentType AdjustmentType    // ADD, SUBTRACT, CORRECTION
-  quantity       Decimal  @db.Decimal(10, 2)
-  unit           String   
-  reason         String   
-  adjustedBy     String   
-  adjustedAt     DateTime @default(now()) 
-  createdAt      DateTime @default(now()) 
-  updatedAt      DateTime @default(now()) 
+  id             String         @id @default(uuid())
+  companyId      String
+  branchId       String?
+  itemId         String
+  adjustmentType AdjustmentType // ADD, SUBTRACT, CORRECTION
+  quantity       Decimal        @db.Decimal(10, 2)
+  unit           String
+  reason         String
+  adjustedBy     String
+  adjustedAt     DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @default(now())
 
   // Relations
   company        Company @relation(fields: [companyId], references: [id])
   item           Items   @relation(fields: [itemId], references: [id])
-  adjustedByUser User   @relation(fields: [adjustedBy], references: [id])
+  adjustedByUser User    @relation(fields: [adjustedBy], references: [id])
 }
 
 model PatientAllergies {
-  id                String        @id @default(uuid())
-  patientId   String  
-  companyId   String   
-  allergen    String   
-  allergyType String    // DRUG, FOOD, ENVIRONMENTAL
-  severity    String    // MILD, MODERATE, SEVERE, LIFE_THREATENING
-  reaction    String?   // Description of the allergic reaction
-  diagnosedAt DateTime? 
-  notes       String?  
-  createdAt   DateTime @default(now()) 
-  updatedAt   DateTime @default(now()) 
+  id          String    @id @default(uuid())
+  patientId   String
+  companyId   String
+  branchId    String?
+  allergen    String
+  allergyType String // DRUG, FOOD, ENVIRONMENTAL
+  severity    String // MILD, MODERATE, SEVERE, LIFE_THREATENING
+  reaction    String? // Description of the allergic reaction
+  diagnosedAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
 
   // Relations
-  patient     Patient @relation(fields: [patientId], references: [id])
-  company     Company  @relation(fields: [companyId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
   @@index([patientId], map: "idx_patient_allergies_patient")
   @@index([companyId], map: "idx_patient_allergies_company")
@@ -2460,39 +2503,40 @@ model PatientAllergies {
 
 // Stock Issuance - tracks stock issued to departments/wards
 model StockIssuance {
-  id              String   @id @default(uuid())
-  itemId          String
-  item            Items    @relation(fields: [itemId], references: [id])
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
-  warehouseId     String
-  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
-  quantity        Decimal  @db.Decimal(18, 2)
-  
+  id          String    @id @default(uuid())
+  itemId      String
+  item        Items     @relation(fields: [itemId], references: [id])
+  companyId   String
+  branchId    String?
+  company     Company   @relation(fields: [companyId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  quantity    Decimal   @db.Decimal(18, 2)
+
   // Recipient information
-  issuedTo        String   // Department/Ward/Pharmacy name
-  issuedToType    String   // PHARMACY, WARD, DEPARTMENT, OTHER
-  recipientName   String
-  recipientId     String?  // Optional: link to staff/user if exists
-  
-  purpose         String
-  notes           String?
-  
+  issuedTo      String // Department/Ward/Pharmacy name
+  issuedToType  String // PHARMACY, WARD, DEPARTMENT, OTHER
+  recipientName String
+  recipientId   String? // Optional: link to staff/user if exists
+
+  purpose String
+  notes   String?
+
   // Who issued and requested
-  issuedBy        String?
-  issuedByUser    User?    @relation("IssuedBy", fields: [issuedBy], references: [id])
-  requestedBy     String?
-  
+  issuedBy     String?
+  issuedByUser User?   @relation("IssuedBy", fields: [issuedBy], references: [id])
+  requestedBy  String?
+
   // Timestamps
-  issuedAt        DateTime @default(now())
-  status          String   @default("COMPLETED") // PENDING, COMPLETED, CANCELLED
-  
+  issuedAt DateTime @default(now())
+  status   String   @default("COMPLETED") // PENDING, COMPLETED, CANCELLED
+
   // Relationship to track which specific stock units were issued
-  details         StockIssuanceDetail[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  details StockIssuanceDetail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([itemId])
   @@index([companyId])
   @@index([issuedAt])
@@ -2500,46 +2544,47 @@ model StockIssuance {
 
 // Detailed tracking of which stock units were issued
 model StockIssuanceDetail {
-  id              String   @id @default(uuid())
-  issuanceId      String
-  issuance        StockIssuance @relation(fields: [issuanceId], references: [id], onDelete: Cascade)
-  stockId         String
-  stock           Stock    @relation(fields: [stockId], references: [id])
-  quantityIssued  Decimal  @db.Decimal(18, 2)
-  
-  createdAt       DateTime @default(now())
-  
+  id             String        @id @default(uuid())
+  issuanceId     String
+  issuance       StockIssuance @relation(fields: [issuanceId], references: [id], onDelete: Cascade)
+  stockId        String
+  stock          Stock         @relation(fields: [stockId], references: [id])
+  quantityIssued Decimal       @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+
   @@index([issuanceId])
   @@index([stockId])
 }
 
 // Stock Transfer - between warehouses
 model StockTransfer {
-  id              String   @id @default(uuid())
-  itemId          String
-  item            Items    @relation(fields: [itemId], references: [id])
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
-  
+  id        String  @id @default(uuid())
+  itemId    String
+  item      Items   @relation(fields: [itemId], references: [id])
+  companyId String
+  branchId  String?
+  company   Company @relation(fields: [companyId], references: [id])
+
   fromWarehouseId String
   fromWarehouse   Warehouse @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
   toWarehouseId   String
   toWarehouse     Warehouse @relation("TransferTo", fields: [toWarehouseId], references: [id])
-  
-  quantity        Decimal  @db.Decimal(18, 2)
-  reason          String
-  notes           String?
-  
-  requestedBy     String?
-  transferredBy   String?
-  transferredByUser User?  @relation(fields: [transferredBy], references: [id])
-  
-  transferredAt   DateTime @default(now())
-  status          String   @default("COMPLETED") // PENDING, IN_TRANSIT, COMPLETED, CANCELLED
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+
+  quantity Decimal @db.Decimal(18, 2)
+  reason   String
+  notes    String?
+
+  requestedBy       String?
+  transferredBy     String?
+  transferredByUser User?   @relation(fields: [transferredBy], references: [id])
+
+  transferredAt DateTime @default(now())
+  status        String   @default("COMPLETED") // PENDING, IN_TRANSIT, COMPLETED, CANCELLED
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([itemId])
   @@index([companyId])
   @@index([fromWarehouseId])
@@ -2548,59 +2593,61 @@ model StockTransfer {
 
 // Stock Adjustment - for corrections, damages, etc.
 model StockAdjustment {
-  id              String   @id @default(uuid())
-  itemId          String
-  item            Items    @relation(fields: [itemId], references: [id])
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
-  warehouseId     String
-  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
-  
-  adjustmentType  String   // ADD, SUBTRACT, SET
-  quantity        Decimal  @db.Decimal(18, 2)
-  reason          String   // DAMAGE, LOSS, FOUND, CORRECTION, etc.
-  notes           String?
-  
-  adjustedBy      String?
-  adjustedByUser  User?    @relation(fields: [adjustedBy], references: [id])
-  adjustedAt      DateTime @default(now())
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  id          String    @id @default(uuid())
+  itemId      String
+  item        Items     @relation(fields: [itemId], references: [id])
+  companyId   String
+  branchId    String?
+  company     Company   @relation(fields: [companyId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  adjustmentType String // ADD, SUBTRACT, SET
+  quantity       Decimal @db.Decimal(18, 2)
+  reason         String // DAMAGE, LOSS, FOUND, CORRECTION, etc.
+  notes          String?
+
+  adjustedBy     String?
+  adjustedByUser User?    @relation(fields: [adjustedBy], references: [id])
+  adjustedAt     DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([itemId])
   @@index([companyId])
 }
 
 // Stock Movement - comprehensive movement tracking
 model StockMovement {
-  id              String   @id @default(uuid())
-  itemId          String
-  item            Items    @relation(fields: [itemId], references: [id])
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
-  
-  movementType    String   // ISSUE, TRANSFER_IN, TRANSFER_OUT, ADJUSTMENT, RECEIPT, SALE, RETURN
-  quantity        Decimal  @db.Decimal(18, 2)
-  
+  id        String  @id @default(uuid())
+  itemId    String
+  item      Items   @relation(fields: [itemId], references: [id])
+  companyId String
+  branchId  String?
+  company   Company @relation(fields: [companyId], references: [id])
+
+  movementType String // ISSUE, TRANSFER_IN, TRANSFER_OUT, ADJUSTMENT, RECEIPT, SALE, RETURN
+  quantity     Decimal @db.Decimal(18, 2)
+
   fromWarehouseId String?
   fromWarehouse   Warehouse? @relation("MovementFrom", fields: [fromWarehouseId], references: [id])
   toWarehouseId   String?
   toWarehouse     Warehouse? @relation("MovementTo", fields: [toWarehouseId], references: [id])
-  toLocation      String?  // For non-warehouse destinations (departments, etc.)
-  
-  reason          String
-  notes           String?
-  
+  toLocation      String? // For non-warehouse destinations (departments, etc.)
+
+  reason String
+  notes  String?
+
   performedBy     String?
-  performedByUser User?    @relation(fields: [performedBy], references: [id])
-  
+  performedByUser User?   @relation(fields: [performedBy], references: [id])
+
   // Reference to the source transaction
-  referenceType   String?  // ISSUANCE, TRANSFER, ADJUSTMENT, PURCHASE_ORDER, SALE
-  referenceId     String?
-  
-  createdAt       DateTime @default(now())
-  
+  referenceType String? // ISSUANCE, TRANSFER, ADJUSTMENT, PURCHASE_ORDER, SALE
+  referenceId   String?
+
+  createdAt DateTime @default(now())
+
   @@index([itemId])
   @@index([companyId])
   @@index([movementType])
@@ -2609,91 +2656,92 @@ model StockMovement {
 
 // Reorder Rules - define min/max levels and auto-reorder
 model ReorderRule {
-  id                  String   @id @default(uuid())
-  itemId              String
-  item                Items    @relation(fields: [itemId], references: [id])
-  companyId           String
-  company             Company  @relation(fields: [companyId], references: [id])
-  warehouseId         String?  // Optional: specific to warehouse
-  warehouse           Warehouse? @relation(fields: [warehouseId], references: [id])
-  
-  minLevel            Decimal  @db.Decimal(18, 2)  // Minimum stock level
-  maxLevel            Decimal  @db.Decimal(18, 2)  // Maximum stock level
-  reorderPoint        Decimal  @db.Decimal(18, 2)  // Trigger reorder at this level
-  reorderQuantity     Decimal  @db.Decimal(18, 2)  // Quantity to order
-  
-  autoReorder         Boolean  @default(false)     // Auto-generate PO
+  id          String     @id @default(uuid())
+  itemId      String
+  item        Items      @relation(fields: [itemId], references: [id])
+  companyId   String
+  branchId    String?
+  company     Company    @relation(fields: [companyId], references: [id])
+  warehouseId String? // Optional: specific to warehouse
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  minLevel        Decimal @db.Decimal(18, 2) // Minimum stock level
+  maxLevel        Decimal @db.Decimal(18, 2) // Maximum stock level
+  reorderPoint    Decimal @db.Decimal(18, 2) // Trigger reorder at this level
+  reorderQuantity Decimal @db.Decimal(18, 2) // Quantity to order
+
+  autoReorder         Boolean    @default(false) // Auto-generate PO
   preferredSupplierId String?
   preferredSupplier   Suppliers? @relation(fields: [preferredSupplierId], references: [id])
-  leadTimeDays        Int?     // Expected delivery time
-  
-  notes               String?
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
+  leadTimeDays        Int? // Expected delivery time
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@unique([itemId, companyId, warehouseId])
   @@index([companyId])
 }
 
 // Stock Alerts - system-generated alerts
 model StockAlert {
-  id              String   @id @default(uuid())
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id])
-  itemId          String
-  item            Items    @relation(fields: [itemId], references: [id])
-  warehouseId     String?
-  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
-  
-  alertType       String   // LOW_STOCK, EXPIRING_SOON, EXPIRED, OVER_STOCK, REORDER_POINT
-  severity        String   // LOW, MEDIUM, HIGH, CRITICAL
-  message         String
-  
-  currentStock    Decimal? @db.Decimal(18, 2)
-  threshold       Decimal? @db.Decimal(18, 2)
-  expiryDate      DateTime?
-  
-  status          String   @default("ACTIVE") // ACTIVE, DISMISSED, RESOLVED
+  id          String     @id @default(uuid())
+  companyId   String
+  branchId    String?
+  company     Company    @relation(fields: [companyId], references: [id])
+  itemId      String
+  item        Items      @relation(fields: [itemId], references: [id])
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  alertType String // LOW_STOCK, EXPIRING_SOON, EXPIRED, OVER_STOCK, REORDER_POINT
+  severity  String // LOW, MEDIUM, HIGH, CRITICAL
+  message   String
+
+  currentStock Decimal?  @db.Decimal(18, 2)
+  threshold    Decimal?  @db.Decimal(18, 2)
+  expiryDate   DateTime?
+
+  status          String    @default("ACTIVE") // ACTIVE, DISMISSED, RESOLVED
   dismissedBy     String?
-  dismissedByUser User?    @relation(fields: [dismissedBy], references: [id])
+  dismissedByUser User?     @relation(fields: [dismissedBy], references: [id])
   dismissedAt     DateTime?
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([companyId])
   @@index([itemId])
   @@index([status])
   @@index([alertType])
 }
 
-
-enum ClinicRole{
+enum ClinicRole {
   CLINIC_ADMIN
   RECEPTIONIST
   NURSE
-  PROVIDER  
+  PROVIDER
   LAB_TECH
   PHARMACIST
   ACCOUNTANT
 }
 
-model ClinicUserRole{
-  id          String  @id @default(uuid())
-  userId      String
-  role        ClinicRole
-  user        User    @relation(fields: [userId], references: [id])
+model ClinicUserRole {
+  id     String     @id @default(uuid())
+  userId String
+  role   ClinicRole
+  user   User       @relation(fields: [userId], references: [id])
 }
 
 model Doctor {
-  id          String   @id @default(uuid())
-  name        String
-  code        String?  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  sells       Sell[]
+  id        String   @id @default(uuid())
+  name      String
+  code      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sells Sell[]
 }
 
 enum ClientType {

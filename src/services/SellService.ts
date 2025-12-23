@@ -9,9 +9,10 @@ export class SellService {
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
@@ -19,13 +20,13 @@ export class SellService {
     const queryOptions = searchq
       ? {
           companyId,
+          branchId: branchId || null, // STRICT: If no branchId, show company records (null)
           OR: [
             {
               client: {
                 name: { contains: searchq },
               },
             },
-
             {
               item: {
                 itemFullName: { contains: searchq },
@@ -38,7 +39,12 @@ export class SellService {
             },
           ],
         }
-      : { companyId };
+      : {
+          companyId,
+          branchId: branchId || null, // STRICT: If no branchId, show company records (null)
+        };
+
+    console.log(`[SellService DEBUG] companyId: ${companyId}, branchId: ${branchId}`);
 
     const pageNum = Number(page) > 0 ? Number(page) : 1;
     const limitNum = Number(limit) > 0 ? Number(limit) : 15;
@@ -121,12 +127,17 @@ export class SellService {
 
   public static async getSellById(id: string, req: Request) {
     const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
 
     const sell = await prisma.sell.findFirst({
-      where: { id, companyId },
+      where: {
+        id,
+        companyId,
+        ...(branchId ? { branchId } : {}),
+      },
       include: {
         client: true,
         doctor: true,
@@ -158,7 +169,11 @@ export class SellService {
     };
   }
 
-  public static async createSell(data: CreateSellDto, companyId: string) {
+  public static async createSell(
+    data: CreateSellDto,
+    companyId: string,
+    branchId?: string | null,
+  ) {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
@@ -179,6 +194,17 @@ export class SellService {
 
     if (itemsToProcess.length === 0) {
       throw new AppError("No items provided for sale", 400);
+    }
+
+    // Validate payment method if payment mode is FULL_PAID or HALF_PAID
+    if (
+      (data.paymentMode === "FULL_PAID" || data.paymentMode === "HALF_PAID") &&
+      !data.paymentMethod
+    ) {
+      throw new AppError(
+        "Payment method is required for FULL_PAID or HALF_PAID modes",
+        400,
+      );
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -207,7 +233,7 @@ export class SellService {
       if (!client) {
         throw new AppError(
           "Client not found or doesn't belong to your company",
-          404
+          404,
         );
       }
 
@@ -232,7 +258,7 @@ export class SellService {
         if (!item) {
           throw new AppError(
             `Item not found or doesn't belong to your company: ${itemData.itemId}`,
-            404
+            404,
           );
         }
 
@@ -246,14 +272,14 @@ export class SellService {
         if (selected.length < itemData.quantity) {
           throw new AppError(
             `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-            400
+            400,
           );
         }
 
         if (selected.length === 0) {
           throw new AppError(
             `No available stock for item ${item.itemFullName}`,
-            400
+            400,
           );
         }
 
@@ -292,7 +318,7 @@ export class SellService {
       // authoritative subtotal is the sum of item price * quantity (already adjusted)
       subtotal = sellItems.reduce(
         (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
-        0
+        0,
       );
 
       const isPharmacyIndustry =
@@ -317,21 +343,23 @@ export class SellService {
         if (!insuranceCard) {
           throw new AppError(
             "Insurance card not found or not linked to client/company",
-            400
+            400,
           );
         }
         if (insuranceCard) {
           applyInsurance = true;
-          insurancePercentageSnapshot = Number(insuranceCard.percentage ?? 0);
+          const clientPercentage = Number(insuranceCard.percentage ?? 0);
+          insurancePercentageSnapshot = 100 - clientPercentage;
         }
       }
 
       if (
         applyInsurance &&
-        insurancePercentageSnapshot &&
-        insurancePercentageSnapshot > 0
+        insurancePercentageSnapshot !== undefined &&
+        (100 - insurancePercentageSnapshot) > 0
       ) {
-        const percentageFactor = insurancePercentageSnapshot / 100;
+        const clientPercentage = 100 - insurancePercentageSnapshot;
+        const percentageFactor = clientPercentage / 100;
         // compute per item split
         for (const s of sellItems) {
           const patientPerUnit = Number(s.sellPrice) * percentageFactor;
@@ -355,11 +383,11 @@ export class SellService {
         patientId: data.patientId,
       });
 
-      // Create the sell record
       const sell = await tx.sell.create({
         data: {
           clientId: data.clientId,
           companyId,
+          branchId,
           totalAmount,
           taxAmount: totalTaxAmount,
           // insurance fields snapshot (only persist for PHARMACY)
@@ -393,6 +421,7 @@ export class SellService {
           // New fields
           clientType: data.clientType,
           paymentMode: data.paymentMode,
+          paymentMethod: data.paymentMethod,
           doctorId: data.doctorId,
           hospital: data.hospital,
         },
@@ -407,6 +436,7 @@ export class SellService {
           data: {
             sellId: sell.id,
             ...sellItemData,
+            branchId,
             // only persist per-item insurance split for PHARMACY
             insuranceCoveredPerUnit: isPharmacyIndustry
               ? sellItemData.insuranceCoveredPerUnit
@@ -461,7 +491,7 @@ export class SellService {
   public static async updateSell(
     id: string,
     data: UpdateSellDto,
-    req: Request
+    req: Request,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -469,8 +499,13 @@ export class SellService {
     }
 
     return await prisma.$transaction(async (tx) => {
+      const branchId = req.user?.branchId;
       const existingSell = await tx.sell.findFirst({
-        where: { id, companyId },
+        where: {
+          id,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           stocks: true,
           sellItems: true,
@@ -481,6 +516,22 @@ export class SellService {
         throw new AppError("Sale record not found", 404);
       }
 
+      // Validate payment method if payment mode is FULL_PAID or HALF_PAID
+      const currentPaymentMode = data.paymentMode ?? existingSell.paymentMode;
+      const currentPaymentMethod =
+        data.paymentMethod ?? existingSell.paymentMethod;
+
+      if (
+        (currentPaymentMode === "FULL_PAID" ||
+          currentPaymentMode === "HALF_PAID") &&
+        !currentPaymentMethod
+      ) {
+        throw new AppError(
+          "Payment method is required for FULL_PAID or HALF_PAID modes",
+          400,
+        );
+      }
+
       // Validate Client (Required for ALL industries)
       if (data.clientId) {
         const client = await tx.client.findFirst({
@@ -489,7 +540,7 @@ export class SellService {
         if (!client) {
           throw new AppError(
             "Client not found or doesn't belong to your company",
-            404
+            404,
           );
         }
       }
@@ -545,13 +596,14 @@ export class SellService {
           if (!item) {
             throw new AppError(
               `Item not found or doesn't belong to your company: ${itemData.itemId}`,
-              404
+              404,
             );
           }
 
           const selected = await selectAvailableStock(tx, {
             itemIds: itemData.itemId,
             companyId,
+            branchId: existingSell.branchId,
             take: itemData.quantity,
             strategy: "FIFO",
           });
@@ -559,14 +611,14 @@ export class SellService {
           if (selected.length < itemData.quantity) {
             throw new AppError(
               `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-              400
+              400,
             );
           }
 
           if (selected.length === 0) {
             throw new AppError(
               `No available stock for item ${item.itemFullName}`,
-              400
+              400,
             );
           }
 
@@ -605,7 +657,7 @@ export class SellService {
 
         const subtotal = sellItems.reduce(
           (acc, s) => acc + Number(s.quantity) * Number(s.sellPrice),
-          0
+          0,
         );
         let insuranceCoveredAmount = 0;
         let patientPayableAmount = subtotal;
@@ -630,14 +682,13 @@ export class SellService {
             if (!insuranceCard) {
               throw new AppError(
                 "Insurance card not found or not linked to client/company",
-                400
+                400,
               );
             }
             if (insuranceCard) {
-              insurancePercentageSnapshot = Number(
-                insuranceCard.percentage ?? 0
-              );
-              const percentageFactor = (insurancePercentageSnapshot ?? 0) / 100;
+              const clientPercentage = Number(insuranceCard.percentage ?? 0);
+              insurancePercentageSnapshot = 100 - clientPercentage;
+              const percentageFactor = clientPercentage / 100;
               for (const s of sellItems) {
                 const patientPerUnit = Number(s.sellPrice) * percentageFactor;
                 const coveredPerUnit = Number(s.sellPrice) - patientPerUnit;
@@ -656,6 +707,7 @@ export class SellService {
             data: {
               sellId: id,
               ...sellItemData,
+              branchId: existingSell.branchId,
               // only persist per-item insurance split for PHARMACY
               insuranceCoveredPerUnit: isPharmacy
                 ? sellItemData.insuranceCoveredPerUnit
@@ -710,12 +762,17 @@ export class SellService {
 
           clientType: data.clientType ?? existingSell.clientType,
           paymentMode: data.paymentMode ?? existingSell.paymentMode,
+          paymentMethod: data.paymentMethod ?? existingSell.paymentMethod,
           doctorId: data.doctorId ?? existingSell.doctorId,
           hospital: data.hospital ?? existingSell.hospital,
         };
 
         const sell = await tx.sell.update({
-          where: { id },
+          where: {
+            id,
+            companyId,
+            ...(branchId ? { branchId } : {}),
+          },
           data: updateData,
           include: {
             client: {
@@ -762,7 +819,7 @@ export class SellService {
           if (!itemCheck) {
             throw new AppError(
               "Item not found or doesn't belong to your company",
-              404
+              404,
             );
           }
         }
@@ -780,6 +837,7 @@ export class SellService {
             const selected = await selectAvailableStock(tx, {
               itemIds: newItemId,
               companyId,
+              branchId: existingSell.branchId,
               take: newQuantity,
               strategy: "FIFO",
             });
@@ -787,7 +845,7 @@ export class SellService {
             if (selected.length < newQuantity) {
               throw new AppError(
                 `Insufficient stock. Available: ${selected.length}, Requested: ${newQuantity}`,
-                400
+                400,
               );
             }
 
@@ -806,7 +864,11 @@ export class SellService {
         }
 
         const sell = await tx.sell.update({
-          where: { id },
+          where: {
+            id,
+            companyId,
+            ...(branchId ? { branchId } : {}),
+          },
           data: updateData,
           include: {
             client: {
@@ -850,8 +912,13 @@ export class SellService {
     }
 
     return await prisma.$transaction(async (tx) => {
+      const branchId = req.user?.branchId;
       const existingSell = await tx.sell.findFirst({
-        where: { id, companyId },
+        where: {
+          id,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           sellItems: true,
         },
@@ -876,7 +943,13 @@ export class SellService {
       });
 
       // Delete the sell record
-      await tx.sell.delete({ where: { id } });
+      await tx.sell.delete({
+        where: {
+          id,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
+      });
 
       return { message: "Sale deleted successfully" };
     });

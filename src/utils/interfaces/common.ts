@@ -13,6 +13,16 @@ export interface UpdateDoctorDto {
   code?: string;
 }
 
+export interface CreateBranchDto {
+  name: string;
+  location?: string;
+}
+
+export interface UpdateBranchDto {
+  name?: string;
+  location?: string;
+}
+
 export interface IResponse<T> {
   statusCode: number;
   message: string;
@@ -50,14 +60,17 @@ export type TUser = {
   updatedAt?: Date | string;
   userRoles?: IUserRole[];
   clinicUserRoles?: IClinicUserRole[];
+  branchId?: string | null;
   company?: {
     id: string;
     userId: string;
     companyId: string;
+    branchId?: string | null;
     company: {
       industry?: string | null;
     };
   };
+  companyName?: string | null;
 };
 
 export interface IClinicUserRole {
@@ -84,6 +97,7 @@ export interface IUserResponse {
   otp: string | null;
   otpExpiresAt: Date | null;
   photo: string;
+  companyName?: string | null;
 }
 
 export interface UserResponse
@@ -542,6 +556,7 @@ export interface CreateStandardCompanyStaffDto {
   role: RoleType;
   idNumber?: string;
   idAttachment?: Express.Multer.File | string;
+  branchId?: string;
 }
 
 export interface CreateClinicCompanyStaffDto {
@@ -553,6 +568,7 @@ export interface CreateClinicCompanyStaffDto {
   role: ClinicRole;
   idNumber?: string;
   idAttachment?: Express.Multer.File | string;
+  branchId?: string;
 }
 
 export type CreateCompanyStaffUnionDto =
@@ -565,6 +581,8 @@ export interface CreateCompanyToolsDto {
   taxRate?: number;
   companySignature?: string;
   companyStamp?: string;
+  businessTin?: string;
+  taxReportingFrequency?: string;
   bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
 }
 
@@ -956,6 +974,7 @@ export interface CreateSellDto {
   // New fields
   clientType?: "PRIVATE" | "INSUREE";
   paymentMode?: "CREDIT" | "HALF_PAID" | "FULL_PAID";
+  paymentMethod?: PaymentMethod;
   doctorId?: string;
   hospital?: string;
 }
@@ -984,6 +1003,7 @@ export interface UpdateSellDto {
   // New fields
   clientType?: "PRIVATE" | "INSUREE";
   paymentMode?: "CREDIT" | "HALF_PAID" | "FULL_PAID";
+  paymentMethod?: PaymentMethod;
   doctorId?: string;
   hospital?: string;
 }
@@ -1012,8 +1032,8 @@ export interface UpdateProfileDto {
 export interface DirectStockAdditionRequest {
   itemId: string;
   supplierId?: string;
-  dateReceived: Date;
-  expiryDate?: Date;
+  dateReceived: Date | string;
+  expiryDate?: Date | string | null;
   quantityReceived: number;
   unitCost: number;
   packSize?: number;
@@ -1335,6 +1355,7 @@ export interface DirectInvoiceFilters {
   status?: string;
   clientId?: string;
   companyId: string;
+  branchId?: string | null;
 }
 
 export interface SubmitFeedbackDto {

@@ -1,18 +1,19 @@
 import { prisma } from "../utils/client";
 import { IResponse } from "../utils/interfaces/common";
 import AppError from "../utils/error";
-import { PONumberGenerator } from "../utils/PONumberGenerator ";
+import { PONumberGenerator } from "../utils/PONumberGenerator";
 import type { Request } from "express";
 
 type AuthRequest = Request & {
   user?: {
     id?: string;
     company?: { companyId?: string };
+    branchId?: string | null;
   };
 };
 export class DashboardService {
   public static async getStockLogisticsStats(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -20,9 +21,14 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
+
       // Get total items count
       const totalItems = await prisma.items.count({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       });
 
       // Get active shipments (deliveries with PENDING, IN_TRANSIT, DISPATCHED status)
@@ -32,23 +38,41 @@ export class DashboardService {
           status: {
             in: ["PENDING", "IN_TRANSIT"],
           },
+          // Note: deliveries might need branchId if they were updated to have it
+          ...(branchId ? { branchId } : {}),
         },
       });
 
       // Get reorder alerts (items where current stock < minLevel)
-      const reorderAlerts = await this.getReorderAlertsCount(companyId);
+      const reorderAlerts = await this.getReorderAlertsCount(
+        companyId,
+        branchId
+      );
 
       // Get efficiency (on-time deliveries percentage)
-      const efficiency = await this.calculateDeliveryEfficiency(companyId);
+      const efficiency = await this.calculateDeliveryEfficiency(
+        companyId,
+        branchId
+      );
 
       // Get total value (sum of current stock * avg unit cost)
-      const totalValue = await this.calculateTotalInventoryValue(companyId);
+      const totalValue = await this.calculateTotalInventoryValue(
+        companyId,
+        branchId
+      );
 
       // Get low stock items count
-      const lowStockItems = await this.getLowStockItemsCount(companyId);
+      const lowStockItems = await this.getLowStockItemsCount(
+        companyId,
+        undefined,
+        branchId
+      );
 
       // Get expiring items count (expiring within 30 days)
-      const expiringItems = await this.getExpiringItemsCount(companyId);
+      const expiringItems = await this.getExpiringItemsCount(
+        companyId,
+        branchId
+      );
 
       // Get monthly growth percentage
       const monthlyGrowth = await this.calculateMonthlyGrowth(companyId);
@@ -73,7 +97,7 @@ export class DashboardService {
   }
 
   public static async getInventoryCategoriesSummary(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -81,14 +105,19 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get categories with their items and stock information
       const categories = await prisma.itemCategories.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           items: {
             include: {
               stockReceipts: {
                 where: {
+                  ...(branchId ? { branchId } : {}),
                   OR: [
                     { approvals: { some: { approvalStatus: "APPROVED" } } },
                     { receiptType: "DIRECT_ADDITION" },
@@ -167,7 +196,7 @@ export class DashboardService {
   }
 
   public static async getReorderAlerts(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -175,13 +204,18 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get items that need reordering
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -275,7 +309,7 @@ export class DashboardService {
 
   public static async getRecentShipments(
     req: AuthRequest,
-    limit: number = 10,
+    limit: number = 10
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -283,10 +317,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get recent deliveries
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
         include: {
           deliveryItems: {
@@ -294,10 +330,18 @@ export class DashboardService {
               item: {
                 include: { category: true },
               },
+              purchaseOrderItem: {
+                include: {
+                  item: {
+                    include: { category: true },
+                  },
+                },
+              },
             },
           },
           supplierCompany: true,
           buyerCompany: true,
+          purchaseOrder: true,
         },
         orderBy: { createdAt: "desc" },
         take: limit,
@@ -309,15 +353,21 @@ export class DashboardService {
           return total + Number(item.quantityToDeliver);
         }, 0);
 
-        // Get primary category from delivery items
-        const categories = [
+        // Get primary category - Mixed only if multiple categories exist
+        const uniqueCategories = [
           ...new Set(
-            delivery.deliveryItems.map(
-              (item) => item.item?.category?.categoryName,
-            ),
+            delivery.deliveryItems
+              .map((item) => {
+                return (
+                  item.item?.category?.categoryName ||
+                  item.purchaseOrderItem?.item?.category?.categoryName
+                );
+              })
+              .filter((c) => !!c)
           ),
         ];
-        const category = categories[0] || "Mixed";
+        const category =
+          uniqueCategories.length > 1 ? "Mixed" : uniqueCategories[0] || "N/A";
 
         // Determine direction
         const direction =
@@ -330,7 +380,9 @@ export class DashboardService {
         const hoursRemaining = Math.ceil(timeDiff / (1000 * 60 * 60));
 
         let timeRemaining = "Overdue";
-        if (hoursRemaining > 24) {
+        if (delivery.status === "DELIVERED") {
+          timeRemaining = "Delivered";
+        } else if (hoursRemaining > 24) {
           timeRemaining = `${Math.ceil(hoursRemaining / 24)} days`;
         } else if (hoursRemaining > 0) {
           timeRemaining = `${hoursRemaining} hours`;
@@ -345,6 +397,17 @@ export class DashboardService {
           status = "partially-delivered";
         else if (status === "cancelled") status = "cancelled";
 
+        // Calculate value - include taxes if purchaseOrder is available
+        const subtotal = delivery.deliveryItems.reduce((total, item) => {
+          const unitPrice = Number(
+            item.actualUnitPrice || item.purchaseOrderItem?.unitPrice || 0
+          );
+          return total + unitPrice * Number(item.quantityToDeliver);
+        }, 0);
+
+        const vatRate = delivery.purchaseOrder?.vatRate || 0;
+        const shipmentValue = subtotal * (1 + vatRate / 100);
+
         return {
           id: delivery.id,
           shipmentId: delivery.deliveryNumber,
@@ -358,6 +421,17 @@ export class DashboardService {
               ? delivery.supplierCompany.name
               : delivery.buyerCompany.name,
           deliveryDate: delivery.plannedDeliveryDate,
+          carrier: delivery.courierService || delivery.driverName || "Unknown",
+          value: shipmentValue,
+          estimatedCost: Number(delivery.deliveryCharges || 0),
+          currentLocation:
+            status === "delivered"
+              ? "Arrived"
+              : status === "pending"
+                ? "At Origin"
+                : status === "cancelled"
+                  ? "Cancelled"
+                  : "In Transit",
         };
       });
 
@@ -373,7 +447,7 @@ export class DashboardService {
 
   public static async getInventoryTrends(
     req: AuthRequest,
-    months: number = 6,
+    months: number = 6
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -381,6 +455,7 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const trends: unknown[] = [];
       const now = new Date();
 
@@ -392,7 +467,7 @@ export class DashboardService {
           0,
           23,
           59,
-          59,
+          59
         );
 
         const monthName = startDate.toLocaleDateString("en-US", {
@@ -404,6 +479,7 @@ export class DashboardService {
         const items = await prisma.items.findMany({
           where: {
             companyId,
+            ...(branchId ? { branchId } : {}),
             createdAt: { lte: endDate },
           },
           include: {
@@ -445,6 +521,7 @@ export class DashboardService {
         const incomingShipments = await prisma.delivery.count({
           where: {
             buyerCompanyId: companyId,
+            ...(branchId ? { branchId } : {}),
             status: "DELIVERED",
             actualDeliveryDate: {
               gte: startDate,
@@ -457,6 +534,7 @@ export class DashboardService {
         const outgoingShipments = await prisma.delivery.count({
           where: {
             supplierCompanyId: companyId,
+            ...(branchId ? { branchId } : {}),
             status: "DELIVERED",
             actualDeliveryDate: {
               gte: startDate,
@@ -469,6 +547,7 @@ export class DashboardService {
         const lowStockAlerts = await this.getLowStockItemsCount(
           companyId,
           endDate,
+          branchId
         );
 
         trends.push({
@@ -495,12 +574,14 @@ export class DashboardService {
   // Helper methods
   private static async getReorderAlertsCount(
     companyId: string,
+    branchId?: string | null
   ): Promise<number> {
     const items = await prisma.items.findMany({
-      where: { companyId },
+      where: { companyId, ...(branchId ? { branchId } : {}) },
       include: {
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -525,10 +606,12 @@ export class DashboardService {
 
   private static async calculateDeliveryEfficiency(
     companyId: string,
+    branchId?: string | null
   ): Promise<number> {
     const deliveries = await prisma.delivery.findMany({
       where: {
         OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+        ...(branchId ? { branchId } : {}),
         status: "DELIVERED",
       },
       select: {
@@ -548,18 +631,20 @@ export class DashboardService {
     });
 
     return Number(
-      ((onTimeDeliveries.length / deliveries.length) * 100).toFixed(1),
+      ((onTimeDeliveries.length / deliveries.length) * 100).toFixed(1)
     );
   }
 
   private static async calculateTotalInventoryValue(
     companyId: string,
+    branchId?: string | null
   ): Promise<number> {
     const items = await prisma.items.findMany({
-      where: { companyId },
+      where: { companyId, ...(branchId ? { branchId } : {}) },
       include: {
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
@@ -593,15 +678,18 @@ export class DashboardService {
   private static async getLowStockItemsCount(
     companyId: string,
     beforeDate?: Date,
+    branchId?: string | null
   ): Promise<number> {
     const items = await prisma.items.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         ...(beforeDate && { createdAt: { lte: beforeDate } }),
       },
       include: {
         stockReceipts: {
           where: {
+            ...(branchId ? { branchId } : {}),
             ...(beforeDate && { dateReceived: { lte: beforeDate } }),
             OR: [
               { approvals: { some: { approvalStatus: "APPROVED" } } },
@@ -627,6 +715,7 @@ export class DashboardService {
 
   private static async getExpiringItemsCount(
     companyId: string,
+    branchId?: string | null
   ): Promise<number> {
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
@@ -634,6 +723,7 @@ export class DashboardService {
     const stockReceipts = await prisma.stockReceipts.findMany({
       where: {
         companyId,
+        ...(branchId ? { branchId } : {}),
         expiryDate: {
           lte: thirtyDaysFromNow,
           gte: new Date(),
@@ -658,7 +748,7 @@ export class DashboardService {
   }
 
   private static async calculateMonthlyGrowth(
-    companyId: string,
+    companyId: string
   ): Promise<number> {
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -684,15 +774,13 @@ export class DashboardService {
     if (lastMonthItems === 0) return currentMonthItems > 0 ? 100 : 0;
 
     return Number(
-      (((currentMonthItems - lastMonthItems) / lastMonthItems) * 100).toFixed(
-        1,
-      ),
+      (((currentMonthItems - lastMonthItems) / lastMonthItems) * 100).toFixed(1)
     );
   }
 
   // Inventory Dashboard APIs
   public static async getCategoryPerformance(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -775,7 +863,7 @@ export class DashboardService {
   }
 
   public static async getInventoryAgingAnalysis(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -783,9 +871,11 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const stockReceipts = await prisma.stockReceipts.findMany({
         where: {
           companyId,
+          ...(branchId ? { branchId } : {}),
           OR: [
             { approvals: { some: { approvalStatus: "APPROVED" } } },
             { receiptType: "DIRECT_ADDITION" },
@@ -806,7 +896,7 @@ export class DashboardService {
         const items = stockReceipts.filter((receipt) => {
           const daysDiff = Math.floor(
             (now.getTime() - receipt.dateReceived.getTime()) /
-              (1000 * 60 * 60 * 24),
+              (1000 * 60 * 60 * 24)
           );
           if (bucket.days === Infinity) {
             return daysDiff > 90;
@@ -848,7 +938,7 @@ export class DashboardService {
   }
 
   public static async getLowStockItems(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -856,12 +946,17 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -920,8 +1015,8 @@ export class DashboardService {
                 Math.floor(
                   (new Date().getTime() -
                     latestReceipt.dateReceived.getTime()) /
-                    (1000 * 60 * 60 * 24),
-                ),
+                    (1000 * 60 * 60 * 24)
+                )
               )
             : 0;
 
@@ -980,7 +1075,7 @@ export class DashboardService {
   }
 
   public static async getTopPerformers(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -988,13 +1083,18 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const categories = await prisma.itemCategories.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           items: {
             include: {
               stockReceipts: {
                 where: {
+                  ...(branchId ? { branchId } : {}),
                   OR: [
                     { approvals: { some: { approvalStatus: "APPROVED" } } },
                     { receiptType: "DIRECT_ADDITION" },
@@ -1054,7 +1154,7 @@ export class DashboardService {
   }
 
   public static async getWarehouseUtilization(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1062,10 +1162,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get storage locations from stock receipts
       const stockReceipts = await prisma.stockReceipts.findMany({
         where: {
           companyId,
+          ...(branchId ? { branchId } : {}),
           OR: [
             { approvals: { some: { approvalStatus: "APPROVED" } } },
             { receiptType: "DIRECT_ADDITION" },
@@ -1107,7 +1209,7 @@ export class DashboardService {
             capacity: "m²",
             items: data.items,
           };
-        },
+        }
       );
 
       return {
@@ -1122,7 +1224,7 @@ export class DashboardService {
 
   // Reorder Alerts APIs
   public static async getCriticalItems(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1130,12 +1232,17 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -1193,8 +1300,8 @@ export class DashboardService {
                 Math.floor(
                   (new Date().getTime() -
                     latestReceipt.dateReceived.getTime()) /
-                    (1000 * 60 * 60 * 24),
-                ),
+                    (1000 * 60 * 60 * 24)
+                )
               )
             : 0;
 
@@ -1213,7 +1320,7 @@ export class DashboardService {
             item.stockReceipts.length > 0
               ? item.stockReceipts.reduce(
                   (sum, receipt) => sum + Number(receipt.quantityReceived),
-                  0,
+                  0
                 ) / item.stockReceipts.length
               : 0;
 
@@ -1253,7 +1360,7 @@ export class DashboardService {
   }
 
   public static async getWarningItems(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1261,12 +1368,17 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const items = await prisma.items.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           category: true,
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -1324,8 +1436,8 @@ export class DashboardService {
                 Math.floor(
                   (new Date().getTime() -
                     latestReceipt.dateReceived.getTime()) /
-                    (1000 * 60 * 60 * 24),
-                ),
+                    (1000 * 60 * 60 * 24)
+                )
               )
             : 0;
 
@@ -1344,7 +1456,7 @@ export class DashboardService {
             item.stockReceipts.length > 0
               ? item.stockReceipts.reduce(
                   (sum, receipt) => sum + Number(receipt.quantityReceived),
-                  0,
+                  0
                 ) / item.stockReceipts.length
               : 0;
 
@@ -1384,7 +1496,7 @@ export class DashboardService {
   }
 
   public static async getSupplierSummary(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1392,12 +1504,18 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
+
       // Get suppliers with their items that need reordering
       const suppliers = await prisma.suppliers.findMany({
-        where: { companyId },
+        where: {
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
         include: {
           stockReceipts: {
             where: {
+              ...(branchId ? { branchId } : {}),
               OR: [
                 { approvals: { some: { approvalStatus: "APPROVED" } } },
                 { receiptType: "DIRECT_ADDITION" },
@@ -1462,7 +1580,7 @@ export class DashboardService {
           const totalValue = itemsNeedingReorder.reduce((total, itemData) => {
             const item = itemData.item;
             const receipts = supplier.stockReceipts.filter(
-              (r) => r.itemId === item.id,
+              (r) => r.itemId === item.id
             );
             let itemValue = 0;
             receipts.forEach((receipt) => {
@@ -1515,7 +1633,7 @@ export class DashboardService {
       supplierId: string;
       priority: string;
     },
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1523,11 +1641,13 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
-      // Validate item exists and belongs to company
+      const branchId = req.user?.branchId;
+      // Validate item exists and belongs to company/branch
       const item = await prisma.items.findFirst({
         where: {
           id: data.itemId,
           companyId,
+          ...(branchId ? { branchId } : {}),
         },
       });
 
@@ -1535,11 +1655,12 @@ export class DashboardService {
         throw new AppError("Item not found", 404);
       }
 
-      // Validate supplier exists and belongs to company
+      // Validate supplier exists and belongs to company/branch
       const supplier = await prisma.suppliers.findFirst({
         where: {
           id: data.supplierId,
           companyId,
+          ...(branchId ? { branchId } : {}),
         },
       });
 
@@ -1554,6 +1675,7 @@ export class DashboardService {
         data: {
           poNumber,
           companyId,
+          branchId: branchId as any,
           supplierId: data.supplierId,
           expectedDeliveryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
           notes: `Reorder request for ${item.itemFullName} - Priority: ${data.priority}`,
@@ -1586,7 +1708,7 @@ export class DashboardService {
   }
   // Shipments Dashboard APIs
   public static async getIncomingShipments(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1594,9 +1716,11 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const deliveries = await prisma.delivery.findMany({
         where: {
           buyerCompanyId: companyId,
+          ...(branchId ? { branchId: branchId } : {}),
         },
         include: {
           deliveryItems: {
@@ -1604,10 +1728,18 @@ export class DashboardService {
               item: {
                 include: { category: true },
               },
+              purchaseOrderItem: {
+                include: {
+                  item: {
+                    include: { category: true },
+                  },
+                },
+              },
             },
           },
           supplierCompany: true,
           buyerCompany: true,
+          purchaseOrder: true,
         },
         orderBy: { plannedDeliveryDate: "asc" },
       });
@@ -1618,15 +1750,21 @@ export class DashboardService {
           return total + Number(item.quantityToDeliver);
         }, 0);
 
-        // Get primary category
-        const categories = [
+        // Get primary category - Mixed only if multiple categories exist
+        const uniqueCategories = [
           ...new Set(
-            delivery.deliveryItems.map(
-              (item) => item.item?.category?.categoryName,
-            ),
+            delivery.deliveryItems
+              .map((item) => {
+                return (
+                  item.item?.category?.categoryName ||
+                  item.purchaseOrderItem?.item?.category?.categoryName
+                );
+              })
+              .filter((c) => !!c)
           ),
         ];
-        const category = categories[0] || "Mixed";
+        const category =
+          uniqueCategories.length > 1 ? "Mixed" : uniqueCategories[0] || "N/A";
 
         // Calculate ETA
         const now = new Date();
@@ -1665,13 +1803,16 @@ export class DashboardService {
         else if (status === "in-transit") progress = 75;
         else if (status === "partially-delivered") progress = 50;
 
-        // Calculate value
-        const value = delivery.deliveryItems.reduce((total, item) => {
-          return (
-            total +
-            Number(item.actualUnitPrice || 0) * Number(item.quantityToDeliver)
+        // Calculate value - include taxes if purchaseOrder is available
+        const subtotal = delivery.deliveryItems.reduce((total, item) => {
+          const unitPrice = Number(
+            item.actualUnitPrice || item.purchaseOrderItem?.unitPrice || 0
           );
+          return total + unitPrice * Number(item.quantityToDeliver);
         }, 0);
+
+        const vatRate = delivery.purchaseOrder?.vatRate || 0;
+        const shipmentValue = subtotal * (1 + vatRate / 100);
 
         // Calculate weight (simplified)
         const weight = `${(totalUnits * 0.5).toFixed(1)} tons`;
@@ -1691,14 +1832,21 @@ export class DashboardService {
           status,
           origin: delivery.supplierCompany.name,
           destination: delivery.buyerCompany.name,
-          carrier: delivery.courierService || "Unknown",
+          carrier: delivery.courierService || delivery.driverName || "Unknown",
           trackingNumber: delivery.trackingNumber || "N/A",
-          value,
+          value: shipmentValue,
           weight,
           driver: delivery.driverName || "N/A",
           driverPhone: delivery.driverPhone || "N/A",
           progress,
-          currentLocation: "In Transit", // This would come from tracking data
+          currentLocation:
+            status === "delivered"
+              ? "Arrived"
+              : status === "pending"
+                ? "At Origin"
+                : status === "cancelled"
+                  ? "Cancelled"
+                  : "In Transit",
           estimatedCost: Number(delivery.deliveryCharges || 0),
           priority,
           route: `${delivery.supplierCompany.name} → ${delivery.buyerCompany.name}`,
@@ -1717,7 +1865,7 @@ export class DashboardService {
   }
 
   public static async getOutgoingShipments(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1725,9 +1873,11 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       const deliveries = await prisma.delivery.findMany({
         where: {
           supplierCompanyId: companyId,
+          ...(branchId ? { branchId: branchId } : {}),
         },
         include: {
           deliveryItems: {
@@ -1735,10 +1885,18 @@ export class DashboardService {
               item: {
                 include: { category: true },
               },
+              purchaseOrderItem: {
+                include: {
+                  item: {
+                    include: { category: true },
+                  },
+                },
+              },
             },
           },
           supplierCompany: true,
           buyerCompany: true,
+          purchaseOrder: true,
         },
         orderBy: { plannedDeliveryDate: "asc" },
       });
@@ -1749,15 +1907,21 @@ export class DashboardService {
           return total + Number(item.quantityToDeliver);
         }, 0);
 
-        // Get primary category
-        const categories = [
+        // Get primary category - Mixed only if multiple categories exist
+        const uniqueCategories = [
           ...new Set(
-            delivery.deliveryItems.map(
-              (item) => item.item?.category?.categoryName,
-            ),
+            delivery.deliveryItems
+              .map((item) => {
+                return (
+                  item.item?.category?.categoryName ||
+                  item.purchaseOrderItem?.item?.category?.categoryName
+                );
+              })
+              .filter((c) => !!c)
           ),
         ];
-        const category = categories[0] || "Mixed";
+        const category =
+          uniqueCategories.length > 1 ? "Mixed" : uniqueCategories[0] || "N/A";
 
         // Calculate ETA
         const now = new Date();
@@ -1796,13 +1960,16 @@ export class DashboardService {
         else if (status === "in-transit") progress = 75;
         else if (status === "partially-delivered") progress = 50;
 
-        // Calculate value
-        const value = delivery.deliveryItems.reduce((total, item) => {
-          return (
-            total +
-            Number(item.actualUnitPrice || 0) * Number(item.quantityToDeliver)
+        // Calculate value - include taxes if purchaseOrder is available
+        const subtotal = delivery.deliveryItems.reduce((total, item) => {
+          const unitPrice = Number(
+            item.actualUnitPrice || item.purchaseOrderItem?.unitPrice || 0
           );
+          return total + unitPrice * Number(item.quantityToDeliver);
         }, 0);
+
+        const vatRate = delivery.purchaseOrder?.vatRate || 0;
+        const shipmentValue = subtotal * (1 + vatRate / 100);
 
         // Calculate weight (simplified)
         const weight = `${(totalUnits * 0.5).toFixed(1)} tons`;
@@ -1819,7 +1986,7 @@ export class DashboardService {
           const deliveredDate = new Date(delivery.actualDeliveryDate);
           const now = new Date();
           const diffHours = Math.floor(
-            (now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60),
+            (now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60)
           );
 
           if (diffHours < 24) {
@@ -1842,19 +2009,23 @@ export class DashboardService {
           status,
           origin: delivery.supplierCompany.name,
           destination: delivery.buyerCompany.name,
-          carrier: delivery.courierService || "Unknown",
+          carrier: delivery.courierService || delivery.driverName || "Unknown",
           trackingNumber: delivery.trackingNumber || "N/A",
-          value,
+          value: shipmentValue,
           weight,
           driver: delivery.driverName || "N/A",
           driverPhone: delivery.driverPhone || "N/A",
           progress,
           currentLocation:
-            delivery.status === "DELIVERED"
-              ? delivery.buyerCompany.name
-              : "In Transit",
+            status === "delivered"
+              ? "Arrived"
+              : status === "pending"
+                ? "At Origin"
+                : status === "cancelled"
+                  ? "Cancelled"
+                  : "In Transit",
           estimatedCost: Number(delivery.deliveryCharges || 0),
-          priority: delivery.status === "DELIVERED" ? "completed" : priority,
+          priority: status === "delivered" ? "completed" : priority,
           deliveredTime,
           direction: "outgoing",
         };
@@ -1871,7 +2042,7 @@ export class DashboardService {
   }
 
   public static async getPerformanceMetrics(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1879,10 +2050,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
-      // Get all deliveries for the company
+      const branchId = req.user?.branchId;
+      // Get all deliveries for the company/branch
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
           status: "DELIVERED",
         },
         select: {
@@ -1914,7 +2087,7 @@ export class DashboardService {
               const diffHours =
                 Math.abs(
                   new Date(delivery.actualDeliveryDate).getTime() -
-                    new Date(delivery.plannedDeliveryDate).getTime(),
+                    new Date(delivery.plannedDeliveryDate).getTime()
                 ) /
                 (1000 * 60 * 60);
               return total + diffHours;
@@ -1969,7 +2142,7 @@ export class DashboardService {
   }
 
   public static async getRecentActivity(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -1977,6 +2150,7 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get recent delivery tracking entries
       const trackingEntries = await prisma.deliveryTracking.findMany({
         where: {
@@ -1985,6 +2159,7 @@ export class DashboardService {
               { supplierCompanyId: companyId },
               { buyerCompanyId: companyId },
             ],
+            ...(branchId ? { branchId } : {}),
           },
         },
         include: {
@@ -1999,7 +2174,7 @@ export class DashboardService {
         const now = new Date();
         const entryTime = new Date(entry.timestamp);
         const diffMinutes = Math.floor(
-          (now.getTime() - entryTime.getTime()) / (1000 * 60),
+          (now.getTime() - entryTime.getTime()) / (1000 * 60)
         );
 
         let timeAgo = "Just now";
@@ -2019,13 +2194,13 @@ export class DashboardService {
 
         if (entry.status === "DELIVERED") {
           type = "success";
-          message = `${entry.delivery.deliveryNumber} delivered successfully`;
+          message = `${(entry as any).delivery?.deliveryNumber || entry.deliveryId} delivered successfully`;
         } else if (entry.status === "IN_TRANSIT") {
           type = "info";
-          message = `${entry.delivery.deliveryNumber} is in transit`;
+          message = `${(entry as any).delivery?.deliveryNumber || entry.deliveryId} is in transit`;
         } else if (entry.status === "CANCELLED") {
           type = "error";
-          message = `${entry.delivery.deliveryNumber} was cancelled`;
+          message = `${(entry as any).delivery?.deliveryNumber || entry.deliveryId} was cancelled`;
         }
 
         return {
@@ -2033,7 +2208,8 @@ export class DashboardService {
           time: timeAgo,
           message,
           type,
-          shipmentId: entry.delivery.deliveryNumber,
+          shipmentId:
+            (entry as any).delivery?.deliveryNumber || entry.deliveryId,
           userId: entry.updatedById,
         };
       });
@@ -2049,7 +2225,7 @@ export class DashboardService {
   }
 
   public static async getCarrierPerformance(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2057,10 +2233,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get deliveries grouped by carrier
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
         select: {
           courierService: true,
@@ -2101,7 +2279,7 @@ export class DashboardService {
           const transitTime =
             Math.abs(
               new Date(delivery.actualDeliveryDate).getTime() -
-                new Date(delivery.plannedDeliveryDate).getTime(),
+                new Date(delivery.plannedDeliveryDate).getTime()
             ) /
             (1000 * 60 * 60); // hours
           data.transitTimes.push(transitTime);
@@ -2118,7 +2296,7 @@ export class DashboardService {
             data.transitTimes.length > 0
               ? data.transitTimes.reduce(
                   (sum: number, time: number) => sum + time,
-                  0,
+                  0
                 ) / data.transitTimes.length
               : 0;
           const avgCost =
@@ -2142,7 +2320,7 @@ export class DashboardService {
             avgTransitTime: `${Math.round(avgTransitTime)}h`,
             reliability: onTimePercentage,
           };
-        },
+        }
       );
 
       // Sort by rating
@@ -2159,7 +2337,7 @@ export class DashboardService {
   }
 
   public static async getCostBreakdown(
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2167,10 +2345,12 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Get all delivery charges
       const deliveries = await prisma.delivery.findMany({
         where: {
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
         select: {
           deliveryCharges: true,
@@ -2229,7 +2409,7 @@ export class DashboardService {
 
   public static async getMonthlyTrends(
     req: AuthRequest,
-    months: number = 6,
+    months: number = 6
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2248,7 +2428,7 @@ export class DashboardService {
           0,
           23,
           59,
-          59,
+          59
         );
 
         const monthName = startDate.toLocaleDateString("en-US", {
@@ -2256,6 +2436,7 @@ export class DashboardService {
         });
         const year = startDate.getFullYear();
 
+        const branchId = req.user?.branchId;
         // Get deliveries for this month
         const deliveries = await prisma.delivery.findMany({
           where: {
@@ -2263,6 +2444,7 @@ export class DashboardService {
               { supplierCompanyId: companyId },
               { buyerCompanyId: companyId },
             ],
+            ...(branchId ? { branchId } : {}),
             createdAt: {
               gte: startDate,
               lte: endDate,
@@ -2283,7 +2465,7 @@ export class DashboardService {
 
         // Calculate on-time percentage
         const deliveredShipments = deliveries.filter(
-          (d) => d.status === "DELIVERED",
+          (d) => d.status === "DELIVERED"
         );
         const onTimeShipments = deliveredShipments.filter((delivery) => {
           if (!delivery.actualDeliveryDate) return false;
@@ -2295,7 +2477,7 @@ export class DashboardService {
         const onTime =
           deliveredShipments.length > 0
             ? Math.round(
-                (onTimeShipments.length / deliveredShipments.length) * 100,
+                (onTimeShipments.length / deliveredShipments.length) * 100
               )
             : 0;
 
@@ -2328,7 +2510,7 @@ export class DashboardService {
       status: string;
       location?: string;
     },
-    req: AuthRequest,
+    req: AuthRequest
   ): Promise<IResponse<unknown>> {
     try {
       const companyId = req.user?.company?.companyId;
@@ -2336,11 +2518,13 @@ export class DashboardService {
         throw new AppError("Company ID is missing", 400);
       }
 
+      const branchId = req.user?.branchId;
       // Find the delivery
       const delivery = await prisma.delivery.findFirst({
         where: {
           deliveryNumber: shipmentId,
           OR: [{ supplierCompanyId: companyId }, { buyerCompanyId: companyId }],
+          ...(branchId ? { branchId } : {}),
         },
       });
 

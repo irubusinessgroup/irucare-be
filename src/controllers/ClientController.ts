@@ -23,44 +23,45 @@ import { checkRole } from "../middlewares";
 @Tags("Client")
 export class ClientController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getAllClients(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ) {
     return ClientService.getAllClients(req, searchq, limit, page);
   }
 
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getClientById(@Path() id: string, @Request() req: ExpressRequest) {
     return ClientService.getClientById(id, req);
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
-  public createClient(
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public async createClient(
     @Body() body: CreateClientDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     const companyId = req.user?.company?.companyId;
-    return ClientService.createClient(body, companyId!);
+    const branchId = req.user?.branchId;
+    return ClientService.createClient(body, companyId!, branchId);
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public updateClient(
     @Path() id: string,
     @Body() body: UpdateClientDto,
-    @Request() req: ExpressRequest,
+    @Request() req: ExpressRequest
   ) {
     return ClientService.updateClient(id, body, req);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public deleteClient(@Path() id: string, @Request() req: ExpressRequest) {
     return ClientService.deleteClient(id, req);
   }

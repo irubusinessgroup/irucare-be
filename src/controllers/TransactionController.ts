@@ -19,21 +19,21 @@ import { checkRole } from "../middlewares";
 @Security("jwt")
 export class TransactionController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async getAll(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number,
+    @Query() page?: number
   ): Promise<any> {
     return TransactionService.getAllTransactions(req, searchq, limit, page);
   }
 
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async getById(
     @Request() req: ExpressRequest,
-    @Path() id: string,
+    @Path() id: string
   ): Promise<any> {
     return TransactionService.getTransactionById(id, req);
   }
