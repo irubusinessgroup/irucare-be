@@ -19,6 +19,7 @@ import { SubscriptionService } from "./services/SubscriptionService";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "./utils/jwt";
+import { errorHandler } from "./middlewares/errorHandler";
 
 declare module "express" {
   interface Request {
@@ -213,33 +214,8 @@ cron.schedule("0 0 * * *", async () => {
   }
 });
 
-app.use(function errorHandler(
-  err: unknown,
-  req: ExRequest,
-  res: ExResponse,
-  next: NextFunction,
-): ExResponse | void {
-  console.log(err);
-  if (err instanceof AppError) {
-    return res.status(err.status).json({
-      status: err.status,
-      message: err.message,
-    });
-  }
+app.use(errorHandler);
 
-  if (err instanceof ValidationError) {
-    return res
-      .status(400)
-      .json({ error: "validate", data: JSON.parse(err.message) });
-  }
-  if (err instanceof Error) {
-    return res.status(500).json({
-      message: err.message ?? "Internal server error",
-      status: 500,
-    });
-  }
-  next();
-});
 
 server.listen(PORT, () =>
   console.log(`API running on PORT http://localhost:${PORT} wow!s`),

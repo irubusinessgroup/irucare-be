@@ -348,16 +348,18 @@ export class SellService {
         }
         if (insuranceCard) {
           applyInsurance = true;
-          insurancePercentageSnapshot = Number(insuranceCard.percentage ?? 0);
+          const clientPercentage = Number(insuranceCard.percentage ?? 0);
+          insurancePercentageSnapshot = 100 - clientPercentage;
         }
       }
 
       if (
         applyInsurance &&
-        insurancePercentageSnapshot &&
-        insurancePercentageSnapshot > 0
+        insurancePercentageSnapshot !== undefined &&
+        (100 - insurancePercentageSnapshot) > 0
       ) {
-        const percentageFactor = insurancePercentageSnapshot / 100;
+        const clientPercentage = 100 - insurancePercentageSnapshot;
+        const percentageFactor = clientPercentage / 100;
         // compute per item split
         for (const s of sellItems) {
           const patientPerUnit = Number(s.sellPrice) * percentageFactor;
@@ -684,10 +686,9 @@ export class SellService {
               );
             }
             if (insuranceCard) {
-              insurancePercentageSnapshot = Number(
-                insuranceCard.percentage ?? 0,
-              );
-              const percentageFactor = (insurancePercentageSnapshot ?? 0) / 100;
+              const clientPercentage = Number(insuranceCard.percentage ?? 0);
+              insurancePercentageSnapshot = 100 - clientPercentage;
+              const percentageFactor = clientPercentage / 100;
               for (const s of sellItems) {
                 const patientPerUnit = Number(s.sellPrice) * percentageFactor;
                 const coveredPerUnit = Number(s.sellPrice) - patientPerUnit;

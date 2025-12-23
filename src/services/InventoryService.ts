@@ -5,6 +5,10 @@ import { assertCompanyExists } from "../utils/validators";
 import * as XLSX from "xlsx";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
 import { applyMarkup } from "../utils/pricing";
+import {
+  DirectStockAdditionRequest,
+  IPaged,
+} from "../utils/interfaces/common";
 
 export class InventoryService {
   public static async getInventory(
@@ -621,23 +625,7 @@ export class InventoryService {
 
   public static async addDirectStock(
     req: Request,
-    stockData: {
-      itemId: string;
-      supplierId?: string;
-      dateReceived: Date;
-      expiryDate?: Date;
-      quantityReceived: number;
-      unitCost: number;
-      packSize?: number;
-      uom: string;
-      tempReq: string;
-      currency: string;
-      condition: string;
-      warehouseId: string;
-      reason: string;
-      specialHandlingNotes?: string;
-      remarksNotes?: string;
-    },
+    stockData: DirectStockAdditionRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -672,8 +660,8 @@ export class InventoryService {
         companyId: companyId,
         branchId: branchId as any,
         supplierId: stockData.supplierId,
-        dateReceived: stockData.dateReceived,
-        expiryDate: stockData.expiryDate,
+        dateReceived: new Date(stockData.dateReceived),
+        expiryDate: stockData.expiryDate ? new Date(stockData.expiryDate) : null,
         quantityReceived: stockData.quantityReceived,
         unitCost: stockData.unitCost,
         totalCost: totalCost,

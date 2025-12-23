@@ -116,6 +116,7 @@ export class UserService extends BaseService {
             photo: userData.photo,
             branchId: userData.company?.branchId,
             industry,
+            companyName: userData.company?.company?.name || null,
           },
         };
       }
@@ -420,6 +421,11 @@ export class UserService extends BaseService {
         where: { id: userId },
         include: {
           userRoles: true,
+          company: {
+            include: {
+              company: true,
+            },
+          },
         },
       });
 
@@ -440,6 +446,7 @@ export class UserService extends BaseService {
           phoneNumber: user.phoneNumber,
           photo: user.photo,
           roles: userRoles,
+          companyName: user.company?.company?.name || null,
         },
       };
     } catch (error) {
@@ -485,6 +492,11 @@ export class UserService extends BaseService {
         where: { id: userId },
         include: {
           userRoles: true,
+          company: {
+            include: {
+              company: true,
+            },
+          },
         },
       });
 
@@ -505,6 +517,7 @@ export class UserService extends BaseService {
           phoneNumber: user.phoneNumber,
           photo: user.photo,
           roles: userRoles,
+          companyName: user.company?.company?.name || null,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },

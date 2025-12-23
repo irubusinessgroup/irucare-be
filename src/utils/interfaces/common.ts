@@ -70,6 +70,7 @@ export type TUser = {
       industry?: string | null;
     };
   };
+  companyName?: string | null;
 };
 
 export interface IClinicUserRole {
@@ -96,6 +97,7 @@ export interface IUserResponse {
   otp: string | null;
   otpExpiresAt: Date | null;
   photo: string;
+  companyName?: string | null;
 }
 
 export interface UserResponse
@@ -579,6 +581,8 @@ export interface CreateCompanyToolsDto {
   taxRate?: number;
   companySignature?: string;
   companyStamp?: string;
+  businessTin?: string;
+  taxReportingFrequency?: string;
   bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
 }
 
@@ -1028,8 +1032,8 @@ export interface UpdateProfileDto {
 export interface DirectStockAdditionRequest {
   itemId: string;
   supplierId?: string;
-  dateReceived: Date;
-  expiryDate?: Date;
+  dateReceived: Date | string;
+  expiryDate?: Date | string | null;
   quantityReceived: number;
   unitCost: number;
   packSize?: number;
