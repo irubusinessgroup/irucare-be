@@ -42,6 +42,13 @@ export class ItemController {
     return ItemService.createItem(data, companyId, branchId);
   }
 
+  @Get("/generate-product-code")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public async generateProductCode(@Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.generateProductCode(companyId);
+  }
+
   @Get("/{id}")
   @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public getItem(@Path() id: string, @Request() req: ExpressRequest) {

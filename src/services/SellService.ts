@@ -3,6 +3,7 @@ import AppError from "../utils/error";
 import { CreateSellDto, UpdateSellDto } from "../utils/interfaces/common";
 import type { Request } from "express";
 import { selectAvailableStock, markStockSold } from "../utils/stock-ops";
+import { EbmService } from "./EbmService";
 
 export class SellService {
   public static async getAllSells(
@@ -171,9 +172,10 @@ export class SellService {
 
   public static async createSell(
     data: CreateSellDto,
-    companyId: string,
-    branchId?: string | null,
+    req: Request,
   ) {
+    const companyId = req.user?.company?.companyId;
+    const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
@@ -377,11 +379,11 @@ export class SellService {
           : undefined;
       }
 
-      console.log("Creating sell with data:", {
-        clientId: data.clientId,
-        isPharmacy,
-        patientId: data.patientId,
-      });
+      // console.log("Creating sell with data:", {
+      //   clientId: data.clientId,
+      //   isPharmacy,
+      //   patientId: data.patientId,
+      // });
 
       const sell = await tx.sell.create({
         data: {
@@ -483,6 +485,49 @@ export class SellService {
           item: { select: { id: true, itemCodeSku: true, itemFullName: true } },
         },
       });
+
+      // EBM Sales Registration
+      if (completeSell && !(completeSell as any).ebmSynced && company) {
+        const ebmResponse = await EbmService.saveSaleToEBM(
+          completeSell,
+          company,
+          req.user,
+          branchId
+        );
+
+        if (ebmResponse.resultCd !== "000") {
+          throw new AppError(
+            `EBM Sales Registration Failed: ${ebmResponse.resultMsg}`,
+            400
+          );
+        }
+
+        const ebmData = ebmResponse.data;
+        await tx.sell.update({
+          where: { id: completeSell.id },
+          data: {
+            ebmSynced: true,
+            rcptNo: ebmData.rcptNo,
+            intrlData: ebmData.intrlData,
+            rcptSign: ebmData.rcptSign,
+            totRcptNo: ebmData.totRcptNo,
+            vsdcRcptPbctDate: ebmData.vsdcRcptPbctDate,
+            sdcId: ebmData.sdcId,
+            mrcNo: ebmData.mrcNo,
+          } as any,
+        });
+
+        // Update the return object with new EBM fields
+        const cs = completeSell as any;
+        cs.ebmSynced = true;
+        cs.rcptNo = ebmData.rcptNo;
+        cs.intrlData = ebmData.intrlData;
+        cs.rcptSign = ebmData.rcptSign;
+        cs.totRcptNo = ebmData.totRcptNo;
+        cs.vsdcRcptPbctDate = ebmData.vsdcRcptPbctDate;
+        cs.sdcId = ebmData.sdcId;
+        cs.mrcNo = ebmData.mrcNo;
+      }
 
       return { message: "Sale created successfully", data: completeSell };
     });

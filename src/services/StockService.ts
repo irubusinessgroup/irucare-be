@@ -12,6 +12,7 @@ import {
   getSupplierOrThrow,
   getWarehouseOrThrow,
 } from "../utils/validators";
+import { EbmService } from "./EbmService";
 
 export class StockService {
   static async createStockReceipt(
@@ -112,117 +113,152 @@ export class StockService {
     };
   }
 
-  static async addToStock(stockReceiptId: string) {
-    return await prisma.$transaction(async (tx) => {
-      const stockReceipt = await tx.stockReceipts.findUnique({
-        where: { id: stockReceiptId },
-        include: {
-          item: true,
-          approvals: {
-            where: { approvalStatus: "APPROVED" },
-            orderBy: { dateApproved: "desc" },
-            take: 1,
-          },
-        },
-      });
+  static async addToStock(
+    stockReceiptId: string,
+    tx?: any,
+    userId?: string
+  ) {
+    const client = tx || prisma;
 
-      if (!stockReceipt) {
-        throw new AppError("Stock receipt not found", 404);
+    const stockReceipt = await client.stockReceipts.findUnique({
+      where: { id: stockReceiptId },
+      include: {
+        item: true,
+        company: true,
+        approvals: {
+          where: { approvalStatus: "APPROVED" },
+          orderBy: { dateApproved: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!stockReceipt) {
+      throw new AppError("Stock receipt not found", 404);
+    }
+
+    // --- EBM Registration ---
+    if (!stockReceipt.ebmSynced) {
+      const company = stockReceipt.company;
+      let user = null;
+
+      if (userId) {
+        user = await client.user.findUnique({
+          where: { id: userId },
+          select: { id: true, firstName: true, lastName: true, email: true },
+        });
       }
 
-      const expectedSellPrice =
-        stockReceipt.approvals[0]?.ExpectedSellPrice || null;
-
-      const existingStock = await tx.stock.findFirst({
-        where: {
-          stockReceipt: {
-            itemId: stockReceipt.itemId,
-            branchId: (stockReceipt as any).branchId,
-          } as any,
-          status: "AVAILABLE",
-        },
-        include: {
-          stockReceipt: {
-            include: {
-              approvals: {
-                where: { approvalStatus: "APPROVED" },
-                orderBy: { dateApproved: "desc" },
-                take: 1,
-              },
-            },
+      if (!user) {
+        // Fallback to finding a COMPANY_ADMIN if userId not provided or not found
+        user = await client.user.findFirst({
+          where: {
+            company: { companyId: stockReceipt.companyId },
+            userRoles: { some: { name: "COMPANY_ADMIN" } },
           },
-        },
-      });
+          select: { id: true, firstName: true, lastName: true, email: true },
+        });
+      }
 
-      if (existingStock) {
-        const newStockUnits = Array.from(
-          {
-            length: stockReceipt.quantityReceived.toNumber(),
-          },
-          () => ({
-            stockReceiptId: stockReceiptId,
-            status: "AVAILABLE",
-            quantity: 1,
-            quantityAvailable: 1,
-          }),
+      if (company && user) {
+        const ebmResponse = await EbmService.saveStockToEBM(
+          stockReceipt,
+          company,
+          user,
+          stockReceipt.branchId
         );
 
-        await tx.stock.createMany({
-          data: newStockUnits,
-        });
-
-        const allStockReceiptsForItem = await tx.stockReceipts.findMany({
-          where: { itemId: stockReceipt.itemId },
-          select: { id: true },
-        });
-
-        const stockReceiptIds = allStockReceiptsForItem.map((sr) => sr.id);
-
-        if (expectedSellPrice) {
-          await tx.approvals.updateMany({
-            where: {
-              stockReceiptId: { in: stockReceiptIds },
-              approvalStatus: "APPROVED",
-            },
-            data: {
-              ExpectedSellPrice: expectedSellPrice,
-            },
-          });
+        if (ebmResponse.resultCd !== "000") {
+          throw new AppError(
+            `EBM Stock Registration Failed: ${ebmResponse.resultMsg}`,
+            400
+          );
         }
 
-        return {
-          message:
-            "Stock updated successfully - quantity added and sell price updated",
-          stockUnitsCreated: newStockUnits.length,
-          totalAvailableUnits: await tx.stock.count({
-            where: {
-              stockReceipt: { itemId: stockReceipt.itemId },
-              status: "AVAILABLE",
-            },
-          }),
-        };
-      } else {
-        const stockUnits = Array.from(
-          { length: stockReceipt.quantityReceived.toNumber() },
-          () => ({
-            stockReceiptId: stockReceiptId,
-            status: "AVAILABLE",
-            quantity: 1,
-            quantityAvailable: 1,
-          }),
-        );
-
-        await tx.stock.createMany({
-          data: stockUnits,
+        // Mark as synced
+        await client.stockReceipts.update({
+          where: { id: stockReceiptId },
+          data: { ebmSynced: true },
         });
-
-        return {
-          message: "New stock item created successfully",
-          stockUnitsCreated: stockUnits.length,
-          totalAvailableUnits: stockUnits.length,
-        };
       }
+    }
+
+    const expectedSellPrice = stockReceipt.approvals[0]?.ExpectedSellPrice || null;
+
+    const existingStock = await client.stock.findFirst({
+      where: {
+        stockReceipt: {
+          itemId: stockReceipt.itemId,
+          branchId: stockReceipt.branchId,
+        },
+        status: "AVAILABLE",
+      },
     });
+
+    if (existingStock) {
+      const newStockUnits = Array.from(
+        {
+          length: Number(stockReceipt.quantityReceived),
+        },
+        () => ({
+          stockReceiptId: stockReceiptId,
+          status: "AVAILABLE",
+          quantity: 1,
+          quantityAvailable: 1,
+          companyId: stockReceipt.companyId,
+          branchId: stockReceipt.branchId,
+        })
+      );
+
+      await client.stock.createMany({
+        data: newStockUnits,
+      });
+
+      const allStockReceiptsForItem = await client.stockReceipts.findMany({
+        where: { itemId: stockReceipt.itemId },
+        select: { id: true },
+      });
+
+      const stockReceiptIds = allStockReceiptsForItem.map((sr: any) => sr.id);
+
+      if (expectedSellPrice) {
+        await client.approvals.updateMany({
+          where: {
+            stockReceiptId: { in: stockReceiptIds },
+            approvalStatus: "APPROVED",
+          },
+          data: {
+            ExpectedSellPrice: expectedSellPrice,
+          },
+        });
+      }
+
+      return {
+        message: "Stock updated successfully - quantity added and sell price updated",
+        stockUnitsCreated: newStockUnits.length,
+      };
+    } else {
+      const stockUnits = Array.from(
+        { length: Number(stockReceipt.quantityReceived) },
+        () => ({
+          stockReceiptId: stockReceiptId,
+          status: "AVAILABLE",
+          quantity: 1,
+          quantityAvailable: 1,
+          companyId: stockReceipt.companyId,
+          branchId: stockReceipt.branchId,
+        })
+      );
+
+      await client.stock.createMany({
+        data: stockUnits,
+      });
+
+      return {
+        message: "New stock item created successfully",
+        stockUnitsCreated: stockUnits.length,
+      };
+    }
   }
 
   static async updateStockReceipt(

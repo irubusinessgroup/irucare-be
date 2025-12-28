@@ -582,6 +582,7 @@ export interface CreateCompanyToolsDto {
   companySignature?: string;
   companyStamp?: string;
   businessTin?: string;
+  ebmDeviceSerialNumber?: string;
   taxReportingFrequency?: string;
   bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
 }

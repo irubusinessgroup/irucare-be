@@ -7,6 +7,7 @@ import {
   ValidationError,
 } from "../utils/interfaces/common";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
+import { EbmService } from "./EbmService";
 import type { Request } from "express";
 import * as XLSX from "xlsx";
 import * as path from "path";
@@ -15,12 +16,12 @@ export class ItemService {
   // Normalize/coerce tax payload based on README_BACKEND_TAX.md rules
   private static normalizeTaxFields(input: unknown): {
     isTaxable: boolean;
-    taxCode: "A" | "B";
+    taxCode: "A" | "B" | "C" | "D";
     taxRate: number;
   } {
     const payload = (input || {}) as {
       isTaxable?: boolean | string;
-      taxCode?: "A" | "B" | string;
+      taxCode?: "A" | "B" | "C" | "D" | string;
       taxRate?: number | string;
     };
 
@@ -41,6 +42,12 @@ export class ItemService {
     const normalizedCode = (payload.taxCode || "").toString().toUpperCase();
     if (normalizedCode === "B") {
       return { isTaxable: true, taxCode: "B", taxRate: 18.0 };
+    }
+    if (normalizedCode === "C") {
+      return { isTaxable: true, taxCode: "C", taxRate: 0.0 };
+    }
+    if (normalizedCode === "D") {
+      return { isTaxable: true, taxCode: "D", taxRate: 0.0 };
     }
     // Default non-taxable
     return { isTaxable: false, taxCode: "A", taxRate: 0.0 };
@@ -411,7 +418,6 @@ export class ItemService {
         }
       }
 
-      
       // Validate insurancePrice
       if (row.insurancePrice !== undefined && row.insurancePrice !== null) {
         const insurancePriceNum = Number(row.insurancePrice);
@@ -441,6 +447,21 @@ export class ItemService {
     branchId?: string | null,
   ) {
     const importedItems = [];
+    const importErrors: ValidationError[] = [];
+
+    // Get company and admin user for EBM registration
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+    const user = await prisma.user.findFirst({
+      where: {
+        company: { companyId },
+        userRoles: {
+          some: { name: "COMPANY_ADMIN" },
+        },
+      },
+    });
+
     // Get all categories upfront
     const categories = await prisma.itemCategories.findMany({
       where: { companyId, ...(branchId ? { branchId } : {}) },
@@ -448,22 +469,43 @@ export class ItemService {
     const categoryMap = new Map(
       categories.map((c) => [c.categoryName.toLowerCase().trim(), c]),
     );
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const rowNumber = i + 2; // Approximate row number
       try {
         const normalizedCategoryName = item.categoryName.toLowerCase().trim();
         let category = categoryMap.get(normalizedCategoryName);
         // Auto-create category if it does not exist for this company
         if (!category) {
-          const createdCategory = await prisma.itemCategories.create({
+          category = await prisma.itemCategories.create({
             data: {
               categoryName: item.categoryName.trim(),
               companyId,
               branchId,
             },
           });
-          categoryMap.set(normalizedCategoryName, createdCategory);
-          category = createdCategory;
+          categoryMap.set(normalizedCategoryName, category);
         }
+
+        // --- EBM Registration Prerequisite ---
+        if (company && user) {
+          const ebmResponse = await EbmService.saveItemToEBM(
+            item,
+            company,
+            user,
+            branchId,
+          );
+
+          if (ebmResponse.resultCd !== "000") {
+            importErrors.push({
+              row: rowNumber,
+              field: "EBM",
+              message: `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+            });
+            continue; // Skip this item locally as per 'Partial with Report' strategy
+          }
+        }
+
         // Check for existing item by productCode
         let existingItem = null;
         if (item.productCode) {
@@ -485,11 +527,11 @@ export class ItemService {
               description: item.description || null,
               minLevel: item.minLevel,
               maxLevel: item.maxLevel,
-              // Do not update productCode
               // Normalize and apply tax fields if present
               ...ItemService.normalizeTaxFields(item as unknown),
               insurancePrice: item.insurancePrice,
               companyId,
+              ebmSynced: true,
             },
             include: {
               category: true,
@@ -514,6 +556,7 @@ export class ItemService {
               insurancePrice: item.insurancePrice,
               companyId,
               branchId,
+              ebmSynced: true,
             },
             include: {
               category: true,
@@ -522,13 +565,20 @@ export class ItemService {
           });
           importedItems.push(createdItem);
         }
-      } catch (error: unknown) {
+      } catch (error: any) {
         console.error(
           `Failed to create/update item: ${item.itemFullName}`,
           error,
         );
+        importErrors.push({
+          row: rowNumber,
+          field: "System",
+          message: error.message || "Unknown error during creation",
+        });
       }
     }
+    // Store errors for the caller to handle if needed (could be improved by returning them)
+    // For now, we follow the pattern in importItems where importedItems is returned.
     return importedItems;
   }
 
@@ -691,6 +741,33 @@ export class ItemService {
     }
     const itemCode = await ItemCodeGenerator.generate(data.categoryId);
     const tax = ItemService.normalizeTaxFields(data as unknown);
+
+    // --- EBM Registration Prerequisite ---
+    const user = await prisma.user.findFirst({
+      where: {
+        company: { companyId },
+        userRoles: {
+          some: { name: "COMPANY_ADMIN" },
+        },
+      },
+    });
+
+    if (company && user) {
+      const ebmResponse = await EbmService.saveItemToEBM(
+        data,
+        company,
+        user,
+        branchId,
+      );
+
+      if (ebmResponse.resultCd !== "000") {
+        throw new AppError(
+          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+          400,
+        );
+      }
+    }
+
     const item = await prisma.items.create({
       data: {
         ...data,
@@ -701,6 +778,7 @@ export class ItemService {
         itemCodeSku: itemCode,
         companyId: companyId,
         branchId: branchId,
+        ebmSynced: true,
       },
       include: {
         category: true,
@@ -710,6 +788,34 @@ export class ItemService {
     // Remove DB duplicates after create
     await ItemService.removeDbDuplicates(companyId);
     return { message: "Item created successfully", data: item };
+  }
+
+  public static async generateProductCode(companyId: string): Promise<{ productCode: string }> {
+    let isUnique = false;
+    let productCode = "";
+
+    // Retry loop to ensure uniqueness
+    while (!isUnique) {
+      // Generate random 8-digit number string
+      const randomNum = Math.floor(Math.random() * 100000000)
+        .toString()
+        .padStart(8, "0");
+      productCode = `PROD-${randomNum}`;
+
+      // Check against database
+      const existing = await prisma.items.findFirst({
+        where: {
+          companyId,
+          productCode: productCode,
+        },
+      });
+
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+
+    return { productCode };
   }
 
   public static async getItem(id: string, branchId?: string | null) {

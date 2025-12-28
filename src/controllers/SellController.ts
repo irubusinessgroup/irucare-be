@@ -47,7 +47,7 @@ export class SellController {
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
-    return SellService.createSell(body, companyId!, branchId);
+    return SellService.createSell(body, req);
   }
 
   @Put("/{id}")
