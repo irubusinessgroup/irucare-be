@@ -9,6 +9,7 @@ import {
   DirectStockAdditionRequest,
   IPaged,
 } from "../utils/interfaces/common";
+import { StockService } from "./StockService";
 
 export class InventoryService {
   public static async getInventory(
@@ -702,20 +703,7 @@ export class InventoryService {
       },
     });
 
-    const stockPromises = Array.from(
-      { length: stockData.quantityReceived },
-      () =>
-        prisma.stock.create({
-          data: {
-            stockReceiptId: stockReceipt.id,
-            status: "AVAILABLE",
-            quantity: 1,
-            quantityAvailable: 1,
-          },
-        }),
-    );
-
-    await Promise.all(stockPromises);
+    await StockService.addToStock(stockReceipt.id, prisma, userId);
 
     return {
       stockReceipt,
@@ -1062,16 +1050,7 @@ export class InventoryService {
                 },
               });
 
-              // Create Stock Records
-              // Use createMany for performance
-              await tx.stock.createMany({
-                data: Array.from({ length: row.quantity }).map(() => ({
-                  stockReceiptId: receipt.id,
-                  status: "AVAILABLE",
-                  quantity: 1,
-                  quantityAvailable: 1,
-                })),
-              });
+              await StockService.addToStock(receipt.id, tx, userId);
             }
           },
           {

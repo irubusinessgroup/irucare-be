@@ -270,6 +270,14 @@ export class companyService {
         },
       });
 
+      // Update businessTin in CompanyTools if it exists
+      if (data.company.TIN) {
+        await prisma.companyTools.updateMany({
+          where: { companyId: id },
+          data: { businessTin: data.company.TIN },
+        });
+      }
+
       Emitter.emit(
         EventType.COMPANY_UPDATED,
         updatedCompany,

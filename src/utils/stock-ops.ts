@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { StockService } from "../services/StockService";
 
 type Tx = Prisma.TransactionClient | import("@prisma/client").PrismaClient;
 
@@ -173,14 +174,7 @@ export async function createBuyerStockFromDeliveryItem(
     },
   });
 
-  await tx.stock.createMany({
-    data: Array.from({ length: params.quantityReceived }, () => ({
-      stockReceiptId: stockReceipt.id,
-      status: "AVAILABLE",
-      quantity: 1,
-      quantityAvailable: 1,
-    })),
-  });
+  await StockService.addToStock(stockReceipt.id, tx);
 
   return { stockReceiptId: stockReceipt.id };
 }

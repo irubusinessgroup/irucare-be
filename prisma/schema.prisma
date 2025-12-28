@@ -145,6 +145,7 @@ model Items {
   insurancePrice      Decimal?              @default(0) @db.Decimal(18, 2)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
+  ebmSynced           Boolean               @default(false)
   stockReceipts       StockReceipts[]
   purchaseOrderItems  PurchaseOrderItem[]
   sells               Sell[]
@@ -197,6 +198,7 @@ model StockReceipts {
   remarksNotes         String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
+  ebmSynced            Boolean            @default(false)
   approvals            Approvals[]
   stocks               Stock[]
 
@@ -282,6 +284,7 @@ model PurchaseOrder {
   stockReceipts        StockReceipts[]
   processingEntries    PurchaseOrderProcessing[]
   deliveries           Delivery[]
+  ebmSynced            Boolean                   @default(false)
 }
 
 model PurchaseOrderItem {
@@ -371,6 +374,16 @@ model Sell {
   doctorId    String?
   doctor      Doctor?      @relation(fields: [doctorId], references: [id])
   hospital    String? // Name of hospital/clinic (optional)
+  
+  // EBM Fields
+  ebmSynced       Boolean @default(false)
+  rcptNo          Int?
+  intrlData       String?
+  rcptSign        String?
+  totRcptNo       Int?
+  vsdcRcptPbctDate String?
+  sdcId           String?
+  mrcNo           String?
 
   @@index([patientId])
   @@index([insuranceCardId])
@@ -927,6 +940,7 @@ model CompanyTools {
   bankAccounts          Json?
   businessTin           String?
   taxReportingFrequency String?
+  ebmDeviceSerialNumber String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

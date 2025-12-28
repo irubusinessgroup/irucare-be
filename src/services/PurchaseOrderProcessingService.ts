@@ -11,6 +11,7 @@ import { DeliveryService } from "./DeliveryService";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Server as SocketIOServer } from "socket.io";
 import { countAvailableStock } from "../utils/stock-ops";
+import { EbmService } from "./EbmService";
 
 type AuthRequest = Request & {
   user?: { company?: { companyId?: string } };
@@ -410,20 +411,45 @@ export class OrderProcessingService {
       data: { status: "SENT" },
     });
 
+    // EBM Purchase Registration
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id: entry.purchaseOrderId },
+      include: {
+        company: true,
+        suppliers: true,
+        items: { include: { item: true } },
+      },
+    });
+
+    if (po && !po.ebmSynced && po.company) {
+      const ebmResponse = await EbmService.savePurchaseToEBM(
+        po,
+        po.company,
+        req.user,
+        po.branchId
+      );
+
+      if (ebmResponse.resultCd !== "000") {
+        throw new AppError(
+          `EBM Purchase Registration Failed: ${ebmResponse.resultMsg}`,
+          400
+        );
+      }
+
+      await prisma.purchaseOrder.update({
+        where: { id: po.id },
+        data: { ebmSynced: true },
+      });
+    }
+
     // Send notification to buyer company if io is provided
     if (io && entry.companyToId) {
       try {
-        // Get the purchase order details for notification
-        const po = await prisma.purchaseOrder.findUnique({
-          where: { id: entry.purchaseOrderId },
-          include: { company: true },
-        });
         if (po) {
           await this.sendCompletionNotification(po, companyId, io);
         }
       } catch (error) {
         console.error("Error sending completion notification:", error);
-        // Don't throw error here - notification failure shouldn't break the main flow
       }
     }
 

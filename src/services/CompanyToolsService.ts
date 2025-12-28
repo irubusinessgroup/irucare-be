@@ -2,6 +2,7 @@ import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import type { Request } from "express";
 import { SellThroughRateService } from "./SellThroughRateService";
+import { EbmService } from "./EbmService";
 
 type CompanyToolsRow = {
   id: string;
@@ -12,10 +13,16 @@ type CompanyToolsRow = {
   companyStamp: string | null;
   bankAccounts: unknown;
   businessTin: string | null;
+  ebmDeviceSerialNumber: string | null;
   taxReportingFrequency: string | null;
   createdAt: Date;
   updatedAt: Date;
-  company?: { name: string; logo?: string | null; website?: string | null };
+  company?: {
+    name: string;
+    logo?: string | null;
+    website?: string | null;
+    TIN?: string | null;
+  };
 };
 
 export class CompanyToolsService {
@@ -31,7 +38,8 @@ export class CompanyToolsService {
               : undefined,
         }))
       : null;
-    return { ...row, bankAccounts };
+    const companyTin = row.company?.TIN || row.businessTin || null;
+    return { ...row, bankAccounts, businessTin: companyTin };
   }
 
   public static async createCompanyTools(
@@ -43,6 +51,7 @@ export class CompanyToolsService {
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
       businessTin?: string;
       taxReportingFrequency?: string;
+      ebmDeviceSerialNumber?: string;
     },
     companyId: string,
   ) {
@@ -81,6 +90,7 @@ export class CompanyToolsService {
         companyStamp: data.companyStamp,
         businessTin: data.businessTin,
         taxReportingFrequency: data.taxReportingFrequency,
+        ebmDeviceSerialNumber: data.ebmDeviceSerialNumber,
         ...(Array.isArray(data.bankAccounts)
           ? {
               bankAccounts: data.bankAccounts,
@@ -90,10 +100,17 @@ export class CompanyToolsService {
       },
       include: {
         company: {
-          select: { name: true },
+          select: { name: true, TIN: true },
         },
       },
     });
+
+    if (data.businessTin) {
+      await prisma.company.update({
+        where: { id: companyId },
+        data: { TIN: data.businessTin },
+      });
+    }
 
     return {
       message: "Company tools created successfully",
@@ -106,7 +123,7 @@ export class CompanyToolsService {
       where: { id },
       include: {
         company: {
-          select: { name: true },
+          select: { name: true, TIN: true },
         },
       },
     });
@@ -123,7 +140,7 @@ export class CompanyToolsService {
       where: { companyId },
       include: {
         company: {
-          select: { name: true, logo: true, website: true },
+          select: { name: true, logo: true, website: true, TIN: true },
         },
       },
     });
@@ -144,6 +161,7 @@ export class CompanyToolsService {
       bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
       businessTin?: string;
       taxReportingFrequency?: string;
+      ebmDeviceSerialNumber?: string;
     },
     companyId: string,
   ) {
@@ -194,6 +212,10 @@ export class CompanyToolsService {
       updateData.taxReportingFrequency = data.taxReportingFrequency || null;
     }
 
+    if (typeof data.ebmDeviceSerialNumber !== "undefined") {
+      updateData.ebmDeviceSerialNumber = data.ebmDeviceSerialNumber || null;
+    }
+
     if (Array.isArray(data.bankAccounts)) {
       const normalized = data.bankAccounts
         .filter((a) => a && (a.bankName?.trim() || a.accountNumber?.trim()))
@@ -213,10 +235,51 @@ export class CompanyToolsService {
       data: updateData,
       include: {
         company: {
-          select: { name: true },
+          select: { name: true, TIN: true },
         },
       },
     });
+
+    if (data.businessTin) {
+      await prisma.company.update({
+        where: { id: companyId },
+        data: { TIN: data.businessTin.trim() },
+      });
+    }
+
+    // Trigger EBM Initialization if serial number is updated
+    if (
+      data.ebmDeviceSerialNumber &&
+      data.ebmDeviceSerialNumber !== existing.ebmDeviceSerialNumber
+    ) {
+      try {
+        const tin =
+          data.businessTin ||
+          existing.businessTin ||
+          updated.company?.TIN ||
+          "";
+        if (tin) {
+          const ebmResponse = await EbmService.initializeDevice(
+            tin,
+            "00",
+            data.ebmDeviceSerialNumber,
+          );
+          console.log(
+            `[EBM Device Init] Result: ${ebmResponse.resultCd} - ${ebmResponse.resultMsg}`,
+          );
+
+          if (
+            ebmResponse.resultCd !== "902" &&
+            ebmResponse.resultCd !== "000"
+          ) {
+            // We don't throw here to avoid blocking the save, but we log it.
+            // If user requested strict initialization, we could throw AppError.
+          }
+        }
+      } catch (error) {
+        console.error("EBM Initialization failed:", error);
+      }
+    }
 
     return {
       message: "Company tools updated successfully",
@@ -254,7 +317,7 @@ export class CompanyToolsService {
       orderBy: { createdAt: "desc" },
       include: {
         company: {
-          select: { name: true, logo: true, website: true },
+          select: { name: true, logo: true, website: true, TIN: true },
         },
       },
     });
