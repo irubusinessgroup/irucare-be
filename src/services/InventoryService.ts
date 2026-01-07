@@ -46,6 +46,7 @@ export class InventoryService {
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
               { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
             ],
           },
         },
@@ -65,6 +66,7 @@ export class InventoryService {
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
               { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
             ],
           },
           include: {
@@ -252,6 +254,7 @@ export class InventoryService {
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
               { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
             ],
             expiryDate: {
               not: null,
@@ -276,6 +279,7 @@ export class InventoryService {
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
               { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
             ],
             expiryDate: {
               not: null,
@@ -457,6 +461,7 @@ export class InventoryService {
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
               { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
             ],
             expiryDate: {
               not: null,
@@ -480,6 +485,7 @@ export class InventoryService {
               { approvals: { some: { approvalStatus: "APPROVED" } } },
               { receiptType: "DIRECT_ADDITION" },
               { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
             ],
             expiryDate: {
               not: null,
