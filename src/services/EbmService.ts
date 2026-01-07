@@ -151,6 +151,8 @@ export class EbmService {
       branchId,
     );
 
+    console.log("EBM Sales Payload:", JSON.stringify(payload, null, 2));
+
     try {
       const response = await axios.post<EbmResponse>(this.EBM_SALES_URL, payload);
       return response.data;
@@ -391,15 +393,63 @@ export class EbmService {
     const salesDate = new Date(sell.createdAt || new Date()).toISOString().split("T")[0].replace(/-/g, "");
     const cfmDt = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 
+    // Refund Logic
+    const isRefund = sell.type === "REFUND";
+    const rcptTyCd = isRefund ? "R" : "S";
+    const salesTyCd = "N"; // Normal Sale/Refund
+    
+    // Purchase Code (mandatory for INSUREE and B2B Refunds)
+    // For Refunds, we need original receipt number if available
+    const orgInvcNo = isRefund && sell.parentSell?.rcptNo ? sell.parentSell.rcptNo : 0;
+    
+    // It is a generated code from the buyer. We cannot fallback to receipt number.
+    const prcOrdCd = sell.insuranceCard?.affiliationNumber || null;
+    
+    // If we don't have a Purchase Code, we CANNOT send custTin, otherwise EBM demands the code.
+    // Downgrading to Consumer Refund if code is missing.
+    const custTin = prcOrdCd ? this.formatTin(sell.client?.tin || sell.customerTin) : null;
+    const custNm = sell.client?.name || sell.customerName || null;
+
     const itemList: EbmSalesItem[] = sell.sellItems.map((item: any, index: number) => {
-      const totalAmount = Number(item.totalAmount || 0);
+      const qty = Math.abs(Number(item.quantity || 0));
+      const totalAmount = Math.abs(Number(item.totalAmount || 0));
       const taxRate = Number(item.item?.taxRate || 0);
       
       // Calculate tax from inclusive total
       const divisor = 1 + (taxRate / 100);
-      const splyAmt = totalAmount; // In the sample splyAmt = totAmt
+      
+      // Try setting taxblAmt to Inclusive Total if Exclusive failed validation
       const taxblAmt = totalAmount; 
-      const taxAmt = totalAmount - (totalAmount / divisor);
+      const taxAmt = Number((totalAmount - (totalAmount / divisor)).toFixed(2));
+      
+      // EBM requires splyAmt = prc * qty. Since prc is inclusive, splyAmt must be inclusive.
+      const splyAmt = totalAmount;
+      
+      // Ensure Price is tax INCLUSIVE for valid EBM computation (prc * qty = totAmt)
+      const prc = qty !== 0 ? Number((totalAmount / qty).toFixed(2)) : 0;
+
+      // Insurance fields logic
+      const isrccCd = sell.insuranceCard?.insurance?.tin || null;
+      const isrccNm = sell.insuranceCard?.insurance?.name || null;
+      // If we stored per-item details:
+      // item.insuranceCoveredPerUnit * qty = total insurance amount for this item
+      // item.patientPricePerUnit * qty = patient payable
+      // But EBM expects rates or amounts?
+      // isrcRt: Insurance Rate (%). 
+      // isrcAmt: Insurance Amount.
+      
+      let isrcRt = null;
+      let isrcAmt = null;
+
+      if (sell.insurancePercentage !== null && sell.insurancePercentage !== undefined) {
+         // EBM expects Insurance Coverage Rate (e.g. 90%), but system stores Client Pay Rate (e.g. 10%)
+         isrcRt = 100 - Number(sell.insurancePercentage);
+         
+         // amount covered by insurance for this line item
+         if (item.insuranceCoveredPerUnit) {
+            isrcAmt = Math.abs(Number((Number(item.insuranceCoveredPerUnit) * qty).toFixed(2)));
+         }
+      }
 
       return {
         itemSeq: index + 1,
@@ -410,15 +460,15 @@ export class EbmService {
         pkgUnitCd: "NT",
         pkg: 1,
         qtyUnitCd: "U",
-        qty: Number(item.quantity || 0),
-        prc: Number(item.sellPrice || 0),
+        qty: qty,
+        prc: prc,
         splyAmt: splyAmt,
         dcRt: 0,
         dcAmt: 0,
-        isrccCd: null,
-        isrccNm: null,
-        isrcRt: null,
-        isrcAmt: null,
+        isrccCd: isrccCd,
+        isrccNm: isrccNm,
+        isrcRt: isrcRt,
+        isrcAmt: isrcAmt,
         taxTyCd: item.item?.taxCode || "A",
         taxblAmt: taxblAmt,
         taxAmt: Number(taxAmt.toFixed(2)),
@@ -451,21 +501,23 @@ export class EbmService {
       tin: tin,
       bhfId: bhfId,
       invcNo: invcNo,
-      orgInvcNo: 0,
+      orgInvcNo: orgInvcNo,
       custTin: sell.client?.tin ? this.formatTin(sell.client.tin) : null,
-      prcOrdCd: null,
+      prcOrdCd: prcOrdCd,
       custNm: sell.client?.name || null,
-      salesTyCd: "N",
-      rcptTyCd: "S",
-      pmtTyCd: sell.paymentMethod === "CASH" ? "01" : "02", // Mapping simple CASH to 01, others to 02
+      salesTyCd: salesTyCd,
+      rcptTyCd: rcptTyCd,
+      // If INSUREE or B2B (Calculated TIN exists), treat as Credit (02) to satisfy Purchase Code context
+      // defaulting to 02 resolves 'Purchase Code' validation errors for Refunds
+      pmtTyCd: (sell.clientType === "INSUREE" || !!sell.client?.tin) ? "02" : (sell.paymentMethod === "CASH" ? "01" : "02"),
       salesSttsCd: "02",
       cfmDt: cfmDt,
       salesDt: salesDate,
       stockRlsDt: cfmDt,
       cnclReqDt: null,
       cnclDt: null,
-      rfdDt: null,
-      rfdRsnCd: null,
+      rfdDt: isRefund ? cfmDt : null,
+      rfdRsnCd: isRefund ? (sell.refundReasonCode || "05") : null,
       totItemCnt: itemList.length,
       taxblAmtA: taxA.bl,
       taxblAmtB: taxB.bl,
@@ -483,18 +535,18 @@ export class EbmService {
       totTaxAmt: Number(totTaxAmt.toFixed(2)),
       totAmt: totAmt,
       prchrAcptcYn: "N",
-      remark: sell.notes || null,
+      remark: sell.notes || (isRefund ? sell.refundReasonNote : null),
       regrId: regrId,
       regrNm: regrNm,
       modrId: regrId,
       modrNm: regrNm,
       receipt: {
-        custTin: sell.client?.tin ? this.formatTin(sell.client.tin) : null,
+        custTin: custTin, // Use properly sanitized TIN
         custMblNo: sell.client?.phone || null,
         rptNo: 1,
         trdeNm: company.name || "",
         adrs: company.district || "",
-        topMsg: "HealthLinker Sales",
+        topMsg: isRefund ? "HealthLinker Refund" : "HealthLinker Sales",
         btmMsg: "Thank you for your business",
         prchrAcptcYn: "N"
       },

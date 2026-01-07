@@ -13,7 +13,11 @@ import {
   Middlewares,
 } from "tsoa";
 import { SellService } from "../services/SellService";
-import { CreateSellDto, UpdateSellDto } from "../utils/interfaces/common";
+import {
+  CreateSellDto,
+  UpdateSellDto,
+  SellType,
+} from "../utils/interfaces/common";
 import { Request as ExpressRequest } from "express";
 import { roles } from "../utils/roles";
 import { checkRole } from "../middlewares";
@@ -28,9 +32,10 @@ export class SellController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
+    @Query() type?: SellType,
   ) {
-    return SellService.getAllSells(req, searchq, limit, page);
+    return SellService.getAllSells(req, searchq, limit, page, type);
   }
 
   @Get("/{id}")
@@ -43,7 +48,7 @@ export class SellController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async createSell(
     @Body() body: CreateSellDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -55,7 +60,7 @@ export class SellController {
   public updateSell(
     @Path() id: string,
     @Body() body: UpdateSellDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     return SellService.updateSell(id, body, req);
   }

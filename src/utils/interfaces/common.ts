@@ -385,28 +385,67 @@ export type TOrderItem = {
   product?: TProduct;
 };
 
+export type SellType = "SALE" | "REFUND";
+
+export type PaymentMode = "CREDIT" | "HALF_PAID" | "FULL_PAID";
+
+
+export interface CreateSellDto {
+  clientId: string;
+  items?: {
+    itemId: string;
+    quantity: number;
+    sellPrice: number;
+    totalAmount?: number;
+  }[];
+  paymentMode?: string;
+  paymentMethod?: PaymentMethod;
+  doctorId?: string;
+  hospital?: string;
+  notes?: string;
+  
+  // Refund fields
+  type?: SellType;
+  parentSellId?: string;
+  refundReasonCode?: string;
+  refundReasonNote?: string;
+  
+  // Insurance fields (optional for manual override if needed)
+  insuranceCardId?: string;
+  clientType?: "PRIVATE" | "INSUREE";
+  insurancePercentage?: number;
+  subtotal?: number;
+  insuranceCoveredAmount?: number;
+  patientPayableAmount?: number;
+
+  // Legacy single-item support
+  itemId?: string;
+  quantity?: number;
+  sellPrice?: number;
+}
+
+export interface CreatePaymentDto {
+
+  amount: number;
+  accountNumber: string;
+  method: PaymentMethod;
+  subscriptionId: string;
+}
+
 export type TPayment = {
   id: string;
   subscriptionId: string;
-  kind: string;
   amount: number;
-  method: string;
+  kind: string;
+  method: PaymentMethod;
   status: string;
-  paidAt?: Date | null;
+  paidAt: Date | null;
   accountNumber: string;
-  accountProvider?: string | null;
-  refId?: string | null;
+  accountProvider: string | null;
+  refId: string | null;
   createdAt: Date;
   updatedAt: Date;
-  subscription?: TSubscription;
 };
-
-export interface CreatePaymentDto {
-  subscriptionId: string;
-  amount: number;
-  method: PaymentMethod;
-  accountNumber: string;
-}
 
 export interface withdrawalPaymentDto {
   amount: number;
@@ -952,33 +991,6 @@ export interface UpdateClientDto {
   tin?: string;
 }
 
-export interface CreateSellDto {
-  clientId?: string; // Made optional to support pharmacy companies using patientId
-  items: {
-    itemId: string;
-    quantity: number;
-    sellPrice: number;
-  }[];
-  notes?: string;
-  // optional (PHARMACY insurance context)
-  patientId?: string;
-  insuranceCardId?: string;
-  insurancePercentage?: number;
-  subtotal?: number;
-  insuranceCoveredAmount?: number;
-  patientPayableAmount?: number;
-  // Legacy fields for backward compatibility
-  itemId?: string;
-  quantity?: number;
-  sellPrice?: number;
-
-  // New fields
-  clientType?: "PRIVATE" | "INSUREE";
-  paymentMode?: "CREDIT" | "HALF_PAID" | "FULL_PAID";
-  paymentMethod?: PaymentMethod;
-  doctorId?: string;
-  hospital?: string;
-}
 
 export interface UpdateSellDto {
   clientId?: string;

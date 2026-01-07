@@ -385,6 +385,13 @@ model Sell {
   sdcId           String?
   mrcNo           String?
 
+  type            SellType @default(SALE)
+  parentSellId    String?
+  parentSell      Sell?    @relation("SellRefunds", fields: [parentSellId], references: [id])
+  refunds         Sell[]   @relation("SellRefunds")
+  refundReasonCode String?
+  refundReasonNote String?
+
   @@index([patientId])
   @@index([insuranceCardId])
 }
@@ -546,6 +553,11 @@ enum PaymentStatus {
   REFUNDED
   SUCCEEDED
   CANCELED
+}
+
+enum SellType {
+  SALE
+  REFUND
 }
 
 enum PaymentMethod {

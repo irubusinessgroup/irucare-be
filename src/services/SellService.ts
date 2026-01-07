@@ -4,6 +4,9 @@ import { CreateSellDto, UpdateSellDto } from "../utils/interfaces/common";
 import type { Request } from "express";
 import { selectAvailableStock, markStockSold } from "../utils/stock-ops";
 import { EbmService } from "./EbmService";
+import { StockService } from "./StockService";
+
+import { SellType } from "../utils/interfaces/common";
 
 export class SellService {
   public static async getAllSells(
@@ -11,6 +14,7 @@ export class SellService {
     searchq?: string,
     limit?: number,
     page?: number,
+    type?: SellType,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -39,13 +43,23 @@ export class SellService {
               },
             },
           ],
+          ...(type
+            ? {
+                type,
+                ...(type === "SALE" ? { refunds: { none: {} } } : {}),
+              }
+            : {}), // Add type filter if set
         }
       : {
           companyId,
-          branchId: branchId || null, // STRICT: If no branchId, show company records (null)
+          branchId: branchId || null,
+          ...(type
+            ? {
+                type,
+                ...(type === "SALE" ? { refunds: { none: {} } } : {}),
+              }
+            : {}), // Add type filter if set
         };
-
-    console.log(`[SellService DEBUG] companyId: ${companyId}, branchId: ${branchId}`);
 
     const pageNum = Number(page) > 0 ? Number(page) : 1;
     const limitNum = Number(limit) > 0 ? Number(limit) : 15;
@@ -157,6 +171,12 @@ export class SellService {
             category: true,
           },
         },
+        parentSell: {
+          include: {
+            company: true,
+            client: true,
+          },
+        },
       },
     });
 
@@ -170,15 +190,14 @@ export class SellService {
     };
   }
 
-  public static async createSell(
-    data: CreateSellDto,
-    req: Request,
-  ) {
+  public static async createSell(data: CreateSellDto, req: Request) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
+
+    console.log("CreateSell Payload:", JSON.stringify(data, null, 2)); // DEBUG LOG
 
     // Support both new format (items array) and legacy format (single item)
     const itemsToProcess =
@@ -214,6 +233,269 @@ export class SellService {
       const company = await tx.company.findFirst({ where: { id: companyId } });
       const companyIndustry = company?.industry ?? undefined;
       const isPharmacy = (companyIndustry ?? "").toUpperCase() === "PHARMACY";
+
+      // ---------------------------------------------------------
+      // REFUND LOGIC START
+      // ---------------------------------------------------------
+      // Treat as refund if explicitly typed OR if parentSellId is provided
+      const isRefund = data.type === "REFUND" || !!data.parentSellId;
+      if (isRefund) {
+        if (!data.parentSellId) {
+          throw new AppError("Parent Sell ID is required for refunds", 400);
+        }
+
+        const parentSell = await tx.sell.findUnique({
+          where: { id: data.parentSellId },
+          include: { sellItems: true },
+        });
+
+        if (!parentSell) {
+          throw new AppError("Parent sale not found", 404);
+        }
+
+        // Verify refund items match parent sale items content
+        // This is a simplified validation; rigorous validation would check remaining refundable qty per item.
+        for (const rItem of itemsToProcess) {
+          const parentItem = parentSell.sellItems.find(
+            (pi) => pi.itemId === rItem.itemId,
+          );
+          if (!parentItem) {
+            throw new AppError(
+              `Item ${rItem.itemId} was not part of the original sale`,
+              400,
+            );
+          }
+          // Optional: Check if refund quantity > original quantity (simple check)
+          // Ideally we check against ALREADY REFUNDED quantities too.
+        }
+
+        // Calculate Totals for Refund
+        let refundTotalAmount = 0;
+        let refundTotalTaxAmount = 0;
+        // Calculate Insurance Split per item if applicable
+        // Fallback to parentSell insurance info if not provided in payload
+        const insuranceCardId =
+          data.insuranceCardId || parentSell.insuranceCardId;
+        const insurancePercentage = Number(
+          data.insurancePercentage ?? parentSell.insurancePercentage ?? 0,
+        );
+        const clientType = data.clientType || parentSell.clientType;
+
+        if (clientType === "INSUREE" && !insuranceCardId) {
+          throw new AppError(
+            "Insurance Card is mandatory for Insuree Refund (could not inherit from Parent Sale)",
+            400,
+          );
+        }
+
+        const hasInsurance =
+          clientType === "INSUREE" &&
+          !!insuranceCardId &&
+          insurancePercentage >= 0;
+
+        const refundItemsData: any[] = [];
+
+        for (const itemData of itemsToProcess) {
+          const item = await tx.items.findFirst({
+            where: { id: itemData.itemId, companyId },
+          });
+          if (!item) continue;
+
+          const qty = Number(itemData.quantity);
+          const price = Number(itemData.sellPrice);
+          const amount = qty * price;
+          const taxAmt = item.isTaxable
+            ? amount * (Number(item.taxRate) / 100)
+            : 0;
+          const total = amount + taxAmt;
+
+          refundTotalAmount += total;
+          refundTotalTaxAmount += taxAmt;
+
+          // Per-item split
+          let insuranceCoveredPerUnit = 0;
+          let patientPricePerUnit = price;
+
+          if (hasInsurance) {
+            const clientRatio = insurancePercentage / 100;
+            patientPricePerUnit = price * clientRatio;
+            insuranceCoveredPerUnit = price - patientPricePerUnit;
+          }
+
+          refundItemsData.push({
+            itemId: itemData.itemId,
+            quantity: qty,
+            sellPrice: price,
+            totalAmount: total,
+            taxAmount: taxAmt,
+            insuranceCoveredPerUnit,
+            patientPricePerUnit,
+          });
+
+          // STOCK RETURN LOGIC:
+          // ... existing stock logic
+          const refundReceipt = await tx.stockReceipts.create({
+            data: {
+              itemId: item.id,
+              quantityReceived: Math.abs(qty),
+              dateReceived: new Date(),
+              unitCost: 0,
+              totalCost: 0,
+              companyId,
+              branchId,
+              receiptType: "REFUND", // Custom type for tracking
+              remarksNotes: `Refund from Sale ${parentSell.rcptNo || parentSell.id}`,
+              ebmSynced: true, // Mark as synced to skip EBM registration in addToStock (Refunds shouldn't register as Stock Imports)
+            },
+          });
+
+          // Use StockService to add stock (handles creating multiple rows for quantity > 1)
+          await StockService.addToStock(refundReceipt.id, tx, req.user?.id);
+        }
+
+        // Create Refund Record
+        const refundSell = await tx.sell.create({
+          data: {
+            clientId: data.clientId || parentSell.clientId, // Fallback for client too? Usually payload has it.
+            companyId,
+            branchId,
+            totalAmount: -Math.abs(refundTotalAmount),
+            taxAmount: -Math.abs(refundTotalTaxAmount),
+
+            // Use absolute values for DB, or negative?
+            subtotal: -Math.abs(Number(data.subtotal || refundTotalAmount)), // If subtotal missing, use total
+            insuranceCoveredAmount: -Math.abs(
+              Number(data.insuranceCoveredAmount || 0),
+            ), // Re-calc might be better but trusting payload/0
+            patientPayableAmount: -Math.abs(
+              Number(data.patientPayableAmount || refundTotalAmount),
+            ),
+            insurancePercentage: insurancePercentage,
+            insuranceCardId: insuranceCardId || null,
+
+            type: "REFUND",
+            parentSellId: data.parentSellId,
+            refundReasonCode: data.refundReasonCode,
+            refundReasonNote: data.refundReasonNote,
+
+            notes: data.notes,
+            clientType: clientType,
+            paymentMode: (data.paymentMode || parentSell.paymentMode) as any,
+            paymentMethod: data.paymentMethod || parentSell.paymentMethod,
+            doctorId: data.doctorId || parentSell.doctorId || null,
+            hospital: data.hospital || parentSell.hospital || null,
+
+            // Legacy fields
+            itemId:
+              itemsToProcess.length === 1
+                ? itemsToProcess[0].itemId
+                : undefined,
+            quantity:
+              itemsToProcess.length === 1
+                ? itemsToProcess[0].quantity
+                : undefined,
+            sellPrice:
+              itemsToProcess.length === 1
+                ? itemsToProcess[0].sellPrice
+                : undefined,
+          },
+          include: {
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                tin: true,
+                phone: true,
+              },
+            },
+            sellItems: { include: { item: true } },
+            parentSell: true,
+          },
+        });
+
+        // Create Sell Items for Refund
+        for (const ri of refundItemsData) {
+          await tx.sellItem.create({
+            data: {
+              sellId: refundSell.id,
+              itemId: ri.itemId,
+              quantity: ri.quantity,
+              sellPrice: ri.sellPrice,
+              totalAmount: -Math.abs(ri.totalAmount),
+              taxAmount: -Math.abs(ri.taxAmount),
+              branchId,
+              insuranceCoveredPerUnit: ri.insuranceCoveredPerUnit,
+              patientPricePerUnit: ri.patientPricePerUnit,
+            },
+          });
+        }
+
+        // EBM Registration for Refund
+        // Refetch to be sure of structure
+        const completeRefund = await tx.sell.findUnique({
+          where: { id: refundSell.id },
+          include: {
+            client: true,
+            sellItems: { include: { item: true } },
+            parentSell: true,
+            insuranceCard: { include: { insurance: true } },
+          },
+        });
+
+        if (completeRefund && company) {
+          const ebmResponse = await EbmService.saveSaleToEBM(
+            completeRefund,
+            company,
+            req.user,
+            branchId,
+          );
+
+          if (ebmResponse.resultCd === "000") {
+            await tx.sell.update({
+              where: { id: completeRefund.id },
+              data: {
+                ebmSynced: true,
+                rcptNo: ebmResponse.data.rcptNo,
+                intrlData: ebmResponse.data.intrlData,
+                rcptSign: ebmResponse.data.rcptSign,
+                totRcptNo: ebmResponse.data.totRcptNo,
+                vsdcRcptPbctDate: ebmResponse.data.vsdcRcptPbctDate,
+                sdcId: ebmResponse.data.sdcId,
+                mrcNo: ebmResponse.data.mrcNo,
+              } as any,
+            });
+            // Update object for return
+            const cr = completeRefund as any;
+            cr.ebmSynced = true;
+            cr.rcptNo = ebmResponse.data.rcptNo;
+            cr.intrlData = ebmResponse.data.intrlData;
+            cr.rcptSign = ebmResponse.data.rcptSign;
+            cr.totRcptNo = ebmResponse.data.totRcptNo;
+            cr.vsdcRcptPbctDate = ebmResponse.data.vsdcRcptPbctDate;
+            cr.sdcId = ebmResponse.data.sdcId;
+            cr.mrcNo = ebmResponse.data.mrcNo;
+          } else {
+            console.error(
+              "Refund EBM Sync Failed:",
+              JSON.stringify(ebmResponse, null, 2),
+            );
+
+            throw new AppError(
+              `EBM Refund Failed: ${ebmResponse.resultMsg} (Code: ${ebmResponse.resultCd})`,
+              400,
+            );
+          }
+        }
+
+        return {
+          message: "Refund processed successfully",
+          data: completeRefund,
+        };
+      }
+      // ---------------------------------------------------------
+      // REFUND LOGIC END
+      // ---------------------------------------------------------
 
       // Validate Doctor if provided
       if (data.doctorId) {
@@ -358,7 +640,7 @@ export class SellService {
       if (
         applyInsurance &&
         insurancePercentageSnapshot !== undefined &&
-        (100 - insurancePercentageSnapshot) > 0
+        100 - insurancePercentageSnapshot > 0
       ) {
         const clientPercentage = 100 - insurancePercentageSnapshot;
         const percentageFactor = clientPercentage / 100;
@@ -379,12 +661,6 @@ export class SellService {
           : undefined;
       }
 
-      // console.log("Creating sell with data:", {
-      //   clientId: data.clientId,
-      //   isPharmacy,
-      //   patientId: data.patientId,
-      // });
-
       const sell = await tx.sell.create({
         data: {
           clientId: data.clientId,
@@ -395,7 +671,7 @@ export class SellService {
           // insurance fields snapshot (only persist for PHARMACY)
 
           insuranceCardId: isPharmacyIndustry
-            ? data.insuranceCardId
+            ? data.insuranceCardId || null
             : undefined,
           subtotal: isPharmacyIndustry ? subtotal : undefined,
           insuranceCoveredAmount: isPharmacyIndustry
@@ -422,13 +698,21 @@ export class SellService {
 
           // New fields
           clientType: data.clientType,
-          paymentMode: data.paymentMode,
+          paymentMode: data.paymentMode as any,
           paymentMethod: data.paymentMethod,
-          doctorId: data.doctorId,
-          hospital: data.hospital,
+          doctorId: data.doctorId || null,
+          hospital: data.hospital || null,
         },
         include: {
-          client: { select: { id: true, name: true, email: true } },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              tin: true,
+              phone: true,
+            },
+          },
         },
       });
 
@@ -492,13 +776,13 @@ export class SellService {
           completeSell,
           company,
           req.user,
-          branchId
+          branchId,
         );
 
         if (ebmResponse.resultCd !== "000") {
           throw new AppError(
             `EBM Sales Registration Failed: ${ebmResponse.resultMsg}`,
-            400
+            400,
           );
         }
 
