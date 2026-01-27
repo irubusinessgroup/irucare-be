@@ -12,6 +12,7 @@ import {
   EbmInitPayload,
   EbmResponse,
 } from "../utils/interfaces/ebm";
+import { getReceiptMessages } from "../utils/receipt-helpers";
 
 export class EbmService {
   private static readonly BASE_URL = process.env.EBM_API_BASE_URL;
@@ -36,7 +37,10 @@ export class EbmService {
     };
 
     try {
-      const response = await axios.post<EbmResponse>(this.EBM_INITIALIZER_URL, payload);
+      const response = await axios.post<EbmResponse>(
+        this.EBM_INITIALIZER_URL,
+        payload,
+      );
       return response.data;
     } catch (error: any) {
       return {
@@ -65,7 +69,10 @@ export class EbmService {
     );
 
     try {
-      const response = await axios.post<EbmResponse>(this.EBM_ITEMS_URL, payload);
+      const response = await axios.post<EbmResponse>(
+        this.EBM_ITEMS_URL,
+        payload,
+      );
       return response.data;
     } catch (error: any) {
       return {
@@ -94,7 +101,10 @@ export class EbmService {
     );
 
     try {
-      const response = await axios.post<EbmResponse>(this.EBM_STOCK_URL, payload);
+      const response = await axios.post<EbmResponse>(
+        this.EBM_STOCK_URL,
+        payload,
+      );
       return response.data;
     } catch (error: any) {
       return {
@@ -123,7 +133,10 @@ export class EbmService {
     );
 
     try {
-      const response = await axios.post<EbmResponse>(this.EBM_PURCHASE_URL, payload);
+      const response = await axios.post<EbmResponse>(
+        this.EBM_PURCHASE_URL,
+        payload,
+      );
       return response.data;
     } catch (error: any) {
       return {
@@ -154,9 +167,40 @@ export class EbmService {
     console.log("EBM Sales Payload:", JSON.stringify(payload, null, 2));
 
     try {
-      const response = await axios.post<EbmResponse>(this.EBM_SALES_URL, payload);
+      const response = await axios.post<EbmResponse>(
+        this.EBM_SALES_URL,
+        payload,
+      );
+      console.log("EBM Sales Response:", JSON.stringify(response.data, null, 2));
       return response.data;
     } catch (error: any) {
+      // Fallback for Training/Proforma when EBM is offline
+      if (
+        (error.code === "ECONNREFUSED" || error.code === "ETIMEDOUT") &&
+        (payload.salesTyCd === "T" || payload.salesTyCd === "P")
+      ) {
+        console.warn(
+          "EBM Server offline. Returning MOCK success for Training/Proforma.",
+        );
+        return {
+          resultCd: "000",
+          resultMsg: "Mock Success (EBM Offline)",
+          resultDt: new Date().toISOString(),
+          data: {
+            rcptNo: payload.invcNo,
+            intrlData: "MOCK-INTERNAL-DATA",
+            rcptSign: "MOCK-SIGNATURE",
+            totRcptNo: 1,
+            vsdcRcptPbctDate: new Date()
+              .toISOString()
+              .replace(/[-T:]/g, "")
+              .slice(0, 14),
+            sdcId: "MOCK-SDC-ID",
+            mrcNo: "MOCK-MRC-NO",
+          },
+        };
+      }
+
       return {
         resultCd: "E999",
         resultMsg: error.message || "Connection to EBM service failed",
@@ -193,9 +237,9 @@ export class EbmService {
       isrcAplcbYn: Number(item.insurancePrice || 0) > 0 ? "Y" : "N",
       useYn: "Y",
       regrNm: `${user.firstName} ${user.lastName}`.trim(),
-      regrId: user.email || user.id,
+      regrId: this.formatUserId(user.email || user.id),
       modrNm: `${user.firstName} ${user.lastName}`.trim(),
-      modrId: user.email || user.id,
+      modrId: this.formatUserId(user.email || user.id),
     };
   }
 
@@ -230,7 +274,10 @@ export class EbmService {
       qtyUnitCd: "U",
       qty: Number(receipt.quantityReceived || 0),
       itemExprDt: receipt.expiryDate
-        ? new Date(receipt.expiryDate).toISOString().split("T")[0].replace(/-/g, "")
+        ? new Date(receipt.expiryDate)
+            .toISOString()
+            .split("T")[0]
+            .replace(/-/g, "")
         : null,
       prc: Number(receipt.unitCost || 0),
       splyAmt: splyAmt,
@@ -242,7 +289,7 @@ export class EbmService {
     };
 
     const regrName = `${user.firstName} ${user.lastName}`.trim();
-    const regrId = user.email || user.id;
+    const regrId = this.formatUserId(user.email || user.id);
 
     return {
       tin: tin,
@@ -278,43 +325,51 @@ export class EbmService {
     const tin = this.formatTin(company.TIN);
 
     // Map unique invcNo from poNumber (extracting numeric parts if possible)
-    const invcNo = this.generateSarNo(po.id); 
+    const invcNo = this.generateSarNo(po.id);
 
-    const pchsDt = new Date(po.createdAt).toISOString().split("T")[0].replace(/-/g, "");
+    const pchsDt = new Date(po.createdAt)
+      .toISOString()
+      .split("T")[0]
+      .replace(/-/g, "");
     const cfmDt = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 
-    const itemList: EbmPurchaseItem[] = po.items.map((item: any, index: number) => {
-      const splyAmt = Number(item.totalPrice || 0);
-      const taxRate = Number(item.item?.taxRate || 0);
-      const taxAmt = splyAmt * (taxRate / 100);
-      const totAmt = splyAmt + taxAmt;
+    const itemList: EbmPurchaseItem[] = po.items.map(
+      (item: any, index: number) => {
+        const splyAmt = Number(item.totalPrice || 0);
+        const taxRate = Number(item.item?.taxRate || 0);
+        const taxAmt = splyAmt * (taxRate / 100);
+        const totAmt = splyAmt + taxAmt;
 
-      return {
-        itemSeq: index + 1,
-        itemCd: item.item?.productCode || "",
-        itemClsCd: "5059690800",
-        itemNm: item.item?.itemFullName || "",
-        bcd: null,
-        spplrItemClsCd: null,
-        spplrItemCd: null,
-        spplrItemNm: null,
-        pkgUnitCd: "NT",
-        pkg: Number(item.packSize || 1),
-        qtyUnitCd: "U",
-        qty: Number(item.quantityIssued || item.quantity || 0),
-        prc: Number(item.unitPrice || 0),
-        splyAmt: splyAmt,
-        dcRt: 0,
-        dcAmt: 0,
-        taxblAmt: splyAmt,
-        taxTyCd: item.item?.taxCode || "A",
-        taxAmt: taxAmt,
-        totAmt: totAmt,
-        itemExprDt: item.expiryDate 
-          ? new Date(item.expiryDate).toISOString().split("T")[0].replace(/-/g, "")
-          : null,
-      };
-    });
+        return {
+          itemSeq: index + 1,
+          itemCd: item.item?.productCode || "",
+          itemClsCd: "5059690800",
+          itemNm: item.item?.itemFullName || "",
+          bcd: null,
+          spplrItemClsCd: null,
+          spplrItemCd: null,
+          spplrItemNm: null,
+          pkgUnitCd: "NT",
+          pkg: Number(item.packSize || 1),
+          qtyUnitCd: "U",
+          qty: Number(item.quantityIssued || item.quantity || 0),
+          prc: Number(item.unitPrice || 0),
+          splyAmt: splyAmt,
+          dcRt: 0,
+          dcAmt: 0,
+          taxblAmt: splyAmt,
+          taxTyCd: item.item?.taxCode || "A",
+          taxAmt: taxAmt,
+          totAmt: totAmt,
+          itemExprDt: item.expiryDate
+            ? new Date(item.expiryDate)
+                .toISOString()
+                .split("T")[0]
+                .replace(/-/g, "")
+            : null,
+        };
+      },
+    );
 
     const totTaxblAmt = itemList.reduce((sum, item) => sum + item.taxblAmt, 0);
     const totTaxAmt = itemList.reduce((sum, item) => sum + item.taxAmt, 0);
@@ -322,11 +377,11 @@ export class EbmService {
 
     // Aggregate by tax type (A=0, B=18, C=Exempt, D=Zero)
     const getTaxTotals = (ty: string) => {
-      const filtered = itemList.filter(i => i.taxTyCd === ty);
+      const filtered = itemList.filter((i) => i.taxTyCd === ty);
       return {
         bl: filtered.reduce((sum, i) => sum + i.taxblAmt, 0),
-        rt: ty === "B" || filtered.some(i => i.taxTyCd === "B") ? 18 : 0, 
-        amt: filtered.reduce((sum, i) => sum + i.taxAmt, 0)
+        rt: ty === "B" || filtered.some((i) => i.taxTyCd === "B") ? 18 : 0,
+        amt: filtered.reduce((sum, i) => sum + i.taxAmt, 0),
       };
     };
 
@@ -373,9 +428,9 @@ export class EbmService {
       totAmt: totAmt,
       remark: po.notes || null,
       regrNm: `${user.firstName} ${user.lastName}`.trim(),
-      regrId: user.email || user.id,
+      regrId: this.formatUserId(user.email || user.id),
       modrNm: `${user.firstName} ${user.lastName}`.trim(),
-      modrId: user.email || user.id,
+      modrId: this.formatUserId(user.email || user.id),
       itemList: itemList,
     };
   }
@@ -390,102 +445,127 @@ export class EbmService {
     const tin = this.formatTin(company.TIN);
 
     const invcNo = this.generateSarNo(sell.id);
-    const salesDate = new Date(sell.createdAt || new Date()).toISOString().split("T")[0].replace(/-/g, "");
+    const salesDate = new Date(sell.createdAt || new Date())
+      .toISOString()
+      .split("T")[0]
+      .replace(/-/g, "");
     const cfmDt = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 
     // Refund Logic
     const isRefund = sell.type === "REFUND";
-    const rcptTyCd = isRefund ? "R" : "S";
-    const salesTyCd = "N"; // Normal Sale/Refund
     
+    let rcptTyCd = isRefund ? "R" : "S";
+    let salesTyCd = "N";
+
+    if ((sell as any).isTrainingMode) {
+      salesTyCd = "T";
+    } else if (sell.type === "PROFORMA") {
+      salesTyCd = "P";
+      // Ensure rcptTyCd is S for Proforma (default)
+      rcptTyCd = "S"; 
+    }
+
     // Purchase Code (mandatory for INSUREE and B2B Refunds)
     // For Refunds, we need original receipt number if available
-    const orgInvcNo = isRefund && sell.parentSell?.rcptNo ? sell.parentSell.rcptNo : 0;
-    
+    const orgInvcNo =
+      isRefund && sell.parentSell?.rcptNo ? sell.parentSell.rcptNo : 0;
+
     // It is a generated code from the buyer. We cannot fallback to receipt number.
     const prcOrdCd = sell.insuranceCard?.affiliationNumber || null;
-    
+
     // If we don't have a Purchase Code, we CANNOT send custTin, otherwise EBM demands the code.
     // Downgrading to Consumer Refund if code is missing.
-    const custTin = prcOrdCd ? this.formatTin(sell.client?.tin || sell.customerTin) : null;
+    const custTin = prcOrdCd
+      ? this.formatTin(sell.client?.tin || sell.customerTin)
+      : null;
     const custNm = sell.client?.name || sell.customerName || null;
 
-    const itemList: EbmSalesItem[] = sell.sellItems.map((item: any, index: number) => {
-      const qty = Math.abs(Number(item.quantity || 0));
-      const totalAmount = Math.abs(Number(item.totalAmount || 0));
-      const taxRate = Number(item.item?.taxRate || 0);
-      
-      // Calculate tax from inclusive total
-      const divisor = 1 + (taxRate / 100);
-      
-      // Try setting taxblAmt to Inclusive Total if Exclusive failed validation
-      const taxblAmt = totalAmount; 
-      const taxAmt = Number((totalAmount - (totalAmount / divisor)).toFixed(2));
-      
-      // EBM requires splyAmt = prc * qty. Since prc is inclusive, splyAmt must be inclusive.
-      const splyAmt = totalAmount;
-      
-      // Ensure Price is tax INCLUSIVE for valid EBM computation (prc * qty = totAmt)
-      const prc = qty !== 0 ? Number((totalAmount / qty).toFixed(2)) : 0;
+    const itemList: EbmSalesItem[] = sell.sellItems.map(
+      (item: any, index: number) => {
+        const qty = Math.abs(Number(item.quantity || 0));
+        const totalAmount = Math.abs(Number(item.totalAmount || 0));
+        const taxRate = Number(item.item?.taxRate || 0);
 
-      // Insurance fields logic
-      const isrccCd = sell.insuranceCard?.insurance?.tin || null;
-      const isrccNm = sell.insuranceCard?.insurance?.name || null;
-      // If we stored per-item details:
-      // item.insuranceCoveredPerUnit * qty = total insurance amount for this item
-      // item.patientPricePerUnit * qty = patient payable
-      // But EBM expects rates or amounts?
-      // isrcRt: Insurance Rate (%). 
-      // isrcAmt: Insurance Amount.
-      
-      let isrcRt = null;
-      let isrcAmt = null;
+        // Calculate tax from inclusive total
+        const divisor = 1 + taxRate / 100;
 
-      if (sell.insurancePercentage !== null && sell.insurancePercentage !== undefined) {
-         // EBM expects Insurance Coverage Rate (e.g. 90%), but system stores Client Pay Rate (e.g. 10%)
-         isrcRt = 100 - Number(sell.insurancePercentage);
-         
-         // amount covered by insurance for this line item
-         if (item.insuranceCoveredPerUnit) {
-            isrcAmt = Math.abs(Number((Number(item.insuranceCoveredPerUnit) * qty).toFixed(2)));
-         }
-      }
+        // Try setting taxblAmt to Inclusive Total if Exclusive failed validation
+        const taxblAmt = totalAmount;
+        const taxAmt = Number((totalAmount - totalAmount / divisor).toFixed(2));
 
-      return {
-        itemSeq: index + 1,
-        itemCd: item.item?.productCode || "",
-        itemClsCd: "5059690800",
-        itemNm: item.item?.itemFullName || "",
-        bcd: null,
-        pkgUnitCd: "NT",
-        pkg: 1,
-        qtyUnitCd: "U",
-        qty: qty,
-        prc: prc,
-        splyAmt: splyAmt,
-        dcRt: 0,
-        dcAmt: 0,
-        isrccCd: isrccCd,
-        isrccNm: isrccNm,
-        isrcRt: isrcRt,
-        isrcAmt: isrcAmt,
-        taxTyCd: item.item?.taxCode || "A",
-        taxblAmt: taxblAmt,
-        taxAmt: Number(taxAmt.toFixed(2)),
-        totAmt: totalAmount,
-      };
-    });
+        // EBM requires splyAmt = prc * qty. Since prc is inclusive, splyAmt must be inclusive.
+        const splyAmt = totalAmount;
+
+        // Ensure Price is tax INCLUSIVE for valid EBM computation (prc * qty = totAmt)
+        const prc = qty !== 0 ? Number((totalAmount / qty).toFixed(2)) : 0;
+
+        // Insurance fields logic
+        const isrccCd = sell.insuranceCard?.insurance?.tin || null;
+        const isrccNm = sell.insuranceCard?.insurance?.name || null;
+        // If we stored per-item details:
+        // item.insuranceCoveredPerUnit * qty = total insurance amount for this item
+        // item.patientPricePerUnit * qty = patient payable
+        // But EBM expects rates or amounts?
+        // isrcRt: Insurance Rate (%).
+        // isrcAmt: Insurance Amount.
+
+        let isrcRt = null;
+        let isrcAmt = null;
+
+        if (
+          sell.insurancePercentage !== null &&
+          sell.insurancePercentage !== undefined
+        ) {
+          // EBM expects Insurance Coverage Rate (e.g. 90%), but system stores Client Pay Rate (e.g. 10%)
+          isrcRt = 100 - Number(sell.insurancePercentage);
+
+          // amount covered by insurance for this line item
+          if (item.insuranceCoveredPerUnit) {
+            isrcAmt = Math.abs(
+              Number((Number(item.insuranceCoveredPerUnit) * qty).toFixed(2)),
+            );
+          }
+        }
+
+        return {
+          itemSeq: index + 1,
+          itemCd: item.item?.productCode || "",
+          itemClsCd: "5059690800",
+          itemNm: item.item?.itemFullName || "",
+          bcd: null,
+          pkgUnitCd: "NT",
+          pkg: 1,
+          qtyUnitCd: "U",
+          qty: qty,
+          prc: prc,
+          splyAmt: splyAmt,
+          dcRt: 0,
+          dcAmt: 0,
+          isrccCd: isrccCd,
+          isrccNm: isrccNm,
+          isrcRt: isrcRt,
+          isrcAmt: isrcAmt,
+          taxTyCd: item.item?.taxCode || "A",
+          taxblAmt: taxblAmt,
+          taxAmt: Number(taxAmt.toFixed(2)),
+          totAmt: totalAmount,
+        };
+      },
+    );
 
     const totTaxblAmt = itemList.reduce((sum, item) => sum + item.taxblAmt, 0);
-    const totTaxAmt = itemList.reduce((sum, item) => sum + Number(item.taxAmt), 0);
+    const totTaxAmt = itemList.reduce(
+      (sum, item) => sum + Number(item.taxAmt),
+      0,
+    );
     const totAmt = itemList.reduce((sum, item) => sum + item.totAmt, 0);
 
     const getTaxTotals = (ty: string) => {
-      const filtered = itemList.filter(i => i.taxTyCd === ty);
+      const filtered = itemList.filter((i) => i.taxTyCd === ty);
       return {
         bl: filtered.reduce((sum, i) => sum + i.taxblAmt, 0),
-        rt: ty === "B" || filtered.some(i => i.taxTyCd === "B") ? 18 : 0,
-        amt: filtered.reduce((sum, i) => sum + Number(i.taxAmt), 0)
+        rt: ty === "B" || filtered.some((i) => i.taxTyCd === "B") ? 18 : 0,
+        amt: filtered.reduce((sum, i) => sum + Number(i.taxAmt), 0),
       };
     };
 
@@ -495,7 +575,7 @@ export class EbmService {
     const taxD = getTaxTotals("D");
 
     const regrNm = `${user.firstName} ${user.lastName}`.trim();
-    const regrId = user.email || user.id;
+    const regrId = this.formatUserId(user.email || user.id);
 
     return {
       tin: tin,
@@ -509,7 +589,12 @@ export class EbmService {
       rcptTyCd: rcptTyCd,
       // If INSUREE or B2B (Calculated TIN exists), treat as Credit (02) to satisfy Purchase Code context
       // defaulting to 02 resolves 'Purchase Code' validation errors for Refunds
-      pmtTyCd: (sell.clientType === "INSUREE" || !!sell.client?.tin) ? "02" : (sell.paymentMethod === "CASH" ? "01" : "02"),
+      pmtTyCd:
+        sell.clientType === "INSUREE" || !!sell.client?.tin
+          ? "02"
+          : sell.paymentMethod === "CASH"
+            ? "01"
+            : "02",
       salesSttsCd: "02",
       cfmDt: cfmDt,
       salesDt: salesDate,
@@ -517,7 +602,7 @@ export class EbmService {
       cnclReqDt: null,
       cnclDt: null,
       rfdDt: isRefund ? cfmDt : null,
-      rfdRsnCd: isRefund ? (sell.refundReasonCode || "05") : null,
+      rfdRsnCd: isRefund ? sell.refundReasonCode || "05" : null,
       totItemCnt: itemList.length,
       taxblAmtA: taxA.bl,
       taxblAmtB: taxB.bl,
@@ -545,10 +630,8 @@ export class EbmService {
         custMblNo: sell.client?.phone || null,
         rptNo: 1,
         trdeNm: company.name || "",
-        adrs: company.district || "",
-        topMsg: isRefund ? "HealthLinker Refund" : "HealthLinker Sales",
-        btmMsg: "Thank you for your business",
-        prchrAcptcYn: "N"
+        ...getReceiptMessages(company),
+        prchrAcptcYn: "N",
       },
       itemList: itemList,
     };
@@ -596,5 +679,9 @@ export class EbmService {
     }
 
     return "1";
+  }
+
+  private static formatUserId(id: string): string {
+    return (id || "").substring(0, 20);
   }
 }

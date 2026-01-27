@@ -19,6 +19,7 @@ model User {
   otp                        String?
   otpExpiresAt               DateTime?
   photo                      String                @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
+  mrcNo                      String?               @unique
   userRoles                  UserRole[]
   likes                      Likes[]
   testimonials               Testimony[]
@@ -392,6 +393,8 @@ model Sell {
   refundReasonCode String?
   refundReasonNote String?
 
+  isTrainingMode   Boolean  @default(false)
+
   @@index([patientId])
   @@index([insuranceCardId])
 }
@@ -558,6 +561,7 @@ enum PaymentStatus {
 enum SellType {
   SALE
   REFUND
+  PROFORMA
 }
 
 enum PaymentMethod {

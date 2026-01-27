@@ -34,8 +34,16 @@ export class SellController {
     @Query() limit?: number,
     @Query() page?: number,
     @Query() type?: SellType,
+    @Query() isTrainingMode?: boolean,
   ) {
-    return SellService.getAllSells(req, searchq, limit, page, type);
+    return SellService.getAllSells(
+      req,
+      searchq,
+      limit,
+      page,
+      type,
+      isTrainingMode,
+    );
   }
 
   @Get("/{id}")

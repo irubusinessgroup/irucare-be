@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "SellType" ADD VALUE 'PROFORMA';

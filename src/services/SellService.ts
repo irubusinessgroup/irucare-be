@@ -5,8 +5,8 @@ import type { Request } from "express";
 import { selectAvailableStock, markStockSold } from "../utils/stock-ops";
 import { EbmService } from "./EbmService";
 import { StockService } from "./StockService";
-
 import { SellType } from "../utils/interfaces/common";
+import { getReceiptMessages, generateQrCodeData } from "../utils/receipt-helpers";
 
 export class SellService {
   public static async getAllSells(
@@ -15,6 +15,7 @@ export class SellService {
     limit?: number,
     page?: number,
     type?: SellType,
+    isTrainingMode?: boolean,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -22,10 +23,14 @@ export class SellService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const trainingModeFilter =
+      isTrainingMode ?? String(req.query.isTrainingMode) === "true";
+
     const queryOptions = searchq
       ? {
           companyId,
           branchId: branchId || null, // STRICT: If no branchId, show company records (null)
+          isTrainingMode: trainingModeFilter, // Filter by mode (true/false)
           OR: [
             {
               client: {
@@ -53,6 +58,7 @@ export class SellService {
       : {
           companyId,
           branchId: branchId || null,
+          isTrainingMode: trainingModeFilter, // Filter by mode (true/false)
           ...(type
             ? {
                 type,
@@ -131,8 +137,18 @@ export class SellService {
 
     const totalItems = await prisma.sell.count({ where: queryOptions });
 
+    const dataWithReceiptInfo = sells.map((sell) => {
+      return {
+        ...sell,
+        receiptInfo: {
+          ...getReceiptMessages(sell.company),
+          qrCodeData: generateQrCodeData(sell),
+        },
+      };
+    });
+
     return {
-      data: sells,
+      data: dataWithReceiptInfo,
       totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
@@ -184,8 +200,16 @@ export class SellService {
       throw new AppError("Sale record not found", 404);
     }
 
+    const company = await prisma.company.findUnique({ where: { id: companyId } });
+
+    // Prepare Receipt Info for Frontend consistency
+    const receiptInfo = {
+      ...getReceiptMessages(company),
+      qrCodeData: generateQrCodeData(sell),
+    };
+
     return {
-      data: sell,
+      data: { ...sell, receiptInfo },
       message: "Sale record retrieved successfully",
     };
   }
@@ -196,8 +220,6 @@ export class SellService {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
-
-    console.log("CreateSell Payload:", JSON.stringify(data, null, 2)); // DEBUG LOG
 
     // Support both new format (items array) and legacy format (single item)
     const itemsToProcess =
@@ -440,10 +462,12 @@ export class SellService {
             sellItems: { include: { item: true } },
             parentSell: true,
             insuranceCard: { include: { insurance: true } },
+            company: true,
           },
         });
 
         if (completeRefund && company) {
+          console.log("Preparing to send Refund to EBM. Complete Refund Data:", JSON.stringify(completeRefund, null, 2));
           const ebmResponse = await EbmService.saveSaleToEBM(
             completeRefund,
             company,
@@ -546,28 +570,35 @@ export class SellService {
           );
         }
 
-        const selected = await selectAvailableStock(tx, {
-          itemIds: itemData.itemId,
-          companyId,
-          take: itemData.quantity,
-          strategy: "FIFO",
-        });
+        let stockIds: string[] = [];
 
-        if (selected.length < itemData.quantity) {
-          throw new AppError(
-            `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
-            400,
-          );
+        // Skip stock validation for Training Mode or Proforma
+        const shouldCheckStock =
+          !data.isTrainingMode && data.type !== "PROFORMA";
+
+        if (shouldCheckStock) {
+          const selected = await selectAvailableStock(tx, {
+            itemIds: itemData.itemId,
+            companyId,
+            take: itemData.quantity,
+            strategy: "FIFO",
+          });
+
+          if (selected.length < itemData.quantity) {
+            throw new AppError(
+              `Insufficient stock for item ${item.itemFullName}. Available: ${selected.length}, Requested: ${itemData.quantity}`,
+              400,
+            );
+          }
+
+          if (selected.length === 0) {
+            throw new AppError(
+              `No available stock for item ${item.itemFullName}`,
+              400,
+            );
+          }
+          stockIds = selected.map((s) => s.id);
         }
-
-        if (selected.length === 0) {
-          throw new AppError(
-            `No available stock for item ${item.itemFullName}`,
-            400,
-          );
-        }
-
-        const stockIds = selected.map((s) => s.id);
 
         const adjustedSellPrice = Number(itemData.sellPrice);
 
@@ -587,10 +618,12 @@ export class SellService {
           taxAmount: itemTaxAmount,
         });
 
-        stockUpdates.push({
-          stockIds,
-          itemName: item.itemFullName,
-        });
+        if (shouldCheckStock) {
+          stockUpdates.push({
+            stockIds,
+            itemName: item.itemFullName,
+          });
+        }
       }
 
       // Compute insurance if applicable
@@ -702,6 +735,8 @@ export class SellService {
           paymentMethod: data.paymentMethod,
           doctorId: data.doctorId || null,
           hospital: data.hospital || null,
+          isTrainingMode: (data.isTrainingMode || false) as any,
+          type: data.type || "SALE",
         },
         include: {
           client: {
@@ -761,21 +796,49 @@ export class SellService {
           sellItems: {
             include: {
               item: {
-                select: { id: true, itemCodeSku: true, itemFullName: true },
+                select: {
+                  id: true,
+                  itemCodeSku: true,
+                  itemFullName: true,
+                  taxCode: true,
+                  taxRate: true,
+                  productCode: true,
+                },
               },
             },
           },
           // Legacy item for backward compatibility
-          item: { select: { id: true, itemCodeSku: true, itemFullName: true } },
+          item: {
+            select: {
+              id: true,
+              itemCodeSku: true,
+              itemFullName: true,
+              taxCode: true,
+              taxRate: true,
+              productCode: true,
+            },
+          },
         },
       });
 
       // EBM Sales Registration
       if (completeSell && !(completeSell as any).ebmSynced && company) {
+        // EBM Integration
+    // Check if we have a valid EBM response or if we need to sync
+    // Sync with EBM (Real-time or Async)
+    // For now, assume Real-time for critical sales
+    const freshUser = await tx.user.findUnique({
+      where: { id: req.user?.id },
+    });
+
+    if (!freshUser) {
+        throw new AppError("User not found", 404);
+    }
+
         const ebmResponse = await EbmService.saveSaleToEBM(
           completeSell,
           company,
-          req.user,
+          freshUser, // Changed from req.user to freshUser
           branchId,
         );
 
@@ -797,7 +860,7 @@ export class SellService {
             totRcptNo: ebmData.totRcptNo,
             vsdcRcptPbctDate: ebmData.vsdcRcptPbctDate,
             sdcId: ebmData.sdcId,
-            mrcNo: ebmData.mrcNo,
+            mrcNo: freshUser.mrcNo, // Use local MRC Number
           } as any,
         });
 
@@ -810,10 +873,16 @@ export class SellService {
         cs.totRcptNo = ebmData.totRcptNo;
         cs.vsdcRcptPbctDate = ebmData.vsdcRcptPbctDate;
         cs.sdcId = ebmData.sdcId;
-        cs.mrcNo = ebmData.mrcNo;
+        cs.mrcNo = freshUser.mrcNo; // Use local MRC Number
       }
 
-      return { message: "Sale created successfully", data: completeSell };
+      // Prepare Receipt Info for Frontend consistency
+      const receiptInfo = {
+        ...getReceiptMessages(company),
+        qrCodeData: generateQrCodeData(completeSell),
+      };
+
+      return { message: "Sale created successfully", data: { ...completeSell, receiptInfo } };
     });
   }
 
@@ -1094,6 +1163,7 @@ export class SellService {
           paymentMethod: data.paymentMethod ?? existingSell.paymentMethod,
           doctorId: data.doctorId ?? existingSell.doctorId,
           hospital: data.hospital ?? existingSell.hospital,
+          isTrainingMode: (data.isTrainingMode ?? (existingSell as any).isTrainingMode) as any,
         };
 
         const sell = await tx.sell.update({

@@ -790,7 +790,9 @@ export class ItemService {
     return { message: "Item created successfully", data: item };
   }
 
-  public static async generateProductCode(companyId: string): Promise<{ productCode: string }> {
+  public static async generateProductCode(
+    companyId: string,
+  ): Promise<{ productCode: string }> {
     let isUnique = false;
     let productCode = "";
 

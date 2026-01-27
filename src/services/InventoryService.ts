@@ -644,77 +644,81 @@ export class InventoryService {
       throw new AppError("User ID is missing", 400);
     }
 
-    const item = await prisma.items.findFirst({
-      where: {
-        id: stockData.itemId,
-        companyId: companyId,
-      },
-    });
+    return await prisma.$transaction(async (tx) => {
+      const item = await tx.items.findFirst({
+        where: {
+          id: stockData.itemId,
+          companyId: companyId,
+        },
+      });
 
-    if (!item) {
-      throw new AppError(
-        "Item not found or doesn't belong to your company",
-        404,
+      if (!item) {
+        throw new AppError(
+          "Item not found or doesn't belong to your company",
+          404,
+        );
+      }
+
+      const totalCost = stockData.unitCost * stockData.quantityReceived;
+
+      const branchId = req.user?.branchId;
+      const stockReceipt = await tx.stockReceipts.create({
+        data: {
+          itemId: stockData.itemId,
+          companyId: companyId,
+          branchId: branchId as any,
+          supplierId: stockData.supplierId,
+          dateReceived: new Date(stockData.dateReceived),
+          expiryDate: stockData.expiryDate
+            ? new Date(stockData.expiryDate)
+            : null,
+          quantityReceived: stockData.quantityReceived,
+          unitCost: stockData.unitCost,
+          totalCost: totalCost,
+          packSize: stockData.packSize,
+          uom: stockData.uom,
+          tempReq: stockData.tempReq,
+          currency: stockData.currency,
+          condition: stockData.condition,
+          // Normalize empty string to null so the foreign key constraint is not violated
+          warehouseId: stockData.warehouseId ? stockData.warehouseId : null,
+          specialHandlingNotes: stockData.specialHandlingNotes,
+          remarksNotes: `${stockData.reason}${stockData.remarksNotes ? ` | ${stockData.remarksNotes}` : ""}`,
+          receiptType: "DIRECT_ADDITION",
+          purchaseOrderId: null,
+          purchaseOrderItemId: null,
+          invoiceNo: null,
+        },
+      });
+
+      // Fetch company tools for markup
+      const companyTools = await tx.companyTools.findFirst({
+        where: { companyId },
+      });
+      const markupPercentage = Number(companyTools?.markupPrice || 0);
+      const calculatedSellPrice = applyMarkup(
+        stockData.unitCost,
+        markupPercentage,
       );
-    }
 
-    const totalCost = stockData.unitCost * stockData.quantityReceived;
+      await tx.approvals.create({
+        data: {
+          stockReceiptId: stockReceipt.id,
+          approvedByUserId: userId,
+          approvalStatus: "APPROVED", // Directly approved
+          ExpectedSellPrice: calculatedSellPrice,
+          dateApproved: new Date(),
+          comments: stockData.reason,
+        },
+      });
 
-    const branchId = req.user?.branchId;
-    const stockReceipt = await prisma.stockReceipts.create({
-      data: {
-        itemId: stockData.itemId,
-        companyId: companyId,
-        branchId: branchId as any,
-        supplierId: stockData.supplierId,
-        dateReceived: new Date(stockData.dateReceived),
-        expiryDate: stockData.expiryDate ? new Date(stockData.expiryDate) : null,
-        quantityReceived: stockData.quantityReceived,
-        unitCost: stockData.unitCost,
-        totalCost: totalCost,
-        packSize: stockData.packSize,
-        uom: stockData.uom,
-        tempReq: stockData.tempReq,
-        currency: stockData.currency,
-        condition: stockData.condition,
-        // Normalize empty string to null so the foreign key constraint is not violated
-        warehouseId: stockData.warehouseId ? stockData.warehouseId : null,
-        specialHandlingNotes: stockData.specialHandlingNotes,
-        remarksNotes: `${stockData.reason}${stockData.remarksNotes ? ` | ${stockData.remarksNotes}` : ""}`,
-        receiptType: "DIRECT_ADDITION",
-        purchaseOrderId: null,
-        purchaseOrderItemId: null,
-        invoiceNo: null,
-      },
+      await StockService.addToStock(stockReceipt.id, tx, userId);
+
+      return {
+        stockReceipt,
+        message: "Stock added directly to inventory successfully",
+      };
     });
-
-    // Fetch company tools for markup
-    const companyTools = await prisma.companyTools.findFirst({
-      where: { companyId },
-    });
-    const markupPercentage = Number(companyTools?.markupPrice || 0);
-    const calculatedSellPrice = applyMarkup(
-      stockData.unitCost,
-      markupPercentage,
-    );
-
-    await prisma.approvals.create({
-      data: {
-        stockReceiptId: stockReceipt.id,
-        approvedByUserId: userId,
-        approvalStatus: "APPROVED", // Directly approved
-        ExpectedSellPrice: calculatedSellPrice,
-        dateApproved: new Date(),
-        comments: stockData.reason,
-      },
-    });
-
-    await StockService.addToStock(stockReceipt.id, prisma, userId);
-
-    return {
-      stockReceipt,
-      message: "Stock added directly to inventory successfully",
-    };
   }
   public static async downloadStockTemplate() {
     // Headers requested: NO, ITEM NAME, TAX CODE, QTIES, UNIT COST, TOTAL COST, UNIT PRICE, TOTAL PRICE

@@ -58,6 +58,7 @@ export type TUser = {
   photo?: Express.Multer.File | string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
+  mrcNo?: string | null;
   userRoles?: IUserRole[];
   clinicUserRoles?: IClinicUserRole[];
   branchId?: string | null;
@@ -97,6 +98,7 @@ export interface IUserResponse {
   otp: string | null;
   otpExpiresAt: Date | null;
   photo: string;
+  mrcNo?: string | null;
   companyName?: string | null;
 }
 
@@ -385,10 +387,13 @@ export type TOrderItem = {
   product?: TProduct;
 };
 
-export type SellType = "SALE" | "REFUND";
+export enum SellType {
+  SALE = "SALE",
+  REFUND = "REFUND",
+  PROFORMA = "PROFORMA",
+}
 
 export type PaymentMode = "CREDIT" | "HALF_PAID" | "FULL_PAID";
-
 
 export interface CreateSellDto {
   clientId: string;
@@ -403,13 +408,14 @@ export interface CreateSellDto {
   doctorId?: string;
   hospital?: string;
   notes?: string;
-  
+
   // Refund fields
   type?: SellType;
   parentSellId?: string;
   refundReasonCode?: string;
   refundReasonNote?: string;
-  
+  isTrainingMode?: boolean;
+
   // Insurance fields (optional for manual override if needed)
   insuranceCardId?: string;
   clientType?: "PRIVATE" | "INSUREE";
@@ -425,7 +431,6 @@ export interface CreateSellDto {
 }
 
 export interface CreatePaymentDto {
-
   amount: number;
   accountNumber: string;
   method: PaymentMethod;
@@ -991,7 +996,6 @@ export interface UpdateClientDto {
   tin?: string;
 }
 
-
 export interface UpdateSellDto {
   clientId?: string;
   items?: {
@@ -1019,6 +1023,7 @@ export interface UpdateSellDto {
   paymentMethod?: PaymentMethod;
   doctorId?: string;
   hospital?: string;
+  isTrainingMode?: boolean;
 }
 
 export interface CreateApprovalDto {

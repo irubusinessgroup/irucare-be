@@ -63,6 +63,65 @@ export class UserService extends BaseService {
       throw new AppError(error, 500);
     }
   }
+
+  public static async generateMrcForUser(userId: string) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            company: {
+                include: {
+                    company: true
+                }
+            }
+        }
+      });
+
+      if (!user) {
+        throw new AppError("User not found", 404);
+      }
+
+      if (user.mrcNo) {
+        throw new AppError("User already has an MRC number assigned", 400);
+      }
+
+      const companyName = user.company?.company?.name || "MRC";
+      const cleanName = companyName.toUpperCase().replace(/[^A-Z]/g, "").substring(0, 3);
+      const prefix = cleanName.padEnd(3, "X"); 
+      const year = new Date().getFullYear().toString().substring(2); 
+      
+      let mrcNo = "";
+      let isUnique = false;
+
+      while (!isUnique) {
+        const randomDigits = Math.floor(1000000 + Math.random() * 9000000); 
+        mrcNo = `${prefix}${year}${randomDigits}`;
+        
+        const existing = await prisma.user.findUnique({
+          where: { mrcNo },
+        });
+        if (!existing) {
+          isUnique = true;
+        }
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { mrcNo },
+      });
+
+      return {
+        statusCode: 200,
+        message: "MRC Number generated successfully",
+        data: {
+          mrcNo: updatedUser.mrcNo,
+        },
+      };
+    } catch (error) {
+       throw new AppError(error, 500);
+    }
+  }
+
   public static async loginUser(user: ILoginUser) {
     try {
       const userData = await prisma.user.findFirst({
@@ -117,6 +176,7 @@ export class UserService extends BaseService {
             branchId: userData.company?.branchId,
             industry,
             companyName: userData.company?.company?.name || null,
+            mrcNo: userData.mrcNo,
           },
         };
       }
@@ -447,6 +507,7 @@ export class UserService extends BaseService {
           photo: user.photo,
           roles: userRoles,
           companyName: user.company?.company?.name || null,
+          mrcNo: user.mrcNo,
         },
       };
     } catch (error) {
@@ -520,6 +581,7 @@ export class UserService extends BaseService {
           companyName: user.company?.company?.name || null,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
+          mrcNo: user.mrcNo,
         },
       };
     } catch (error) {

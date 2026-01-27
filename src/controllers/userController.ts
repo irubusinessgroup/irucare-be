@@ -141,4 +141,12 @@ export class UserController {
   public async deleteAvatar(@Request() req: ExpressRequest) {
     return UserService.deleteAvatar(req);
   }
+
+  @Post("/generate-mrc")
+  @Security("jwt")
+  @Middlewares(loggerMiddleware)
+  public async generateMrc(@Request() req: ExpressRequest) {
+    const userId = req.user!.id; // JWT middleware ensures user exists
+    return UserService.generateMrcForUser(userId);
+  }
 }
