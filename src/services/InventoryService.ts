@@ -718,7 +718,7 @@ export class InventoryService {
         stockReceipt,
         message: "Stock added directly to inventory successfully",
       };
-    });
+    }, { timeout: 120000 });
   }
   public static async downloadStockTemplate() {
     // Headers requested: NO, ITEM NAME, TAX CODE, QTIES, UNIT COST, TOTAL COST, UNIT PRICE, TOTAL PRICE

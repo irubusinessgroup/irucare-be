@@ -12,7 +12,7 @@ import {
   getSupplierOrThrow,
   getWarehouseOrThrow,
 } from "../utils/validators";
-import { EbmService } from "./EbmService";
+// import { EbmService } from "./EbmService"; // Temporarily commented out for demo mode
 
 export class StockService {
   static async createStockReceipt(
@@ -138,6 +138,8 @@ export class StockService {
     }
 
     // --- EBM Registration ---
+    // Temporarily commented out for demo mode
+    /*
     if (!stockReceipt.ebmSynced) {
       const company = stockReceipt.company;
       let user = null;
@@ -182,6 +184,7 @@ export class StockService {
         });
       }
     }
+    */
 
     const expectedSellPrice = stockReceipt.approvals[0]?.ExpectedSellPrice || null;
 

@@ -7,7 +7,7 @@ import {
   ValidationError,
 } from "../utils/interfaces/common";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
-import { EbmService } from "./EbmService";
+// import { EbmService } from "./EbmService"; // Temporarily commented out for demo mode
 import type { Request } from "express";
 import * as XLSX from "xlsx";
 import * as path from "path";
@@ -488,6 +488,8 @@ export class ItemService {
         }
 
         // --- EBM Registration Prerequisite ---
+        // Temporarily commented out for demo mode
+        /*
         if (company && user) {
           const ebmResponse = await EbmService.saveItemToEBM(
             item,
@@ -505,6 +507,7 @@ export class ItemService {
             continue; // Skip this item locally as per 'Partial with Report' strategy
           }
         }
+        */
 
         // Check for existing item by productCode
         let existingItem = null;
@@ -743,6 +746,8 @@ export class ItemService {
     const tax = ItemService.normalizeTaxFields(data as unknown);
 
     // --- EBM Registration Prerequisite ---
+    // Temporarily commented out for demo mode
+    /*
     const user = await prisma.user.findFirst({
       where: {
         company: { companyId },
@@ -767,6 +772,7 @@ export class ItemService {
         );
       }
     }
+    */
 
     const item = await prisma.items.create({
       data: {

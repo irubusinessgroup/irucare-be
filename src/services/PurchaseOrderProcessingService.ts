@@ -11,7 +11,7 @@ import { DeliveryService } from "./DeliveryService";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Server as SocketIOServer } from "socket.io";
 import { countAvailableStock } from "../utils/stock-ops";
-import { EbmService } from "./EbmService";
+// import { EbmService } from "./EbmService"; // Temporarily commented out for demo mode
 
 type AuthRequest = Request & {
   user?: { company?: { companyId?: string } };
@@ -412,6 +412,7 @@ export class OrderProcessingService {
     });
 
     // EBM Purchase Registration
+    // Temporarily commented out for demo mode
     const po = await prisma.purchaseOrder.findUnique({
       where: { id: entry.purchaseOrderId },
       include: {
@@ -420,7 +421,7 @@ export class OrderProcessingService {
         items: { include: { item: true } },
       },
     });
-
+    /*
     if (po && !po.ebmSynced && po.company) {
       const ebmResponse = await EbmService.savePurchaseToEBM(
         po,
@@ -441,6 +442,7 @@ export class OrderProcessingService {
         data: { ebmSynced: true },
       });
     }
+    */
 
     // Send notification to buyer company if io is provided
     if (io && entry.companyToId) {

@@ -2,7 +2,7 @@ import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import type { Request } from "express";
 import { SellThroughRateService } from "./SellThroughRateService";
-import { EbmService } from "./EbmService";
+// import { EbmService } from "./EbmService"; // Temporarily commented out for demo mode
 
 type CompanyToolsRow = {
   id: string;
@@ -248,6 +248,8 @@ export class CompanyToolsService {
     }
 
     // Trigger EBM Initialization if serial number is updated
+    // Temporarily commented out for demo mode
+    /*
     if (
       data.ebmDeviceSerialNumber &&
       data.ebmDeviceSerialNumber !== existing.ebmDeviceSerialNumber
@@ -280,6 +282,7 @@ export class CompanyToolsService {
         console.error("EBM Initialization failed:", error);
       }
     }
+    */
 
     return {
       message: "Company tools updated successfully",
