@@ -575,7 +575,7 @@ export interface CreateCompanyDto {
     TIN?: string;
     industry: string;
     website?: string;
-    certificate: Express.Multer.File | string;
+    certificate?: Express.Multer.File | string;
     logo?: Express.Multer.File | string;
     type: string;
   };

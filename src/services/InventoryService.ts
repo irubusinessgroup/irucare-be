@@ -39,6 +39,7 @@ export class InventoryService {
       where: {
         companyId,
         ...(branchId ? { branchId } : {}),
+        OR: [{ isStockItem: true }, { isStockItem: null }],
         stockReceipts: {
           some: {
             ...(branchId ? { branchId } : {}),
@@ -247,6 +248,7 @@ export class InventoryService {
       where: {
         companyId,
         ...(branchId ? { branchId } : {}),
+        OR: [{ isStockItem: true }, { isStockItem: null }],
         stockReceipts: {
           some: {
             ...(branchId ? { branchId } : {}),
@@ -454,6 +456,7 @@ export class InventoryService {
       where: {
         companyId,
         ...(branchId ? { branchId } : {}),
+        OR: [{ isStockItem: true }, { isStockItem: null }],
         stockReceipts: {
           some: {
             ...(branchId ? { branchId } : {}),
@@ -713,6 +716,10 @@ export class InventoryService {
       });
 
       await StockService.addToStock(stockReceipt.id, tx, userId);
+await tx.items.update({
+        where: { id: stockData.itemId },
+        data: { isStockItem: true },
+      });
 
       return {
         stockReceipt,
@@ -1061,6 +1068,11 @@ export class InventoryService {
               });
 
               await StockService.addToStock(receipt.id, tx, userId);
+
+              await tx.items.update({
+                where: { id: itemId },
+                data: { isStockItem: true },
+              });
             }
           },
           {

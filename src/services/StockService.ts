@@ -47,6 +47,11 @@ export class StockService {
       },
     });
 
+    await prisma.items.update({
+      where: { id: references.itemId },
+      data: { isStockItem: true },
+    });
+
     return {
       message: "Stock record created successfully",
       data: stockReceipt,
@@ -105,6 +110,11 @@ export class StockService {
         company: true,
         warehouse: true,
       },
+    });
+
+    await prisma.items.update({
+      where: { id: data.itemId },
+      data: { isStockItem: true },
     });
 
     return {

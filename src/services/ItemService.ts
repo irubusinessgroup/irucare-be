@@ -1007,16 +1007,30 @@ export class ItemService {
     });
 
     const totalItems = await prisma.items.count({ where });
-
-    return {
-      data: items.map((item) => {
+    // Update isStockItem based on currentStock
+    const itemsWithStock = await Promise.all(
+      items.map(async (item) => {
         const currentStock = item.stockReceipts.reduce((sum, receipt) => {
           return sum + receipt.stocks.length;
         }, 0);
+
+        // Update isStockItem based on stock presence
+        const shouldBeStockItem = currentStock > 0;
+        if (item.isStockItem !== shouldBeStockItem) {
+          await prisma.items.update({
+            where: { id: item.id },
+            data: { isStockItem: shouldBeStockItem },
+          });
+        }
+
         return { ...item, currentStock } as unknown as typeof item & {
           currentStock: number;
         };
-      }),
+      })
+    );
+
+    return {
+      data: itemsWithStock,
       totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
@@ -1138,6 +1152,73 @@ export class ItemService {
       itemsPerPage: limitNum,
       statusCode: 200,
       message: "Medications retrieved successfully",
+    };
+  }
+
+  public static async searchItems(
+    companyId: string,
+    branchId?: string | null,
+    searchQuery?: string,
+    limit?: number,
+  ) {
+    const limitNum = Number(limit) > 0 ? Number(limit) : 50; 
+
+    const where: any = {
+      companyId,
+    };
+
+    if (branchId) {
+      where.branchId = branchId;
+    }
+
+    // If there's a search query, filter by it
+    if (searchQuery && searchQuery.trim() !== "") {
+      where.OR = [
+        { itemCodeSku: { contains: searchQuery, mode: "insensitive" } },
+        { itemFullName: { contains: searchQuery, mode: "insensitive" } },
+        { description: { contains: searchQuery, mode: "insensitive" } },
+      ];
+    }
+
+    const items = await prisma.items.findMany({
+      where,
+      include: {
+        category: true,
+        company: true,
+        stockReceipts: {
+          include: {
+            supplier: true,
+            stocks: {
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+              },
+              select: { id: true, status: true },
+            },
+          },
+        },
+      },
+      take: limitNum,
+      orderBy: { itemFullName: "asc" },
+    });
+
+    const data = items.map((item) => {
+      const currentStock = item.stockReceipts.reduce((sum, receipt) => {
+        return sum + receipt.stocks.length;
+      }, 0);
+      return {
+        id: item.id,
+        itemFullName: item.itemFullName,
+        itemCodeSku: item.itemCodeSku,
+        isTaxable: item.isTaxable,
+        taxRate: item.taxRate,
+        isStockItem: item.isStockItem,
+        currentStock,
+      };
+    });
+
+    return {
+      data,
+      message: "Items retrieved successfully",
     };
   }
 }

@@ -1,7 +1,7 @@
 export const getReceiptMessages = (company: any) => {
   return {
     topMsg: "Welcome to our shop",
-    btmMsg: "THANK YOU\nCOME BACK AGAIN\nYOUR BEST STORE IN TOWN",
+    btmMsg: "THANK YOU\nCOME BACK AGAIN",
     adrs: company
       ? `${company.sector || ""}, ${company.district || ""}, ${company.province || "Kigali City"}`
           .replace(/^, /, "")

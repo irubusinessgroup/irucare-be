@@ -31,11 +31,11 @@ export class ItemController {
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
     upload.any(),
-    appendBarcodeQrCode
+    appendBarcodeQrCode,
   )
   public async createItem(
     @Body() data: CreateItemDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -49,11 +49,16 @@ export class ItemController {
     return ItemService.generateProductCode(companyId);
   }
 
-  @Get("/{id}")
+  @Get("/search")
   @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
-  public getItem(@Path() id: string, @Request() req: ExpressRequest) {
+  public searchItems(
+    @Request() req: ExpressRequest,
+    @Query() q?: string,
+    @Query() limit?: number,
+  ) {
     const branchId = req.user?.branchId;
-    return ItemService.getItem(id, branchId);
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.searchItems(companyId, branchId, q, limit);
   }
 
   @Put("/{id}")
@@ -61,7 +66,7 @@ export class ItemController {
   public updateItem(
     @Path() id: string,
     @Body() body: UpdateItemDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -82,7 +87,7 @@ export class ItemController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const branchId = req.user?.branchId;
     return ItemService.getItems(req, searchq, limit, page, branchId);
@@ -91,7 +96,7 @@ export class ItemController {
   @Post("/import")
   @Middlewares(
     checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
-    uploadToMemory.single("file")
+    uploadToMemory.single("file"),
   )
   public async importItems(@Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId as string;
@@ -113,11 +118,11 @@ export class ItemController {
     const res = req.res as ExpressResponse;
     res.setHeader(
       "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=items-import-template.xlsx"
+      "attachment; filename=items-import-template.xlsx",
     );
 
     res.send(buffer);
@@ -129,7 +134,7 @@ export class ItemController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -139,7 +144,14 @@ export class ItemController {
       searchq,
       limit,
       page,
-      branchId
+      branchId,
     );
+  }
+
+  @Get("/{id}")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public getItem(@Path() id: string, @Request() req: ExpressRequest) {
+    const branchId = req.user?.branchId;
+    return ItemService.getItem(id, branchId);
   }
 }
