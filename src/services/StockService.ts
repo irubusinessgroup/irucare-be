@@ -12,7 +12,7 @@ import {
   getSupplierOrThrow,
   getWarehouseOrThrow,
 } from "../utils/validators";
-// import { EbmService } from "./EbmService"; // Temporarily commented out for demo mode
+import { EbmService } from "./EbmService";
 
 export class StockService {
   static async createStockReceipt(
@@ -123,11 +123,7 @@ export class StockService {
     };
   }
 
-  static async addToStock(
-    stockReceiptId: string,
-    tx?: any,
-    userId?: string
-  ) {
+  static async addToStock(stockReceiptId: string, tx?: any, userId?: string) {
     const client = tx || prisma;
 
     const stockReceipt = await client.stockReceipts.findUnique({
@@ -148,8 +144,6 @@ export class StockService {
     }
 
     // --- EBM Registration ---
-    // Temporarily commented out for demo mode
-    /*
     if (!stockReceipt.ebmSynced) {
       const company = stockReceipt.company;
       let user = null;
@@ -177,13 +171,13 @@ export class StockService {
           stockReceipt,
           company,
           user,
-          stockReceipt.branchId
+          stockReceipt.branchId,
         );
 
         if (ebmResponse.resultCd !== "000") {
           throw new AppError(
             `EBM Stock Registration Failed: ${ebmResponse.resultMsg}`,
-            400
+            400,
           );
         }
 
@@ -194,9 +188,9 @@ export class StockService {
         });
       }
     }
-    */
 
-    const expectedSellPrice = stockReceipt.approvals[0]?.ExpectedSellPrice || null;
+    const expectedSellPrice =
+      stockReceipt.approvals[0]?.ExpectedSellPrice || null;
 
     const existingStock = await client.stock.findFirst({
       where: {
@@ -220,7 +214,7 @@ export class StockService {
           quantityAvailable: 1,
           companyId: stockReceipt.companyId,
           branchId: stockReceipt.branchId,
-        })
+        }),
       );
 
       await client.stock.createMany({
@@ -247,7 +241,8 @@ export class StockService {
       }
 
       return {
-        message: "Stock updated successfully - quantity added and sell price updated",
+        message:
+          "Stock updated successfully - quantity added and sell price updated",
         stockUnitsCreated: newStockUnits.length,
       };
     } else {
@@ -260,7 +255,7 @@ export class StockService {
           quantityAvailable: 1,
           companyId: stockReceipt.companyId,
           branchId: stockReceipt.branchId,
-        })
+        }),
       );
 
       await client.stock.createMany({
@@ -556,14 +551,22 @@ export class StockService {
   }> {
     if (data.itemId) {
       const item = await prisma.items.findUnique({
-        where: { id: data.itemId, companyId, ...(branchId ? { branchId } : {}) },
+        where: {
+          id: data.itemId,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       });
       if (!item) throw new AppError("Item not found", 404);
     }
 
     if (data.supplierId) {
       const supplier = await prisma.suppliers.findUnique({
-        where: { id: data.supplierId, companyId, ...(branchId ? { branchId } : {}) },
+        where: {
+          id: data.supplierId,
+          companyId,
+          ...(branchId ? { branchId } : {}),
+        },
       });
       if (!supplier) throw new AppError("Supplier not found", 404);
     }

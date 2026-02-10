@@ -5,10 +5,7 @@ import { assertCompanyExists } from "../utils/validators";
 import * as XLSX from "xlsx";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
 import { applyMarkup } from "../utils/pricing";
-import {
-  DirectStockAdditionRequest,
-  IPaged,
-} from "../utils/interfaces/common";
+import { DirectStockAdditionRequest, IPaged } from "../utils/interfaces/common";
 import { StockService } from "./StockService";
 
 export class InventoryService {
@@ -203,16 +200,17 @@ export class InventoryService {
       };
     });
 
-    const skip = page && limit ? (page - 1) * limit : 0;
-    const paginatedData = limit
-      ? inventoryData.slice(skip, skip + limit)
-      : inventoryData;
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
+    const paginatedData = inventoryData.slice(skip, skip + limitNum);
 
     return {
       data: paginatedData,
       totalItems: inventoryData.length,
-      currentPage: page || 1,
-      itemsPerPage: limit || inventoryData.length,
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
       message: "Inventory retrieved successfully",
     };
   }
@@ -412,16 +410,17 @@ export class InventoryService {
       return a.daysUntilExpiry - b.daysUntilExpiry;
     });
 
-    const skip = page && limit ? (page - 1) * limit : 0;
-    const paginatedData = limit
-      ? expiringData.slice(skip, skip + limit)
-      : expiringData;
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
+    const paginatedData = expiringData.slice(skip, skip + limitNum);
 
     return {
       data: paginatedData,
       totalItems: expiringData.length,
-      currentPage: page || 1,
-      itemsPerPage: limit || expiringData.length,
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
       message: "Expiring items retrieved successfully",
     };
   }
@@ -619,16 +618,17 @@ export class InventoryService {
       return a.daysUntilExpiry - b.daysUntilExpiry;
     });
 
-    const skip = page && limit ? (page - 1) * limit : 0;
-    const paginatedData = limit
-      ? expiringData.slice(skip, skip + limit)
-      : expiringData;
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
+    const paginatedData = expiringData.slice(skip, skip + limitNum);
 
     return {
       data: paginatedData,
       totalItems: expiringData.length,
-      currentPage: page || 1,
-      itemsPerPage: limit || expiringData.length,
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
       message: "Expired items retrieved successfully",
     };
   }
@@ -716,7 +716,8 @@ export class InventoryService {
       });
 
       await StockService.addToStock(stockReceipt.id, tx, userId);
-await tx.items.update({
+
+      await tx.items.update({
         where: { id: stockData.itemId },
         data: { isStockItem: true },
       });
@@ -725,7 +726,7 @@ await tx.items.update({
         stockReceipt,
         message: "Stock added directly to inventory successfully",
       };
-    }, { timeout: 120000 });
+    });
   }
   public static async downloadStockTemplate() {
     // Headers requested: NO, ITEM NAME, TAX CODE, QTIES, UNIT COST, TOTAL COST, UNIT PRICE, TOTAL PRICE
@@ -984,6 +985,19 @@ await tx.items.update({
     }
     const categoryId = generalCategory.id;
 
+    // Get company and user for EBM registration
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+    const user = await prisma.user.findFirst({
+      where: {
+        company: { companyId },
+        userRoles: {
+          some: { name: "COMPANY_ADMIN" },
+        },
+      },
+    });
+
     // Bulk Create Missing Items
     // Requires generating unique SKUs for each.
     // We'll process them in sequence or parallel promises since we need individual IDs and SKUs.
@@ -999,6 +1013,36 @@ await tx.items.update({
 
         try {
           const itemCode = await ItemCodeGenerator.generate(categoryId);
+          // Generate product code for the new item
+          const { productCode } = await (await import("./ItemService")).ItemService.generateProductCode(companyId);
+          
+          // Register with EBM before creating locally
+          let ebmSynced = false;
+          if (company && user) {
+            const itemData = {
+              itemFullName: repRow!.itemName,
+              productCode,
+              isTaxable,
+              taxCode: ["A", "B"].includes(taxCode) ? taxCode : "A",
+              taxRate,
+            };
+            
+            const { EbmService } = await import("./EbmService");
+            const ebmResponse = await EbmService.saveItemToEBM(
+              itemData,
+              company,
+              user,
+              branchId,
+            );
+
+            if (ebmResponse.resultCd === "000") {
+              ebmSynced = true;
+            } else {
+              console.warn(`EBM registration failed for ${repRow!.itemName}: ${ebmResponse.resultMsg}`);
+              // Continue anyway, but mark as not synced
+            }
+          }
+
           const newItem = await prisma.items.create({
             data: {
               itemFullName: repRow!.itemName, // Use original casing
@@ -1006,11 +1050,13 @@ await tx.items.update({
               companyId,
               branchId: branchId as any,
               itemCodeSku: itemCode,
+              productCode, // Add generated product code
               minLevel: 10,
               maxLevel: 100,
               isTaxable,
               taxCode: ["A", "B"].includes(taxCode) ? taxCode : "A",
               taxRate,
+              ebmSynced, // Mark based on EBM registration result
             },
             select: { id: true, itemFullName: true },
           });

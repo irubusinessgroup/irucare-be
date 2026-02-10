@@ -221,3 +221,70 @@ export interface EbmResponse {
   resultDt: string;
   data: any;
 }
+
+// EBM Notices interfaces
+export interface EbmNotice {
+  noticeNo: number;
+  title: string;
+  cont: string;
+  dtlUrl: string;
+  regrNm: string;
+  regDt: string;
+}
+
+export interface EbmNoticesResponse extends EbmResponse {
+  data: {
+    noticeList: EbmNotice[];
+  } | null;
+}
+
+// EBM Customer interfaces
+export interface EbmCustomerPayload {
+  tin: string;
+  bhfId: string;
+  custNo: string;
+  custTin: string | null;
+  custNm: string;
+  adrs: string | null;
+  telNo: string | null;
+  email: string | null;
+  faxNo: string | null;
+  useYn: string;
+  remark: string | null;
+  regrNm: string;
+  regrId: string;
+  modrNm: string;
+  modrId: string;
+}
+
+// EBM User/Staff interfaces
+export interface EbmUserPayload {
+  tin: string;
+  bhfId: string;
+  userId: string;
+  userNm: string;
+  pwd: string;
+  adrs: string | null;
+  cntc: string | null;
+  authCd: string | null;
+  remark: string | null;
+  useYn: string;
+  regrNm: string;
+  regrId: string;
+  modrNm: string;
+  modrId: string;
+}
+
+// EBM Insurance interfaces
+export interface EbmInsurancePayload {
+  tin: string;
+  bhfId: string;
+  isrccCd: string;
+  isrccNm: string;
+  isrcRt: number;
+  useYn: string;
+  regrNm: string;
+  regrId: string;
+  modrNm: string;
+  modrId: string;
+}

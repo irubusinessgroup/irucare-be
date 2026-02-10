@@ -47,7 +47,7 @@ export class ClientController {
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
-    return ClientService.createClient(body, companyId!, branchId);
+    return ClientService.createClient(body, companyId!, branchId, req);
   }
 
   @Put("/{id}")

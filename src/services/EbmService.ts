@@ -11,6 +11,7 @@ import {
   EbmReceiptData,
   EbmInitPayload,
   EbmResponse,
+  EbmInsurancePayload,
 } from "../utils/interfaces/ebm";
 import { getReceiptMessages } from "../utils/receipt-helpers";
 
@@ -21,6 +22,9 @@ export class EbmService {
   private static readonly EBM_PURCHASE_URL = `${this.BASE_URL}/trnsPurchase/savePurchases`;
   private static readonly EBM_SALES_URL = `${this.BASE_URL}/trnsSales/saveSales`;
   private static readonly EBM_INITIALIZER_URL = `${this.BASE_URL}/initializer/selectInitInfo`;
+  private static readonly EBM_CUSTOMER_URL = `${this.BASE_URL}/branches/saveBrancheCustomers`;
+  private static readonly EBM_USER_URL = `${this.BASE_URL}/branches/saveBrancheUsers`;
+  private static readonly EBM_INSURANCE_URL = `${this.BASE_URL}/branches/saveBrancheInsurances`;
 
   /**
    * Initializes or verifies the EBM device with the server.
@@ -156,12 +160,14 @@ export class EbmService {
     company: any,
     user: any,
     branchId?: string | null,
+    purchaseCode?: string,
   ): Promise<EbmResponse> {
     const payload = await this.mapToEbmSalesPayload(
       sellRecord,
       company,
       user,
       branchId,
+      purchaseCode,
     );
 
     console.log("EBM Sales Payload:", JSON.stringify(payload, null, 2));
@@ -171,7 +177,10 @@ export class EbmService {
         this.EBM_SALES_URL,
         payload,
       );
-      console.log("EBM Sales Response:", JSON.stringify(response.data, null, 2));
+      console.log(
+        "EBM Sales Response:",
+        JSON.stringify(response.data, null, 2),
+      );
       return response.data;
     } catch (error: any) {
       // Fallback for Training/Proforma when EBM is offline
@@ -261,7 +270,8 @@ export class EbmService {
 
     const splyAmt = Number(receipt.totalCost || 0);
     const taxRate = Number(receipt.item?.taxRate || 0);
-    const taxAmt = Number((splyAmt * (taxRate / 100)).toFixed(2));
+    const taxAmt = Number((splyAmt * (taxRate / (100 + taxRate))).toFixed(2));
+    const totAmt = splyAmt + taxAmt;
 
     const stockItem: EbmStockItem = {
       itemSeq: 1,
@@ -285,7 +295,7 @@ export class EbmService {
       taxblAmt: splyAmt,
       taxTyCd: receipt.item?.taxCode || "A",
       taxAmt: taxAmt,
-      totAmt: splyAmt,
+      totAmt: totAmt,
     };
 
     const regrName = `${user.firstName} ${user.lastName}`.trim();
@@ -305,7 +315,7 @@ export class EbmService {
       totItemCnt: 1,
       totTaxblAmt: splyAmt,
       totTaxAmt: taxAmt,
-      totAmt: splyAmt,
+      totAmt: totAmt,
       remark: receipt.remarksNotes || null,
       regrId: regrId,
       regrNm: regrName,
@@ -337,7 +347,7 @@ export class EbmService {
       (item: any, index: number) => {
         const splyAmt = Number(item.totalPrice || 0);
         const taxRate = Number(item.item?.taxRate || 0);
-        const taxAmt = splyAmt * (taxRate / 100);
+        const taxAmt = splyAmt * (taxRate / (100 + taxRate));
         const totAmt = splyAmt + taxAmt;
 
         return {
@@ -440,6 +450,7 @@ export class EbmService {
     company: any,
     user: any,
     branchId?: string | null,
+    purchaseCode?: string,
   ): Promise<EbmSalesPayload> {
     const bhfId = await this.resolveBhfId(branchId);
     const tin = this.formatTin(company.TIN);
@@ -453,7 +464,7 @@ export class EbmService {
 
     // Refund Logic
     const isRefund = sell.type === "REFUND";
-    
+
     let rcptTyCd = isRefund ? "R" : "S";
     let salesTyCd = "N";
 
@@ -462,7 +473,7 @@ export class EbmService {
     } else if (sell.type === "PROFORMA") {
       salesTyCd = "P";
       // Ensure rcptTyCd is S for Proforma (default)
-      rcptTyCd = "S"; 
+      rcptTyCd = "S";
     }
 
     // Purchase Code (mandatory for INSUREE and B2B Refunds)
@@ -471,7 +482,7 @@ export class EbmService {
       isRefund && sell.parentSell?.rcptNo ? sell.parentSell.rcptNo : 0;
 
     // It is a generated code from the buyer. We cannot fallback to receipt number.
-    const prcOrdCd = sell.insuranceCard?.affiliationNumber || null;
+    const prcOrdCd = purchaseCode || null;
 
     // If we don't have a Purchase Code, we CANNOT send custTin, otherwise EBM demands the code.
     // Downgrading to Consumer Refund if code is missing.
@@ -483,18 +494,20 @@ export class EbmService {
     const itemList: EbmSalesItem[] = sell.sellItems.map(
       (item: any, index: number) => {
         const qty = Math.abs(Number(item.quantity || 0));
-        const totalAmount = Math.abs(Number(item.totalAmount || 0));
+        const totalAmount = Number(
+          Math.abs(Number(item.totalAmount || 0)).toFixed(2),
+        );
         const taxRate = Number(item.item?.taxRate || 0);
 
         // Calculate tax from inclusive total
         const divisor = 1 + taxRate / 100;
 
-        // Try setting taxblAmt to Inclusive Total if Exclusive failed validation
-        const taxblAmt = totalAmount;
+        // Round all values to 2 decimal places for EBM
+        const taxblAmt = Number(totalAmount.toFixed(2));
         const taxAmt = Number((totalAmount - totalAmount / divisor).toFixed(2));
 
         // EBM requires splyAmt = prc * qty. Since prc is inclusive, splyAmt must be inclusive.
-        const splyAmt = totalAmount;
+        const splyAmt = Number(totalAmount.toFixed(2));
 
         // Ensure Price is tax INCLUSIVE for valid EBM computation (prc * qty = totAmt)
         const prc = qty !== 0 ? Number((totalAmount / qty).toFixed(2)) : 0;
@@ -547,25 +560,30 @@ export class EbmService {
           isrcAmt: isrcAmt,
           taxTyCd: item.item?.taxCode || "A",
           taxblAmt: taxblAmt,
-          taxAmt: Number(taxAmt.toFixed(2)),
+          taxAmt: taxAmt,
           totAmt: totalAmount,
         };
       },
     );
 
-    const totTaxblAmt = itemList.reduce((sum, item) => sum + item.taxblAmt, 0);
-    const totTaxAmt = itemList.reduce(
-      (sum, item) => sum + Number(item.taxAmt),
-      0,
+    const totTaxblAmt = Number(
+      itemList.reduce((sum, item) => sum + item.taxblAmt, 0).toFixed(2),
     );
-    const totAmt = itemList.reduce((sum, item) => sum + item.totAmt, 0);
+    const totTaxAmt = Number(
+      itemList.reduce((sum, item) => sum + Number(item.taxAmt), 0).toFixed(2),
+    );
+    const totAmt = Number(
+      itemList.reduce((sum, item) => sum + item.totAmt, 0).toFixed(2),
+    );
 
     const getTaxTotals = (ty: string) => {
       const filtered = itemList.filter((i) => i.taxTyCd === ty);
       return {
-        bl: filtered.reduce((sum, i) => sum + i.taxblAmt, 0),
+        bl: Number(filtered.reduce((sum, i) => sum + i.taxblAmt, 0).toFixed(2)),
         rt: ty === "B" || filtered.some((i) => i.taxTyCd === "B") ? 18 : 0,
-        amt: filtered.reduce((sum, i) => sum + Number(i.taxAmt), 0),
+        amt: Number(
+          filtered.reduce((sum, i) => sum + Number(i.taxAmt), 0).toFixed(2),
+        ),
       };
     };
 
@@ -645,9 +663,12 @@ export class EbmService {
     return cleaned;
   }
 
-  private static generateSarNo(id: string): number {
+  public static generateSarNo(id: string): number {
     const hex = id.replace(/-/g, "").slice(-8);
-    return parseInt(hex, 16);
+    const fullNumber = parseInt(hex, 16);
+    // Use modulo to keep under INT4 max value (2,147,483,647)
+    // This generates numbers from 0 to 2147483646
+    return (fullNumber % 2147483647) + 1; // +1 to start from 1 instead of 0
   }
 
   private static async resolveBhfId(branchId?: string | null): Promise<string> {
@@ -683,5 +704,169 @@ export class EbmService {
 
   private static formatUserId(id: string): string {
     return (id || "").substring(0, 20);
+  }
+
+  /**
+   * Fetches EBM notices for a company
+   */
+  public static async fetchNotices(
+    tin: string,
+    bhfId: string,
+    lastReqDt: string,
+  ): Promise<EbmResponse> {
+    const url = `${this.BASE_URL}/notices/selectNotices`;
+    
+    try {
+      const response = await axios.post<EbmResponse>(url, {
+        tin: this.formatTin(tin),
+        bhfId: bhfId || "00",
+        lastReqDt,
+      });
+      return response.data;
+    } catch (error: any) {
+      return {
+        resultCd: "E999",
+        resultMsg: error.message || "Failed to fetch EBM notices",
+        resultDt: new Date().toISOString(),
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Saves customer to EBM
+   */
+  public static async saveCustomerToEBM(
+    clientData: any,
+    company: any,
+    user: any,
+    branchId?: string | null,
+  ): Promise<EbmResponse> {
+    try {
+      // Generate customer number - must be exactly 9 characters
+      let custNo: string;
+      if (clientData.phone && clientData.phone.length >= 9) {
+        // Use last 9 digits of phone number
+        custNo = clientData.phone.slice(-9);
+      } else {
+        // Generate 9-digit number using timestamp
+        custNo = String(Date.now()).slice(-9);
+      }
+      
+      const payload: any = {
+        tin: this.formatTin(company.TIN),
+        bhfId: branchId || "00",
+        custNo: custNo,
+        custTin: clientData.tin || null,
+        custNm: clientData.name,
+        adrs: clientData.address || null,
+        telNo: clientData.phone || null,
+        email: clientData.email || null,
+        faxNo: null,
+        useYn: "Y",
+        remark: null,
+        regrNm: `${user.firstName} ${user.lastName}`,
+        regrId: this.formatUserId(user.id),
+        modrNm: `${user.firstName} ${user.lastName}`,
+        modrId: this.formatUserId(user.id),
+      };
+
+      const response = await axios.post<EbmResponse>(
+        this.EBM_CUSTOMER_URL,
+        payload,
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        resultCd: "E999",
+        resultMsg: error.message || "Failed to save customer to EBM",
+        resultDt: new Date().toISOString(),
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Saves user/staff to EBM
+   */
+  public static async saveUserToEBM(
+    userData: any,
+    company: any,
+    creatorUser: any,
+    branchId?: string | null,
+  ): Promise<EbmResponse> {
+    try {
+      const userId = userData.firstName && userData.lastName
+        ? `${userData.firstName}${userData.lastName}`.toLowerCase().replace(/\s+/g, '')
+        : userData.email?.split("@")[0] || `user${Date.now()}`;
+
+      const payload: any = {
+        tin: this.formatTin(company.TIN),
+        bhfId: branchId || "00",
+        userId: userId,
+        userNm: `${userData.firstName} ${userData.lastName}`,
+        pwd: "12341234", // Default password for EBM
+        adrs: null,
+        cntc: userData.phoneNumber || null,
+        authCd: null,
+        remark: null,
+        useYn: "Y",
+        regrNm: `${creatorUser.firstName} ${creatorUser.lastName}`,
+        regrId: this.formatUserId(creatorUser.id),
+        modrNm: `${creatorUser.firstName} ${creatorUser.lastName}`,
+        modrId: this.formatUserId(creatorUser.id),
+      };
+
+      const response = await axios.post<EbmResponse>(
+        this.EBM_USER_URL,
+        payload,
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        resultCd: "E999",
+        resultMsg: error.message || "Failed to save user to EBM",
+        resultDt: new Date().toISOString(),
+        data: null,
+      };
+    }
+  }
+
+  /**
+   * Saves insurance to EBM
+   */
+  public static async saveInsuranceToEBM(
+    insuranceData: any,
+    company: any,
+    user: any,
+    branchId?: string | null,
+  ): Promise<EbmResponse> {
+    try {
+      const payload: EbmInsurancePayload = {
+        tin: this.formatTin(company.TIN),
+        bhfId: branchId || "00",
+        isrccCd: insuranceData.isrccCd,
+        isrccNm: insuranceData.isrccNm,
+        isrcRt: Number(insuranceData.isrcRt),
+        useYn: insuranceData.useYn || "Y",
+        regrNm: `${user.firstName} ${user.lastName}`,
+        regrId: this.formatUserId(user.id),
+        modrNm: `${user.firstName} ${user.lastName}`,
+        modrId: this.formatUserId(user.id),
+      };
+
+      const response = await axios.post<EbmResponse>(
+        this.EBM_INSURANCE_URL,
+        payload,
+      );
+      return response.data;
+    } catch (error: any) {
+      return {
+        resultCd: "E999",
+        resultMsg: error.message || "Failed to save insurance to EBM",
+        resultDt: new Date().toISOString(),
+        data: null,
+      };
+    }
   }
 }

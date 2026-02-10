@@ -1,12 +1,45 @@
 export const getReceiptMessages = (company: any) => {
+  // Build header lines for topMsg
+  const headerLines: string[] = [];
+  
+  // Company name
+  if (company.name) {
+    headerLines.push(company.name);
+  }
+  
+  // Address (formatted from sector, district, province)
+  const addressParts = [company.sector, company.district, company.province || "Kigali City"]
+    .filter(Boolean);
+  if (addressParts.length > 0) {
+    headerLines.push(addressParts.join(", "));
+  }
+  
+  // Phone
+  if (company.phoneNumber) {
+    headerLines.push(`TEL: ${company.phoneNumber}`);
+  }
+  
+  // Email
+  if (company.email) {
+    headerLines.push(`EMAIL: ${company.email}`);
+  }
+  
+  // TIN
+  if (company.TIN) {
+    headerLines.push(`TIN: ${company.TIN}`);
+  }
+  
+  // Add custom top message if exists, otherwise use default
+  if (company.topMsg) {
+    headerLines.push(company.topMsg);
+  } else {
+    headerLines.push("Welcome to our shop");
+  }
+  
   return {
-    topMsg: "Welcome to our shop",
-    btmMsg: "THANK YOU\nCOME BACK AGAIN",
-    adrs: company
-      ? `${company.sector || ""}, ${company.district || ""}, ${company.province || "Kigali City"}`
-          .replace(/^, /, "")
-          .replace(/, ,/g, ",")
-      : "",
+    topMsg: headerLines.join('\n'),
+    btmMsg: company.btmMsg || "THANK YOU\nCOME BACK AGAIN",
+    adrs: addressParts.join(", ") || ""
   };
 };
 

@@ -2,6 +2,7 @@ import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import { CreateClientDto, UpdateClientDto } from "../utils/interfaces/common";
 import type { Request } from "express";
+import { EbmService } from "./EbmService";
 
 export class ClientService {
   public static async getAllClients(
@@ -104,6 +105,7 @@ export class ClientService {
     data: CreateClientDto,
     companyId: string,
     branchId?: string | null,
+    req?: Request,
   ) {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
@@ -119,6 +121,28 @@ export class ClientService {
 
     if (existingClient) {
       throw new AppError("Client with this phone number already exists", 409);
+    }
+
+    // Save customer to EBM before creating in database
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
+
+    if (company && req?.user) {
+      // Use the actual logged-in user who's creating the client
+      const ebmResponse = await EbmService.saveCustomerToEBM(
+        data,
+        company,
+        req.user,
+        branchId,
+      );
+
+      if (ebmResponse.resultCd !== "000") {
+        throw new AppError(
+          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+          400,
+        );
+      }
     }
 
     const client = await prisma.client.create({

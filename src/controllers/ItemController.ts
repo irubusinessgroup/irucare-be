@@ -49,6 +49,29 @@ export class ItemController {
     return ItemService.generateProductCode(companyId);
   }
 
+  @Post("/generate-code-with-classifications")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  public async generateCodeWithClassifications(
+    @Body()
+    body: {
+      countryCd: string;
+      itemTypeCd: string;
+      packingUnitCd: string;
+      quantityUnitCd: string;
+    },
+    @Request() req: ExpressRequest,
+  ) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.generateProductCodeWithClassifications(
+      companyId,
+      body.countryCd,
+      body.itemTypeCd,
+      body.packingUnitCd,
+      body.quantityUnitCd,
+    );
+  }
+
+
   @Get("/search")
   @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public searchItems(

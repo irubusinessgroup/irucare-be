@@ -370,31 +370,32 @@ model Sell {
   sellPrice Decimal? @db.Decimal(18, 2)
 
   // New fields for Pharmacy Sales Flow
-  clientType  ClientType?  @default(PRIVATE)
-  paymentMode PaymentMode? // Optional as per requirements
+  clientType    ClientType?    @default(PRIVATE)
+  paymentMode   PaymentMode? // Optional as per requirements
   paymentMethod PaymentMethod?
-  doctorId    String?
-  doctor      Doctor?      @relation(fields: [doctorId], references: [id])
-  hospital    String? // Name of hospital/clinic (optional)
-  
-  // EBM Fields
-  ebmSynced       Boolean @default(false)
-  rcptNo          Int?
-  intrlData       String?
-  rcptSign        String?
-  totRcptNo       Int?
-  vsdcRcptPbctDate String?
-  sdcId           String?
-  mrcNo           String?
+  doctorId      String?
+  doctor        Doctor?        @relation(fields: [doctorId], references: [id])
+  hospital      String? // Name of hospital/clinic (optional)
 
-  type            SellType @default(SALE)
-  parentSellId    String?
-  parentSell      Sell?    @relation("SellRefunds", fields: [parentSellId], references: [id])
-  refunds         Sell[]   @relation("SellRefunds")
+  // EBM Fields
+  ebmSynced        Boolean @default(false)
+  rcptNo           Int?
+  intrlData        String?
+  rcptSign         String?
+  totRcptNo        Int?
+  vsdcRcptPbctDate String?
+  sdcId            String?
+  mrcNo            String?
+  invcNo           Int?
+
+  type             SellType @default(SALE)
+  parentSellId     String?
+  parentSell       Sell?    @relation("SellRefunds", fields: [parentSellId], references: [id])
+  refunds          Sell[]   @relation("SellRefunds")
   refundReasonCode String?
   refundReasonNote String?
 
-  isTrainingMode   Boolean  @default(false)
+  isTrainingMode Boolean @default(false)
 
   @@index([patientId])
   @@index([insuranceCardId])
@@ -2785,3 +2786,72 @@ enum PaymentMode {
   HALF_PAID
   FULL_PAID
 }
+
+// EBM Code Classification Models
+model EbmCodeClass {
+  id        String          @id @default(uuid())
+  cdCls     String          @unique
+  cdClsNm   String
+  cdClsDesc String?
+  useYn     String          @default("Y")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  details   EbmCodeDetail[]
+}
+
+model EbmCodeDetail {
+  id          String       @id @default(uuid())
+  codeClassId String
+  codeClass   EbmCodeClass @relation(fields: [codeClassId], references: [id], onDelete: Cascade)
+  cd          String
+  cdNm        String
+  cdDesc      String?
+  useYn       String       @default("Y")
+  srtOrd      Int
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([codeClassId, cd])
+  @@index([codeClassId])
+}
+
+model ProductCodeSequence {
+  id        String   @id @default(uuid())
+  prefix    String   @unique
+  lastSeq   Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EbmCodeSyncStatus {
+  id               String    @id @default(uuid())
+  companyId        String    @unique
+  lastSyncAt       DateTime?
+  syncStatus       String    @default("PENDING")
+  errorMessage     String?
+  totalCodesSynced Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([companyId, syncStatus])
+}
+
+model BranchInsurance {
+  id        String   @id @default(uuid())
+  companyId String
+  branchId  String?
+  
+  // EBM Fields
+  isrccCd   String   @db.VarChar(20) // Insurance code (ISRCC01, ISRCC02, etc.)
+  isrccNm   String                    // Insurance name (RSSB Insurance, MMI, etc.)
+  isrcRt    Decimal  @db.Decimal(5, 2) // Insurance rate/percentage (20 = 20%)
+  useYn     String   @default("Y") @db.VarChar(1) // Use flag (Y/N)
+  
+  ebmSynced Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, isrccCd])
+  @@index([companyId])
+}
+

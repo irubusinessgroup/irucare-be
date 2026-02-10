@@ -77,7 +77,7 @@ export class CompanyStaffController {
     @Request() request: ExpressRequest,
   ) {
     const companyId = request.user?.company?.companyId;
-    return CompanyStaffService.createCompanyStaff(companyStaff, companyId!);
+    return CompanyStaffService.createCompanyStaff(companyStaff, companyId!, request);
   }
 
   @Get("/{id}")

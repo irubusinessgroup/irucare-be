@@ -14,6 +14,7 @@ import { hashSync } from "bcrypt";
 import { Emitter } from "../events";
 import { EventType } from "../events/types";
 import { QueryOptions, Paginations } from "../utils/DBHelpers";
+import { EbmService } from "./EbmService";
 
 export class CompanyStaffService {
   public static async getStaff(
@@ -245,6 +246,7 @@ export class CompanyStaffService {
   static async createCompanyStaff(
     data: CreateCompanyStaffUnionDto,
     companyId: string,
+    req?: Request,
   ) {
     const errors = await companyStaffValidations.onCreate(data);
     if (errors[0]) {
@@ -254,7 +256,7 @@ export class CompanyStaffService {
     // Fetch the company to check its industry
     const company = await prisma.company.findUnique({
       where: { id: companyId },
-      select: { industry: true }, // Adjust field name if different
+      select: { industry: true, TIN: true }, // Include TIN for EBM
     });
 
     if (!company) {
@@ -276,6 +278,23 @@ export class CompanyStaffService {
         throw new AppError(
           "The specified branch does not belong to your company",
           403,
+        );
+      }
+    }
+
+    // Save user to EBM before creating in database
+    if (req?.user) {
+      const ebmResponse = await EbmService.saveUserToEBM(
+        data,
+        company,
+        req.user,
+        data.branchId,
+      );
+
+      if (ebmResponse.resultCd !== "000") {
+        throw new AppError(
+          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+          400,
         );
       }
     }

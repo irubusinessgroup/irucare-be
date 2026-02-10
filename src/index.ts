@@ -20,6 +20,7 @@ import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "./utils/jwt";
 import { errorHandler } from "./middlewares/errorHandler";
+import { startEbmNoticesCron } from "./jobs/ebmNoticesJob";
 
 declare module "express" {
   interface Request {
@@ -178,6 +179,9 @@ io.on("connection", async (socket) => {
     console.log(`📱 User ${userId} disconnected: ${reason}`);
   });
 });
+
+// Register EBM notices cron job
+startEbmNoticesCron(io);
 
 RegisterRoutes(app);
 

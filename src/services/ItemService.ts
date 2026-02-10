@@ -7,7 +7,7 @@ import {
   ValidationError,
 } from "../utils/interfaces/common";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
-// import { EbmService } from "./EbmService"; // Temporarily commented out for demo mode
+import { EbmService } from "./EbmService";
 import type { Request } from "express";
 import * as XLSX from "xlsx";
 import * as path from "path";
@@ -488,8 +488,6 @@ export class ItemService {
         }
 
         // --- EBM Registration Prerequisite ---
-        // Temporarily commented out for demo mode
-        /*
         if (company && user) {
           const ebmResponse = await EbmService.saveItemToEBM(
             item,
@@ -507,7 +505,6 @@ export class ItemService {
             continue; // Skip this item locally as per 'Partial with Report' strategy
           }
         }
-        */
 
         // Check for existing item by productCode
         let existingItem = null;
@@ -746,8 +743,6 @@ export class ItemService {
     const tax = ItemService.normalizeTaxFields(data as unknown);
 
     // --- EBM Registration Prerequisite ---
-    // Temporarily commented out for demo mode
-    /*
     const user = await prisma.user.findFirst({
       where: {
         company: { companyId },
@@ -772,7 +767,6 @@ export class ItemService {
         );
       }
     }
-    */
 
     const item = await prisma.items.create({
       data: {
@@ -825,6 +819,62 @@ export class ItemService {
 
     return { productCode };
   }
+
+  public static async generateProductCodeWithClassifications(
+    companyId: string,
+    countryCd: string,
+    itemTypeCd: string,
+    packingUnitCd: string,
+    quantityUnitCd: string,
+  ): Promise<{ productCode: string }> {
+    // Ensure EBM codes are synced first (lazy loading)
+    const { EbmCodeSyncService } = await import("./EbmCodeSyncService");
+    await EbmCodeSyncService.ensureCodesSynced(companyId);
+
+    // Build prefix from classifications (8 chars total max)
+    const prefix = `${countryCd}${itemTypeCd}${packingUnitCd}${quantityUnitCd}`;
+
+    // Get or create sequence record
+    let sequence = await prisma.productCodeSequence.findUnique({
+      where: { prefix },
+    });
+
+    if (!sequence) {
+      sequence = await prisma.productCodeSequence.create({
+        data: { prefix, lastSeq: 0 },
+      });
+    }
+
+    // Increment sequence
+    const nextSeq = sequence.lastSeq + 1;
+    const seqStr = nextSeq.toString().padStart(7, "0");
+    const productCode = `${prefix}${seqStr}`;
+
+    // Update sequence
+    await prisma.productCodeSequence.update({
+      where: { prefix },
+      data: { lastSeq: nextSeq },
+    });
+
+    // Verify uniqueness (should be guaranteed by sequence, but double-check)
+    const existing = await prisma.items.findFirst({
+      where: { companyId, productCode },
+    });
+
+    if (existing) {
+      // Recursively retry if collision detected (very unlikely)
+      return this.generateProductCodeWithClassifications(
+        companyId,
+        countryCd,
+        itemTypeCd,
+        packingUnitCd,
+        quantityUnitCd,
+      );
+    }
+
+    return { productCode };
+  }
+
 
   public static async getItem(id: string, branchId?: string | null) {
     const where: any = { id };
@@ -1007,6 +1057,7 @@ export class ItemService {
     });
 
     const totalItems = await prisma.items.count({ where });
+
     // Update isStockItem based on currentStock
     const itemsWithStock = await Promise.all(
       items.map(async (item) => {

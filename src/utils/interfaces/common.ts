@@ -428,6 +428,7 @@ export interface CreateSellDto {
   itemId?: string;
   quantity?: number;
   sellPrice?: number;
+  purchaseCode?: string;
 }
 
 export interface CreatePaymentDto {
@@ -718,6 +719,18 @@ export interface CreateInsuranceDto {
 }
 
 export interface UpdateInsuranceDto extends Partial<CreateInsuranceDto> {}
+
+// Branch Insurance DTOs
+export interface CreateBranchInsuranceDto {
+  isrccCd: string;
+  isrccNm: string;
+  isrcRt: number;
+  branchId?: string;
+}
+
+export interface UpdateBranchInsuranceDto extends Partial<CreateBranchInsuranceDto> {
+  useYn?: "Y" | "N";
+}
 
 export interface CreateItemDto {
   itemFullName: string;
