@@ -46,17 +46,26 @@ export const getReceiptMessages = (company: any) => {
   };
 };
 
+// Global counter for sequential receipt numbering
+let receiptCounter = 1;
+
 /**
  * Generates mock SDC (Sales Device Code) data for demo receipts
  * Used when EBM service is bypassed/frozen
+ * Receipt numbers increment sequentially: 01, 02, 03, etc.
  */
 export const generateMockSDCData = (sellId: string, companyTIN?: string) => {
   const timestamp = Date.now();
-  const randomNum = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, "0");
+  
+  // Increment counter and format as 8-digit number (01 to 99999999)
+  const formattedCounter = String(receiptCounter++).padStart(8, "0");
+  
+  // Reset counter if it exceeds 8 digits (99999999)
+  if (receiptCounter > 99999999) {
+    receiptCounter = 1;
+  }
 
-  // Generate SDC ID (format: SDC-YYYYMMDD-HHMMSS-RANDOM)
+  // Generate SDC ID (format: SDC-YYYYMMDD-HHMMSS-COUNTER)
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -66,23 +75,24 @@ export const generateMockSDCData = (sellId: string, companyTIN?: string) => {
   const secs = String(now.getSeconds()).padStart(2, "0");
 
   return {
-    // Receipt number (8-10 digits based on timestamp)
-    rcptNo: parseInt(`${year}${month}${day}`.substring(0, 8) + randomNum),
+    // Receipt number - sequential counter starting from 01
+    // Fits within INT4 (max 2,147,483,647)
+    rcptNo: parseInt(formattedCounter),
 
     // Internal data tracking
-    intrlData: `INT-${sellId.substring(0, 8)}-${randomNum}-${timestamp % 10000}`,
+    intrlData: `INT-${sellId.substring(0, 8)}-${formattedCounter}-${timestamp % 10000}`,
 
     // Receipt signature
-    rcptSign: `SIG-${sellId.substring(0, 6).toUpperCase()}-${randomNum}-${Math.random().toString(36).substring(2, 11).toUpperCase()}`,
+    rcptSign: `SIG-${sellId.substring(0, 6).toUpperCase()}-${formattedCounter}-${Math.random().toString(36).substring(2, 11).toUpperCase()}`,
 
-    // Total receipt number
-    totRcptNo: parseInt(`${month}${day}${hours}${mins}${secs}${randomNum}`),
+    // Total receipt number - also uses counter for consistency
+    totRcptNo: parseInt(formattedCounter),
 
-    // VSDC receipt publish date (format: YYYYMMDDHHmmss - 14 digits)
+    // VSDC receipt publish date (format: YYYYMMDDHHmmss - 14 digits, kept as string)
     vsdcRcptPbctDate: `${year}${month}${day}${hours}${mins}${secs}`,
 
     // Sales Device Code (SDC ID) - unique identifier for the device
-    sdcId: `SDC-${year}${month}${day}-${hours}${mins}${secs}-${randomNum}`,
+    sdcId: `SDC-${year}${month}${day}-${hours}${mins}${secs}-${formattedCounter}`,
   };
 };
 
