@@ -952,12 +952,12 @@ export class SellService {
       
       // Mock response for bypassed EBM
       const ebmData = {
-        rcptNo: "",
-        intrlData: "",
-        rcptSign: "",
-        totRcptNo: "",
+        rcptNo: null,
+        intrlData: null,
+        rcptSign: null,
+        totRcptNo: null,
         vsdcRcptPbctDate: new Date().toISOString(),
-        sdcId: "",
+        sdcId: null,
       };
 
       // TRANSACTION: Create refund with EBM data (FAST!)
@@ -1206,12 +1206,12 @@ export class SellService {
     
     // Mock response for bypassed EBM
     const ebmData = {
-      rcptNo: "",
-      intrlData: "",
-      rcptSign: "",
-      totRcptNo: "",
+      rcptNo: null,
+      intrlData: null,
+      rcptSign: null,
+      totRcptNo: null,
       vsdcRcptPbctDate: new Date().toISOString(),
-      sdcId: "",
+      sdcId: null,
     };
 
     // TRANSACTION: Create sale with EBM data (FAST!)
