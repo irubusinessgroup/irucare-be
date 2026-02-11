@@ -42,38 +42,38 @@ export class EbmNoticeService {
       //   );
       //   return;
       // }
+      //
+      // const notices = response.data.noticeList;
+      // let processedCount = 0;
+      //
+      // // Process each notice
+      // for (const notice of notices) {
+      //   const alreadyProcessed = await this.isNoticeProcessed(
+      //     companyId,
+      //     notice.noticeNo,
+      //   );
+      //
+      //   if (alreadyProcessed) {
+      //     console.log(
+      //       `Notice #${notice.noticeNo} already processed for ${company.name}`,
+      //     );
+      //     continue;
+      //   }
+      //
+      //   // Distribute to all company users
+      //   await this.distributeNoticeToUsers(companyId, notice, io);
+      //   processedCount++;
+      // }
+      //
+      // console.log(
+      //   `✓ Processed ${processedCount} new notices for ${company.name}`,
+      // );
       
       // Mock response - no notices for now
       console.log(
-        `EBM Notice sync BYPASSED for ${company.name}`,
+        `EBM Notice sync BYPASSED for ${company?.name || companyId}`,
       );
       return;
-
-      const notices = response.data.noticeList;
-      let processedCount = 0;
-
-      // Process each notice
-      for (const notice of notices) {
-        const alreadyProcessed = await this.isNoticeProcessed(
-          companyId,
-          notice.noticeNo,
-        );
-
-        if (alreadyProcessed) {
-          console.log(
-            `Notice #${notice.noticeNo} already processed for ${company.name}`,
-          );
-          continue;
-        }
-
-        // Distribute to all company users
-        await this.distributeNoticeToUsers(companyId, notice, io);
-        processedCount++;
-      }
-
-      console.log(
-        `✓ Processed ${processedCount} new notices for ${company.name}`,
-      );
     } catch (error) {
       console.error(`Error syncing notices for company ${companyId}:`, error);
       throw error;

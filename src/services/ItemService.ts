@@ -488,6 +488,7 @@ export class ItemService {
         }
 
         // --- EBM Registration Prerequisite ---
+        let ebmSynced = false; // Initialize as false
         if (company && user) {
           // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
           // const ebmResponse = await EbmService.saveItemToEBM(
@@ -833,8 +834,9 @@ export class ItemService {
     quantityUnitCd: string,
   ): Promise<{ productCode: string }> {
     // Ensure EBM codes are synced first (lazy loading)
-    const { EbmCodeSyncService } = await import("./EbmCodeSyncService");
-    await EbmCodeSyncService.ensureCodesSynced(companyId);
+    // BYPASSED FOR NOW - Allow user to generate codes without waiting for EBM sync
+    // const { EbmCodeSyncService } = await import("./EbmCodeSyncService");
+    // await EbmCodeSyncService.ensureCodesSynced(companyId);
 
     // Build prefix from classifications (8 chars total max)
     const prefix = `${countryCd}${itemTypeCd}${packingUnitCd}${quantityUnitCd}`;

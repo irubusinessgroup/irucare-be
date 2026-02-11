@@ -23,7 +23,8 @@ export class EbmCodesService {
     cdCls: string,
   ): Promise<{ data: IEbmCodeClass }> {
     // Ensure codes are synced first
-    await EbmCodeSyncService.ensureCodesSynced(companyId);
+    // BYPASSED FOR NOW - Allow user to get codes without waiting for EBM sync
+    // await EbmCodeSyncService.ensureCodesSynced(companyId);
 
     const codeClass = await prisma.ebmCodeClass.findUnique({
       where: { cdCls },
@@ -59,7 +60,8 @@ export class EbmCodesService {
     data: IEbmCodeClass[];
   }> {
     // Ensure codes are synced first
-    await EbmCodeSyncService.ensureCodesSynced(companyId);
+    // BYPASSED FOR NOW - Allow user to get codes without waiting for EBM sync
+    // await EbmCodeSyncService.ensureCodesSynced(companyId);
 
     const REQUIRED_CLASSES = ["05", "24", "17", "10"];
 

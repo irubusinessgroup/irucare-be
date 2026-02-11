@@ -42,14 +42,27 @@ export class EbmCodeSyncService {
       const bhfId = "00"; // Default branch for now
 
       // Fetch from EBM using axios directly
-      const ebmBaseUrl = process.env.EBM_API_BASE_URL;
-      const response = await axios.post(`${ebmBaseUrl}/code/selectCodes`, {
-        tin,
-        bhfId,
-        lastReqDt: "20200101000000", // Historical date for initial sync
-      });
-
-      console.log("EBM API Response:", JSON.stringify(response.data, null, 2));
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const ebmBaseUrl = process.env.EBM_API_BASE_URL;
+      // const response = await axios.post(`${ebmBaseUrl}/code/selectCodes`, {
+      //   tin,
+      //   bhfId,
+      //   lastReqDt: "20200101000000", // Historical date for initial sync
+      // });
+      //
+      // console.log("EBM API Response:", JSON.stringify(response.data, null, 2));
+      
+      // Mock response for bypassed EBM code sync
+      const response = {
+        data: {
+          resultCd: "000",
+          resultMsg: "Mock Success (EBM Bypassed)",
+          data: {
+            clsList: [], // Empty code list for now
+          },
+        },
+      };
+      console.log("EBM Code Sync: BYPASSED (returning empty codes)");
 
       // Validate response structure
       if (!response.data) {
