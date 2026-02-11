@@ -1028,19 +1028,22 @@ export class InventoryService {
             };
             
             const { EbmService } = await import("./EbmService");
-            const ebmResponse = await EbmService.saveItemToEBM(
-              itemData,
-              company,
-              user,
-              branchId,
-            );
-
-            if (ebmResponse.resultCd === "000") {
-              ebmSynced = true;
-            } else {
-              console.warn(`EBM registration failed for ${repRow!.itemName}: ${ebmResponse.resultMsg}`);
-              // Continue anyway, but mark as not synced
-            }
+            // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+            // const ebmResponse = await EbmService.saveItemToEBM(
+            //   itemData,
+            //   company,
+            //   user,
+            //   branchId,
+            // );
+            //
+            // if (ebmResponse.resultCd === "000") {
+            //   ebmSynced = true;
+            // } else {
+            //   console.warn(`EBM registration failed for ${repRow!.itemName}: ${ebmResponse.resultMsg}`);
+            //   // Continue anyway, but mark as not synced
+            // }
+            // Mock not synced for now
+            ebmSynced = false;
           }
 
           const newItem = await prisma.items.create({

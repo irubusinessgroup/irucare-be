@@ -284,19 +284,21 @@ export class CompanyStaffService {
 
     // Save user to EBM before creating in database
     if (req?.user) {
-      const ebmResponse = await EbmService.saveUserToEBM(
-        data,
-        company,
-        req.user,
-        data.branchId,
-      );
-
-      if (ebmResponse.resultCd !== "000") {
-        throw new AppError(
-          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-          400,
-        );
-      }
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const ebmResponse = await EbmService.saveUserToEBM(
+      //   data,
+      //   company,
+      //   req.user,
+      //   data.branchId,
+      // );
+      //
+      // if (ebmResponse.resultCd !== "000") {
+      //   throw new AppError(
+      //     `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+      //     400,
+      //   );
+      // }
+      // Mock success - user will be created without EBM sync
     }
 
     // Check if the role is a ClinicRole

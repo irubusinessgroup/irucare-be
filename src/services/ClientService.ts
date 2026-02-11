@@ -129,20 +129,22 @@ export class ClientService {
     });
 
     if (company && req?.user) {
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
       // Use the actual logged-in user who's creating the client
-      const ebmResponse = await EbmService.saveCustomerToEBM(
-        data,
-        company,
-        req.user,
-        branchId,
-      );
-
-      if (ebmResponse.resultCd !== "000") {
-        throw new AppError(
-          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-          400,
-        );
-      }
+      // const ebmResponse = await EbmService.saveCustomerToEBM(
+      //   data,
+      //   company,
+      //   req.user,
+      //   branchId,
+      // );
+      //
+      // if (ebmResponse.resultCd !== "000") {
+      //   throw new AppError(
+      //     `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+      //     400,
+      //   );
+      // }
+      // Mock success for now - client will be created without EBM sync
     }
 
     const client = await prisma.client.create({

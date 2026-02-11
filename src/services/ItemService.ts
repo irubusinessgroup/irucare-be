@@ -489,21 +489,24 @@ export class ItemService {
 
         // --- EBM Registration Prerequisite ---
         if (company && user) {
-          const ebmResponse = await EbmService.saveItemToEBM(
-            item,
-            company,
-            user,
-            branchId,
-          );
-
-          if (ebmResponse.resultCd !== "000") {
-            importErrors.push({
-              row: rowNumber,
-              field: "EBM",
-              message: `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-            });
-            continue; // Skip this item locally as per 'Partial with Report' strategy
-          }
+          // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+          // const ebmResponse = await EbmService.saveItemToEBM(
+          //   item,
+          //   company,
+          //   user,
+          //   branchId,
+          // );
+          //
+          // if (ebmResponse.resultCd !== "000") {
+          //   importErrors.push({
+          //     row: rowNumber,
+          //     field: "EBM",
+          //     message: `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+          //   });
+          //   continue; // Skip this item locally as per 'Partial with Report' strategy
+          // }
+          // Mock success for now
+          ebmSynced = false; // Mark as not synced since we bypassed EBM
         }
 
         // Check for existing item by productCode
@@ -753,19 +756,21 @@ export class ItemService {
     });
 
     if (company && user) {
-      const ebmResponse = await EbmService.saveItemToEBM(
-        data,
-        company,
-        user,
-        branchId,
-      );
-
-      if (ebmResponse.resultCd !== "000") {
-        throw new AppError(
-          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-          400,
-        );
-      }
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const ebmResponse = await EbmService.saveItemToEBM(
+      //   data,
+      //   company,
+      //   user,
+      //   branchId,
+      // );
+      //
+      // if (ebmResponse.resultCd !== "000") {
+      //   throw new AppError(
+      //     `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+      //     400,
+      //   );
+      // }
+      // Mock success for now - item will be created without EBM sync
     }
 
     const item = await prisma.items.create({

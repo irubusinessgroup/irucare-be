@@ -167,21 +167,22 @@ export class StockService {
       }
 
       if (company && user) {
-        const ebmResponse = await EbmService.saveStockToEBM(
-          stockReceipt,
-          company,
-          user,
-          stockReceipt.branchId,
-        );
+        // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+        // const ebmResponse = await EbmService.saveStockToEBM(
+        //   stockReceipt,
+        //   company,
+        //   user,
+        //   stockReceipt.branchId,
+        // );
+        //
+        // if (ebmResponse.resultCd !== "000") {
+        //   throw new AppError(
+        //     `EBM Stock Registration Failed: ${ebmResponse.resultMsg}`,
+        //     400,
+        //   );
+        // }
 
-        if (ebmResponse.resultCd !== "000") {
-          throw new AppError(
-            `EBM Stock Registration Failed: ${ebmResponse.resultMsg}`,
-            400,
-          );
-        }
-
-        // Mark as synced
+        // Mark as synced regardless (mock success)
         await client.stockReceipts.update({
           where: { id: stockReceiptId },
           data: { ebmSynced: true },

@@ -259,22 +259,26 @@ export class CompanyToolsService {
           updated.company?.TIN ||
           "";
         if (tin) {
-          const ebmResponse = await EbmService.initializeDevice(
-            tin,
-            "00",
-            data.ebmDeviceSerialNumber,
-          );
+          // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+          // const ebmResponse = await EbmService.initializeDevice(
+          //   tin,
+          //   "00",
+          //   data.ebmDeviceSerialNumber,
+          // );
+          // console.log(
+          //   `[EBM Device Init] Result: ${ebmResponse.resultCd} - ${ebmResponse.resultMsg}`,
+          // );
+          //
+          // if (
+          //   ebmResponse.resultCd !== "902" &&
+          //   ebmResponse.resultCd !== "000"
+          // ) {
+          //   // We don't throw here to avoid blocking the save, but we log it.
+          //   // If user requested strict initialization, we could throw AppError.
+          // }
           console.log(
-            `[EBM Device Init] Result: ${ebmResponse.resultCd} - ${ebmResponse.resultMsg}`,
+            `[EBM Device Init] BYPASSED - Device initialization skipped for ${tin}`,
           );
-
-          if (
-            ebmResponse.resultCd !== "902" &&
-            ebmResponse.resultCd !== "000"
-          ) {
-            // We don't throw here to avoid blocking the save, but we log it.
-            // If user requested strict initialization, we could throw AppError.
-          }
         }
       } catch (error) {
         console.error("EBM Initialization failed:", error);

@@ -29,18 +29,25 @@ export class EbmNoticeService {
       const lastReqDt = this.formatEbmDate(lastSyncDate);
 
       // Fetch notices from EBM
-      const response = (await EbmService.fetchNotices(
-        company.TIN,
-        "00", // Default branch
-        lastReqDt,
-      )) as EbmNoticesResponse;
-
-      if (response.resultCd !== "000" || !response.data?.noticeList) {
-        console.log(
-          `No new notices for ${company.name}: ${response.resultMsg}`,
-        );
-        return;
-      }
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const response = (await EbmService.fetchNotices(
+      //   company.TIN,
+      //   "00", // Default branch
+      //   lastReqDt,
+      // )) as EbmNoticesResponse;
+      //
+      // if (response.resultCd !== "000" || !response.data?.noticeList) {
+      //   console.log(
+      //     `No new notices for ${company.name}: ${response.resultMsg}`,
+      //   );
+      //   return;
+      // }
+      
+      // Mock response - no notices for now
+      console.log(
+        `EBM Notice sync BYPASSED for ${company.name}`,
+      );
+      return;
 
       const notices = response.data.noticeList;
       let processedCount = 0;

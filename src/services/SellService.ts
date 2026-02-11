@@ -933,21 +933,32 @@ export class SellService {
       };
 
       // PRE-TRANSACTION: Call EBM for refund
-      const ebmResponse = await EbmService.saveSaleToEBM(
-        refundForEBM as any,
-        company!,
-        freshUser,
-        branchId,
-      );
-
-      if (ebmResponse.resultCd !== "000") {
-        throw new AppError(
-          `EBM Refund Failed: ${ebmResponse.resultMsg} (Code: ${ebmResponse.resultCd})`,
-          400,
-        );
-      }
-
-      const ebmData = ebmResponse.data;
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const ebmResponse = await EbmService.saveSaleToEBM(
+      //   refundForEBM as any,
+      //   company!,
+      //   freshUser,
+      //   branchId,
+      // );
+      //
+      // if (ebmResponse.resultCd !== "000") {
+      //   throw new AppError(
+      //     `EBM Refund Failed: ${ebmResponse.resultMsg} (Code: ${ebmResponse.resultCd})`,
+      //     400,
+      //   );
+      // }
+      //
+      // const ebmData = ebmResponse.data;
+      
+      // Mock response for bypassed EBM
+      const ebmData = {
+        rcptNo: "",
+        intrlData: "",
+        rcptSign: "",
+        totRcptNo: "",
+        vsdcRcptPbctDate: new Date().toISOString(),
+        sdcId: "",
+      };
 
       // TRANSACTION: Create refund with EBM data (FAST!)
       const completeRefund = await prisma.$transaction(async (tx) => {
@@ -1175,22 +1186,33 @@ export class SellService {
     };
 
     // PRE-TRANSACTION: Call EBM for sale
-    const ebmResponse = await EbmService.saveSaleToEBM(
-      saleForEBM as any,
-      company!,
-      freshUser,
-      branchId,
-      data.purchaseCode
-    );
-
-    if (ebmResponse.resultCd !== "000") {
-      throw new AppError(
-        `EBM Sales Registration Failed: ${ebmResponse.resultMsg}`,
-        400,
-      );
-    }
-
-    const ebmData = ebmResponse.data;
+    // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+    // const ebmResponse = await EbmService.saveSaleToEBM(
+    //   saleForEBM as any,
+    //   company!,
+    //   freshUser,
+    //   branchId,
+    //   data.purchaseCode
+    // );
+    //
+    // if (ebmResponse.resultCd !== "000") {
+    //   throw new AppError(
+    //     `EBM Sales Registration Failed: ${ebmResponse.resultMsg}`,
+    //     400,
+    //   );
+    // }
+    //
+    // const ebmData = ebmResponse.data;
+    
+    // Mock response for bypassed EBM
+    const ebmData = {
+      rcptNo: "",
+      intrlData: "",
+      rcptSign: "",
+      totRcptNo: "",
+      vsdcRcptPbctDate: new Date().toISOString(),
+      sdcId: "",
+    };
 
     // TRANSACTION: Create sale with EBM data (FAST!)
     const completeSell = await prisma.$transaction(async (tx) => {

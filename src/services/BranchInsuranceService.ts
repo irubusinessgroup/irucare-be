@@ -85,19 +85,21 @@ export class BranchInsuranceService {
 
     // Save to EBM before database
     if (req.user) {
-      const ebmResponse = await EbmService.saveInsuranceToEBM(
-        data,
-        company,
-        req.user,
-        data.branchId,
-      );
-
-      if (ebmResponse.resultCd !== "000") {
-        throw new AppError(
-          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-          400,
-        );
-      }
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const ebmResponse = await EbmService.saveInsuranceToEBM(
+      //   data,
+      //   company,
+      //   req.user,
+      //   data.branchId,
+      // );
+      //
+      // if (ebmResponse.resultCd !== "000") {
+      //   throw new AppError(
+      //     `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+      //     400,
+      //   );
+      // }
+      // Mock success - insurance will be created without EBM sync
     }
 
     // Create in database
@@ -147,19 +149,21 @@ export class BranchInsuranceService {
 
     // Update in EBM
     if (req.user) {
-      const ebmResponse = await EbmService.saveInsuranceToEBM(
-        updateData,
-        company,
-        req.user,
-        updateData.branchId,
-      );
-
-      if (ebmResponse.resultCd !== "000") {
-        throw new AppError(
-          `EBM Update Failed: ${ebmResponse.resultMsg}`,
-          400,
-        );
-      }
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // const ebmResponse = await EbmService.saveInsuranceToEBM(
+      //   updateData,
+      //   company,
+      //   req.user,
+      //   updateData.branchId,
+      // );
+      //
+      // if (ebmResponse.resultCd !== "000") {
+      //   throw new AppError(
+      //     `EBM Update Failed: ${ebmResponse.resultMsg}`,
+      //     400,
+      //   );
+      // }
+      // Mock success - insurance will be updated without EBM sync
     }
 
     // Update in database
@@ -193,12 +197,14 @@ export class BranchInsuranceService {
     // Soft delete in EBM by setting useYn to "N"
     if (company && req.user) {
       const updateData = { ...existing, useYn: "N" };
-      await EbmService.saveInsuranceToEBM(
-        updateData,
-        company,
-        req.user,
-        existing.branchId,
-      );
+      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+      // await EbmService.saveInsuranceToEBM(
+      //   updateData,
+      //   company,
+      //   req.user,
+      //   existing.branchId,
+      // );
+      // Mock success - insurance will be deleted without EBM sync
     }
 
     // Delete from database
