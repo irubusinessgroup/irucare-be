@@ -12,6 +12,7 @@ import {
   generateQrCodeData,
 } from "../utils/receipt-helpers";
 import { randomUUID } from "crypto";
+import { generateMockSDCData } from "../utils/receipt-helpers";
 
 export class SellService {
   public static async getAllSells(
@@ -625,7 +626,9 @@ export class SellService {
       const qty = Number(itemData.quantity);
       const price = Number(itemData.sellPrice);
       const amount = qty * price;
-      const taxAmt = item.isTaxable ? amount * (Number(item.taxRate) / (100 + Number(item.taxRate))) : 0;
+      const taxAmt = item.isTaxable
+        ? amount * (Number(item.taxRate) / (100 + Number(item.taxRate)))
+        : 0;
       const total = amount + taxAmt;
 
       refundTotalAmount += total;
@@ -949,15 +952,13 @@ export class SellService {
       // }
       //
       // const ebmData = ebmResponse.data;
-      
-      // Mock response for bypassed EBM
+
+      // Mock response for bypassed EBM with demo SDC data
       const ebmData = {
-        rcptNo: null,
-        intrlData: null,
-        rcptSign: null,
-        totRcptNo: null,
-        vsdcRcptPbctDate: new Date().toISOString(),
-        sdcId: null,
+        ...generateMockSDCData(
+          data.parentSellId || "demo-refund",
+          company?.TIN,
+        ),
       };
 
       // TRANSACTION: Create refund with EBM data (FAST!)
@@ -1203,15 +1204,10 @@ export class SellService {
     // }
     //
     // const ebmData = ebmResponse.data;
-    
-    // Mock response for bypassed EBM
+
+    // Mock response for bypassed EBM with demo SDC data
     const ebmData = {
-      rcptNo: null,
-      intrlData: null,
-      rcptSign: null,
-      totRcptNo: null,
-      vsdcRcptPbctDate: new Date().toISOString(),
-      sdcId: null,
+      ...generateMockSDCData(data.clientId || "demo-sale", company?.TIN),
     };
 
     // TRANSACTION: Create sale with EBM data (FAST!)
