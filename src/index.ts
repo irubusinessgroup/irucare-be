@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, {
   json,
   urlencoded,
@@ -21,6 +22,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "./utils/jwt";
 import { errorHandler } from "./middlewares/errorHandler";
 import { startEbmNoticesCron } from "./jobs/ebmNoticesJob";
+import { prisma } from "./utils/client";
 
 declare module "express" {
   interface Request {
@@ -30,6 +32,11 @@ declare module "express" {
 
 const app = express();
 const PORT = process.env.PORT || 9000;
+
+app.use((req: ExRequest, _res: ExResponse, next: NextFunction) => {
+  console.log(`${req.method} ${req.originalUrl}`);
+  next();
+});
 app.use(
   urlencoded({
     extended: true,
@@ -185,6 +192,11 @@ startEbmNoticesCron(io);
 
 RegisterRoutes(app);
 
+app.use((req: ExRequest, res: ExResponse) => {
+  console.log(`404 ${req.method} ${req.originalUrl}`);
+  return res.status(404).json({ message: "Not Found" });
+});
+
 // Schedule the synchronization to run every minute
 cron.schedule("* * * * *", async () => {
   console.log("Running payment synchronization...");
@@ -220,7 +232,16 @@ cron.schedule("0 0 * * *", async () => {
 
 app.use(errorHandler);
 
+(async () => {
+  try {
+    await prisma.$connect();
+    console.log("Database connected");
+  } catch (error) {
+    console.error("Database connection failed:", error);
+    process.exit(1);
+  }
 
-server.listen(PORT, () =>
-  console.log(`API running on PORT http://localhost:${PORT} wow!s`),
-);
+  server.listen(PORT, () =>
+    console.log(`API running on PORT http://localhost:${PORT} wow!s`),
+  );
+})();

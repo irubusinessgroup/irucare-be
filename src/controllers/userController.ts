@@ -79,7 +79,7 @@ export class UserController {
     return UserService.resetPassword(email, otp, newPassword);
   }
 
-  @Post("signin")
+  @Post("/signin")
   public loginUser(@Body() user: ILoginUser) {
     return UserService.loginUser(user);
   }

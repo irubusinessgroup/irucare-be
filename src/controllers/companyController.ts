@@ -24,7 +24,7 @@ import upload from "../utils/cloudinary";
 @Tags("Company")
 @Route("/api/company")
 export class CompanyController extends Controller {
-  @Get("/")
+  @Get("")
   public getCompanies(@Request() req: ExpressRequest) {
     const { searchq, limit, page } = req.query;
     const currentPage = page ? parseInt(page as string) : undefined;
@@ -46,7 +46,7 @@ export class CompanyController extends Controller {
     return companyService.getCompany(id);
   }
 
-  @Post("/")
+  @Post("")
   @Middlewares(upload.any(), appendAttachments, validate(createCompanySchema))
   public async addCompany(@Body() company: CreateCompanyDto) {
     return await companyService.createCompany(company);
