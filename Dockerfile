@@ -7,6 +7,9 @@ RUN apk add --no-cache openssl bash
 # Install pnpm globally
 RUN npm install -g pnpm
 
+# Ensure pnpm can verify and install Linux native binaries
+RUN pnpm config set supportedArchitectures.os linux
+
 # Set the working directory
 WORKDIR /app
 
