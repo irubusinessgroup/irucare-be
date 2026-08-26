@@ -12,6 +12,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json pnpm-lock.yaml ./
+RUN pnpm config set supportedArchitectures.os linux
 RUN pnpm install
 
 # Copy the rest of the app
