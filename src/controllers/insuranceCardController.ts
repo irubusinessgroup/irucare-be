@@ -26,21 +26,21 @@ import { checkRole } from "../middlewares";
 @Tags("Insurance Cards")
 export class InsuranceCardController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getAllInsuranceCards(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InsuranceCardService.getAllInsuranceCards(req, searchq, limit, page);
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public createInsuranceCard(
     @Body() body: CreateInsuranceCardDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -48,11 +48,11 @@ export class InsuranceCardController {
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public updateInsuranceCard(
     @Path() id: string,
     @Body() body: UpdateInsuranceCardDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -60,15 +60,15 @@ export class InsuranceCardController {
       id,
       body,
       companyId!,
-      branchId
+      branchId,
     );
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public deleteInsuranceCard(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;

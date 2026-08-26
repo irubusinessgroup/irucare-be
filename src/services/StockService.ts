@@ -13,6 +13,7 @@ import {
   getWarehouseOrThrow,
 } from "../utils/validators";
 import { EbmService } from "./EbmService";
+import { enrichWithBranchLabels } from "../utils/branchScope";
 
 export class StockService {
   static async createStockReceipt(
@@ -30,7 +31,6 @@ export class StockService {
         ...data,
         itemId: references.itemId,
         supplierId: references.supplierId,
-        purchaseOrderItemId: data.purchaseOrderItemId,
         totalCost,
         companyId,
         branchId,
@@ -39,11 +39,6 @@ export class StockService {
         item: true,
         company: true,
         supplier: true,
-        purchaseOrderItem: {
-          include: {
-            purchaseOrder: true,
-          },
-        },
       },
     });
 
@@ -83,8 +78,6 @@ export class StockService {
       data: {
         itemId: data.itemId,
         supplierId: data.supplierId,
-        purchaseOrderId: null,
-        purchaseOrderItemId: null,
         manualPoNumber: manualPoNumber,
         dateReceived: new Date(data.dateReceived),
         quantityReceived,
@@ -132,7 +125,6 @@ export class StockService {
         item: true,
         company: true,
         approvals: {
-          where: { approvalStatus: "APPROVED" },
           orderBy: { dateApproved: "desc" },
           take: 1,
         },
@@ -167,22 +159,21 @@ export class StockService {
       }
 
       if (company && user) {
-        // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
-        // const ebmResponse = await EbmService.saveStockToEBM(
-        //   stockReceipt,
-        //   company,
-        //   user,
-        //   stockReceipt.branchId,
-        // );
-        //
-        // if (ebmResponse.resultCd !== "000") {
-        //   throw new AppError(
-        //     `EBM Stock Registration Failed: ${ebmResponse.resultMsg}`,
-        //     400,
-        //   );
-        // }
+        const ebmResponse = await EbmService.saveStockToEBM(
+          stockReceipt,
+          company,
+          user,
+          stockReceipt.branchId,
+        );
 
-        // Mark as synced regardless (mock success)
+        if (ebmResponse.resultCd !== "000") {
+          throw new AppError(
+            `EBM Stock Registration Failed: ${ebmResponse.resultMsg}`,
+            400,
+          );
+        }
+
+        // Mark as synced
         await client.stockReceipts.update({
           where: { id: stockReceiptId },
           data: { ebmSynced: true },
@@ -192,6 +183,16 @@ export class StockService {
 
     const expectedSellPrice =
       stockReceipt.approvals[0]?.ExpectedSellPrice || null;
+
+    if (
+      stockReceipt.approvals[0] &&
+      stockReceipt.approvals[0].approvalStatus === "PENDING"
+    ) {
+      await client.approvals.update({
+        where: { id: stockReceipt.approvals[0].id },
+        data: { approvalStatus: "APPROVED", dateApproved: new Date() },
+      });
+    }
 
     const existingStock = await client.stock.findFirst({
       where: {
@@ -203,25 +204,27 @@ export class StockService {
       },
     });
 
+    const stockUnits = Array.from(
+      { length: Number(stockReceipt.quantityReceived) },
+      () => ({
+        stockReceiptId: stockReceiptId,
+        status: "AVAILABLE",
+        quantity: 1,
+        quantityAvailable: 1,
+        companyId: stockReceipt.companyId,
+        branchId: stockReceipt.branchId,
+      }),
+    );
+
+    const BATCH_SIZE = 50;
+
+    // Use the client (tx or prisma) directly to avoid transaction nesting
+    for (let i = 0; i < stockUnits.length; i += BATCH_SIZE) {
+      const batch = stockUnits.slice(i, i + BATCH_SIZE);
+      await client.stock.createMany({ data: batch });
+    }
+
     if (existingStock) {
-      const newStockUnits = Array.from(
-        {
-          length: Number(stockReceipt.quantityReceived),
-        },
-        () => ({
-          stockReceiptId: stockReceiptId,
-          status: "AVAILABLE",
-          quantity: 1,
-          quantityAvailable: 1,
-          companyId: stockReceipt.companyId,
-          branchId: stockReceipt.branchId,
-        }),
-      );
-
-      await client.stock.createMany({
-        data: newStockUnits,
-      });
-
       const allStockReceiptsForItem = await client.stockReceipts.findMany({
         where: { itemId: stockReceipt.itemId },
         select: { id: true },
@@ -244,25 +247,9 @@ export class StockService {
       return {
         message:
           "Stock updated successfully - quantity added and sell price updated",
-        stockUnitsCreated: newStockUnits.length,
+        stockUnitsCreated: stockUnits.length,
       };
     } else {
-      const stockUnits = Array.from(
-        { length: Number(stockReceipt.quantityReceived) },
-        () => ({
-          stockReceiptId: stockReceiptId,
-          status: "AVAILABLE",
-          quantity: 1,
-          quantityAvailable: 1,
-          companyId: stockReceipt.companyId,
-          branchId: stockReceipt.branchId,
-        }),
-      );
-
-      await client.stock.createMany({
-        data: stockUnits,
-      });
-
       return {
         message: "New stock item created successfully",
         stockUnitsCreated: stockUnits.length,
@@ -450,7 +437,7 @@ export class StockService {
     page?: number,
   ) {
     try {
-      const companyId = req.user?.company?.companyId;
+      const companyId = (req as any).user?.company?.companyId;
       if (!companyId) {
         throw new AppError("Company ID is missing", 400);
       }
@@ -460,15 +447,9 @@ export class StockService {
             companyId,
             OR: [
               { invoiceNo: { contains: searchq } },
+              { manualPoNumber: { contains: searchq } },
               { item: { itemCodeSku: { contains: searchq } } },
               { item: { itemFullName: { contains: searchq } } },
-              {
-                purchaseOrderItem: {
-                  purchaseOrder: {
-                    poNumber: { contains: searchq },
-                  },
-                },
-              },
             ],
           }
         : {};
@@ -503,9 +484,6 @@ export class StockService {
           company: true,
           approvals: { include: { approvedByUser: true } },
           stocks: { where: { status: "AVAILABLE" } },
-          purchaseOrderItem: {
-            include: { purchaseOrder: true },
-          },
         },
       });
 
@@ -530,7 +508,7 @@ export class StockService {
       );
 
       return {
-        data: stockWithStatus,
+        data: await enrichWithBranchLabels(stockWithStatus),
         totalItems,
         currentPage: page || 1,
         itemsPerPage: limit || stock.length,
@@ -572,41 +550,22 @@ export class StockService {
       if (!supplier) throw new AppError("Supplier not found", 404);
     }
 
-    if (data.purchaseOrderId) {
-      const po = await prisma.purchaseOrder.findUnique({
-        where: { id: data.purchaseOrderId },
-        include: { stockReceipts: { select: { quantityReceived: true } } },
-      });
-      if (!po) throw new AppError("Purchase Order not found", 404);
+    if ((data as { purchaseOrderId?: string }).purchaseOrderId || (data as { purchaseOrderItemId?: string }).purchaseOrderItemId) {
+      throw new AppError(
+        "Stock receipts from purchase orders are removed. Use EBM Purchases/Imports or Manual Addition.",
+        410,
+      );
     }
 
-    const poItem = await prisma.purchaseOrderItem.findUnique({
-      where: { id: data.purchaseOrderItemId },
-      include: {
-        purchaseOrder: true,
-        item: true,
-        stockReceipts: true,
-      },
-    });
-
-    if (!poItem || poItem.purchaseOrder.companyId !== companyId) {
-      throw new AppError("Invalid purchase order item", 400);
-    }
-
-    const received = poItem.stockReceipts.reduce(
-      (sum, sr) => sum + sr.quantityReceived.toNumber(),
-      0,
-    );
-    const remaining = poItem.quantity.toNumber() - received;
-
-    if (data.quantityReceived > remaining) {
-      throw new AppError(`Quantity exceeds PO remaining (${remaining})`, 400);
+    // Manual / non-PO stock receipt path: item + supplier required
+    if (!data.itemId) {
+      throw new AppError("itemId is required", 400);
     }
 
     return {
-      itemId: poItem.itemId,
-      supplierId: poItem.purchaseOrder.supplierId,
-      unitCost: data.unitCost || 0,
+      itemId: data.itemId,
+      supplierId: data.supplierId || "",
+      unitCost: Number(data.unitCost || 0),
     };
   }
 }

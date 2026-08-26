@@ -31,7 +31,7 @@ export class ConsultationController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateConsultationDto
+    @Body() body: CreateConsultationDto,
   ): Promise<any> {
     return ConsultationService.create(req, body);
   }
@@ -40,7 +40,7 @@ export class ConsultationController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public getByEncounter(
     @Path() encounterId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ConsultationService.getByEncounterId(encounterId, req);
   }
@@ -50,7 +50,7 @@ export class ConsultationController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateConsultationDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ConsultationService.update(id, body, req);
   }
@@ -60,7 +60,7 @@ export class ConsultationController extends Controller {
   public addDiagnosis(
     @Path() consultationId: string,
     @Body() body: AddDiagnosisDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ConsultationService.addDiagnosis(consultationId, body, req);
   }
@@ -70,7 +70,7 @@ export class ConsultationController extends Controller {
   public updateDiagnosis(
     @Path() id: string,
     @Body() body: Partial<AddDiagnosisDto>,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ConsultationService.updateDiagnosis(id, body, req);
   }
@@ -80,23 +80,23 @@ export class ConsultationController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.PROVIDER,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public removeDiagnosis(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ConsultationService.removeDiagnosis(id, req);
   }
 
   @Get("/patient/{patientId}/diagnosis-history")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER, ClinicRole.NURSE)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER, ClinicRole.NURSE),
   )
   public diagnosisHistory(
     @Path() patientId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return ConsultationService.getPatientDiagnosisHistory(patientId, req);
   }

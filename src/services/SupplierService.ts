@@ -9,6 +9,7 @@ import {
   IPaged,
 } from "../utils/interfaces/common";
 import { assertCompanyExists } from "../utils/validators";
+import { requireBranchId, enrichWithBranchLabels } from "../utils/branchScope";
 
 export class SupplierService {
   static async createSupplier(
@@ -17,6 +18,7 @@ export class SupplierService {
     branchId?: string | null,
   ): Promise<IResponse<SupplierResponse>> {
     await assertCompanyExists(companyId);
+    const resolvedBranchId = await requireBranchId(companyId, branchId);
     // Normalize optional foreign keys to avoid empty-string FK violations
     const normalizedSupplierCompanyId =
       data.supplierCompanyId?.trim() || undefined;
@@ -48,7 +50,7 @@ export class SupplierService {
         ...data,
         supplierCompanyId: normalizedSupplierCompanyId,
         companyId: companyId,
-        branchId: branchId,
+        branchId: resolvedBranchId,
       },
       include: {
         company: true,
@@ -226,7 +228,7 @@ export class SupplierService {
       return {
         statusCode: 200,
         message: "Suppliers fetched successfully",
-        data: suppliers,
+        data: await enrichWithBranchLabels(suppliers),
         totalItems,
         currentPage: currentPage || 1,
         itemsPerPage: limit || 15,

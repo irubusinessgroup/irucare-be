@@ -197,7 +197,9 @@ export class ReorderAlertsService {
           stockReceipt: {
             itemId: rule.itemId,
             companyId,
-            ...((rule as any).branchId ? { branchId: (rule as any).branchId } : {}),
+            ...((rule as any).branchId
+              ? { branchId: (rule as any).branchId }
+              : {}),
           },
           status: { in: ["AVAILABLE", "RESERVED"] },
         };
@@ -309,7 +311,9 @@ export class ReorderAlertsService {
         stockReceipt: {
           itemId: rule.itemId,
           companyId,
-          ...((rule as any).branchId ? { branchId: (rule as any).branchId } : {}),
+          ...((rule as any).branchId
+            ? { branchId: (rule as any).branchId }
+            : {}),
         },
         status: { in: ["AVAILABLE", "RESERVED"] },
       };
@@ -384,9 +388,11 @@ export class ReorderAlertsService {
           } as any,
         });
 
-        // Auto-generate PO if enabled
+        // Legacy B2B auto-PO removed — use EBM purchases / sale-invoice delivery instead
         if (rule.autoReorder && rule.preferredSupplierId) {
-          await this.autoGeneratePurchaseOrder(rule, companyId);
+          console.warn(
+            `[Reorder] autoReorder enabled for item ${rule.itemId} but PO auto-generate is disabled (EBM flow)`,
+          );
         }
       }
       // Check for overstock
@@ -601,39 +607,5 @@ export class ReorderAlertsService {
       message: "Alert dismissed successfully",
       data: updated,
     };
-  }
-
-  /**
-   * Auto-generate purchase order when reorder point is reached
-   */
-  private static async autoGeneratePurchaseOrder(rule: any, companyId: string) {
-    const { PONumberGenerator } = await import("../utils/PONumberGenerator");
-
-    const poNumber = await PONumberGenerator.generatePONumber(companyId);
-
-    // Calculate delivery date based on lead time
-    const expectedDeliveryDate = new Date();
-    expectedDeliveryDate.setDate(
-      expectedDeliveryDate.getDate() + (rule.leadTimeDays || 7),
-    );
-
-    await prisma.purchaseOrder.create({
-      data: {
-        poNumber,
-        companyId,
-        branchId: (rule as any).branchId,
-        supplierId: rule.preferredSupplierId,
-        notes: `Auto-generated PO: Stock below reorder point (${rule.reorderPoint})`,
-        expectedDeliveryDate,
-        items: {
-          create: [
-            {
-              itemId: rule.itemId,
-              quantity: rule.reorderQuantity,
-            },
-          ],
-        },
-      } as any,
-    });
   }
 }

@@ -9,6 +9,7 @@ import {
   IUserResponse,
   CreateUserDto,
   UpdateProfileDto,
+  IUserRole,
 } from "../utils/interfaces/common";
 import { compare } from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -16,7 +17,7 @@ import AppError, { ValidationError } from "../utils/error";
 import { randomBytes } from "crypto";
 import { sendEmail, renderTemplate } from "../utils/email";
 import { hash } from "bcrypt";
-import { roles } from "../utils/roles";
+import { roles, assertAssignablePlatformRole } from "../utils/roles";
 import type { Request } from "express";
 import { QueryOptions, Paginations } from "../utils/DBHelpers";
 import { RoleType } from "@prisma/client";
@@ -64,17 +65,88 @@ export class UserService extends BaseService {
     }
   }
 
+  public static async updateMrcNumber(
+    userId: string,
+    newMrcNo: string,
+    req: any,
+  ) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          company: {
+            include: {
+              company: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new AppError("User not found", 404);
+      }
+
+      // Only company admin can update their own MRC number
+      const userRoles =
+        req.user?.userRoles?.map((r: IUserRole) => r.name) || [];
+      if (
+        !userRoles.includes("COMPANY_ADMIN") &&
+        !userRoles.includes("SUPER_ADMIN")
+      ) {
+        throw new AppError("Only company admin can update MRC number", 403);
+      }
+
+      // Validate MRC format (must be exactly 11 characters)
+      if (!newMrcNo || newMrcNo.trim().length !== 11) {
+        throw new AppError(
+          "MRC number must be exactly 11 characters long",
+          400,
+        );
+      }
+
+      // Check if MRC number is already taken by another user
+      const existingUser = await prisma.user.findUnique({
+        where: { mrcNo: newMrcNo },
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        throw new AppError("MRC number is already in use", 400);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { mrcNo: newMrcNo },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          mrcNo: true,
+          company: true,
+        },
+      });
+
+      return {
+        statusCode: 200,
+        message: "MRC number updated successfully",
+        data: updatedUser,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
   public static async generateMrcForUser(userId: string) {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
-            company: {
-                include: {
-                    company: true
-                }
-            }
-        }
+          company: {
+            include: {
+              company: true,
+            },
+          },
+        },
       });
 
       if (!user) {
@@ -86,17 +158,21 @@ export class UserService extends BaseService {
       }
 
       const companyName = user.company?.company?.name || "MRC";
-      const cleanName = companyName.toUpperCase().replace(/[^A-Z]/g, "").substring(0, 3);
-      const prefix = cleanName.padEnd(3, "X"); 
-      const year = new Date().getFullYear().toString().substring(2); 
-      
+      const cleanName = companyName
+        .toUpperCase()
+        .replace(/[^A-Z]/g, "")
+        .substring(0, 3);
+      const prefix = cleanName.padEnd(3, "X");
+      const year = new Date().getFullYear().toString().substring(2);
+
       let mrcNo = "";
       let isUnique = false;
 
       while (!isUnique) {
-        const randomDigits = Math.floor(1000000 + Math.random() * 9000000); 
+        // Generate 6 random digits for a total of 11 characters (3 prefix + 2 year + 6 random)
+        const randomDigits = Math.floor(100000 + Math.random() * 900000);
         mrcNo = `${prefix}${year}${randomDigits}`;
-        
+
         const existing = await prisma.user.findUnique({
           where: { mrcNo },
         });
@@ -118,7 +194,7 @@ export class UserService extends BaseService {
         },
       };
     } catch (error) {
-       throw new AppError(error, 500);
+      throw new AppError(error, 500);
     }
   }
 
@@ -175,8 +251,12 @@ export class UserService extends BaseService {
             photo: userData.photo,
             branchId: userData.company?.branchId,
             industry,
+            companyId: userData.company?.companyId || null,
             companyName: userData.company?.company?.name || null,
             mrcNo: userData.mrcNo,
+            canSwitchCompany: allRoles.some(
+              (r) => r === roles.ADMIN || r === roles.DEVELOPER,
+            ),
           },
         };
       }
@@ -255,6 +335,7 @@ export class UserService extends BaseService {
       if (errors[0]) {
         throw new ValidationError(errors);
       }
+      assertAssignablePlatformRole(user.role);
       const hashedPassword = await hash("Password123!", 10);
       const createdUser = await prisma.user.create({
         data: {
@@ -290,6 +371,7 @@ export class UserService extends BaseService {
       if (errors[0]) {
         throw new ValidationError(errors);
       }
+      assertAssignablePlatformRole(user.role);
 
       const updatedUser = await prisma.user.update({
         where: { id },
@@ -411,18 +493,13 @@ export class UserService extends BaseService {
   }
   public static async deleteUser(id: string) {
     try {
-      // Check if the user exists and include related records
       const user = await prisma.user.findUnique({
         where: { id },
         include: {
           userRoles: true,
-          likes: true,
-          testimonials: true,
-          agents: {
-            include: {
-              agentReviews: true,
-            },
-          },
+          company: true,
+          clinicUserRoles: true,
+          providers: true,
         },
       });
 
@@ -431,38 +508,27 @@ export class UserService extends BaseService {
       }
 
       await prisma.$transaction(async (tx) => {
-        // Delete the user's likes
-        await tx.likes.deleteMany({
+        // Unlink clinic provider profiles (keep provider records / clinical history)
+        await tx.provider.updateMany({
+          where: { userId: id },
+          data: { userId: null },
+        });
+
+        await tx.clinicUserRole.deleteMany({
           where: { userId: id },
         });
 
-        // Delete the user's testimonials
-        await tx.testimony.deleteMany({
-          where: { userId: id },
-        });
-
-        // Delete the user's agent reviews if they exist
-        for (const agent of user.agents) {
-          if (agent.agentReviews) {
-            await tx.agentReview.delete({
-              where: { id: agent.agentReviews.id },
-            });
-          }
-        }
-
-        // Delete the user's agent records
-        if (user.agents.length > 0) {
-          await tx.agents.deleteMany({
+        if (user.company) {
+          await tx.companyUser.delete({
             where: { userId: id },
           });
         }
 
-        // Delete the user's roles
         await tx.userRole.deleteMany({
           where: { userId: id },
         });
 
-        // Delete the user
+        // Notification + ResetToken cascade via schema onDelete
         await tx.user.delete({
           where: { id },
         });
@@ -579,6 +645,9 @@ export class UserService extends BaseService {
           photo: user.photo,
           roles: userRoles,
           companyName: user.company?.company?.name || null,
+          isVatRegistered: user.company?.company?.isVatRegistered === true,
+          allowVatModeSwitch:
+            user.company?.company?.allowVatModeSwitch === true,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           mrcNo: user.mrcNo,
@@ -673,5 +742,79 @@ export class UserService extends BaseService {
     } catch (error) {
       throw new AppError(error, 500);
     }
+  }
+
+  /**
+   * Platform ADMIN/DEVELOPER: resolve tenant context for a company switch.
+   * Actual request scoping uses X-Active-Company-Id header (see authentication.ts).
+   */
+  public static async switchCompany(req: Request, companyId: string) {
+    const roleNames = (req.user?.userRoles || []).map((r) => r.name);
+    if (!roleNames.some((r) => r === roles.ADMIN || r === roles.DEVELOPER)) {
+      throw new AppError("Only platform admin/developer can switch company", 403);
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        TIN: true,
+        isActive: true,
+      },
+    });
+
+    if (!company) {
+      throw new AppError("Company not found", 404);
+    }
+
+    return {
+      message: `Switched to ${company.name}`,
+      statusCode: 200,
+      data: {
+        companyId: company.id,
+        companyName: company.name,
+        industry: company.industry,
+        TIN: company.TIN,
+        isActive: company.isActive,
+      },
+    };
+  }
+
+  public static async listSwitchableCompanies(req: Request, searchq?: string) {
+    const roleNames = (req.user?.userRoles || []).map((r) => r.name);
+    if (!roleNames.some((r) => r === roles.ADMIN || r === roles.DEVELOPER)) {
+      throw new AppError("Only platform admin/developer can list companies", 403);
+    }
+
+    const where = searchq
+      ? {
+          OR: [
+            { name: { contains: searchq, mode: "insensitive" as const } },
+            { TIN: { contains: searchq, mode: "insensitive" as const } },
+            { email: { contains: searchq, mode: "insensitive" as const } },
+          ],
+        }
+      : {};
+
+    const companies = await prisma.company.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        industry: true,
+        TIN: true,
+        isActive: true,
+      },
+      orderBy: { name: "asc" },
+      take: 100,
+    });
+
+    return {
+      message: "Companies fetched",
+      statusCode: 200,
+      data: companies,
+    };
   }
 }

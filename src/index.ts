@@ -13,31 +13,43 @@ import cors from "cors";
 import { TUser } from "./utils/interfaces/common";
 import AppError, { ValidationError } from "./utils/error";
 import { NotificationService } from "./services/NotificationService";
-import cron from "node-cron";
-import { PaymentService } from "./services/PaymentService";
-import { SubscriptionService } from "./services/SubscriptionService";
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { verifyToken } from "./utils/jwt";
 import { errorHandler } from "./middlewares/errorHandler";
 import { startEbmNoticesCron } from "./jobs/ebmNoticesJob";
+import {
+  isPaypackWebhookPath,
+  paypackWebhookRawBody,
+} from "./middlewares/paypackWebhookRawBody";
 
 declare module "express" {
   interface Request {
     user?: TUser;
+    rawBody?: Buffer;
   }
 }
 
 const app = express();
 const PORT = process.env.PORT || 9000;
-app.use(
-  urlencoded({
-    extended: true,
-  }),
-);
 
-app.use(json());
-app.use(cors());
+// Oazis pattern: skip JSON parser for Paypack webhook so HMAC uses exact raw bytes
+const jsonParser = json();
+const urlencodedParser = urlencoded({ extended: true });
+
+app.use((req, res, next) => {
+  if (isPaypackWebhookPath(req)) return next();
+  return urlencodedParser(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (isPaypackWebhookPath(req)) return next();
+  return jsonParser(req, res, next);
+});
+
+app.use("/api/payments/paypack/webhook", paypackWebhookRawBody);
+
+app.use(cors({ exposedHeaders: ["Content-Disposition"] }));
 app.use("/docs", swaggerUi.serve, async (_req: ExRequest, res: ExResponse) => {
   return res.send(
     //@ts-ignore
@@ -180,46 +192,11 @@ io.on("connection", async (socket) => {
   });
 });
 
-// Register EBM notices cron job
-startEbmNoticesCron(io);
-
 RegisterRoutes(app);
-
-// Schedule the synchronization to run every minute
-cron.schedule("* * * * *", async () => {
-  console.log("Running payment synchronization...");
-  try {
-    const result = await PaymentService.syncAllPaymentsWithTransactions();
-    console.log(result.message);
-  } catch (error) {
-    console.error("Error during payment synchronization:", error);
-  }
-});
-
-// Run subscription scheduled tasks once at startup and then daily at midnight
-(async () => {
-  try {
-    console.log("Running subscription scheduled tasks at startup...");
-    await SubscriptionService.runScheduledSubscriptionTasks(io);
-  } catch (err) {
-    console.error(
-      "Error running subscription scheduled tasks at startup:",
-      err,
-    );
-  }
-})();
-
-cron.schedule("0 0 * * *", async () => {
-  console.log("Running daily subscription scheduled tasks...");
-  try {
-    await SubscriptionService.runScheduledSubscriptionTasks(io);
-  } catch (err) {
-    console.error("Error running subscription scheduled tasks:", err);
-  }
-});
 
 app.use(errorHandler);
 
+startEbmNoticesCron(io);
 
 server.listen(PORT, () =>
   console.log(`API running on PORT http://localhost:${PORT} wow!s`),

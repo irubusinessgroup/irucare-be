@@ -1,12 +1,15 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import type { Request } from "express";
 import { assertCompanyExists } from "../utils/validators";
 import * as XLSX from "xlsx";
+import { Decimal } from "@prisma/client/runtime/library";
 import { ItemCodeGenerator } from "../utils/itemCodeGenerator";
 import { applyMarkup } from "../utils/pricing";
-import { DirectStockAdditionRequest, IPaged } from "../utils/interfaces/common";
+import { DirectStockAdditionRequest } from "../utils/interfaces/common";
 import { StockService } from "./StockService";
+import { EbmService } from "./EbmService";
 
 export class InventoryService {
   public static async getInventory(
@@ -21,95 +24,129 @@ export class InventoryService {
     }
     await assertCompanyExists(companyId);
 
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
     const searchCondition = searchq
       ? {
           OR: [
             { itemFullName: { contains: searchq } },
             { itemCodeSku: { contains: searchq } },
-            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : {};
 
     const branchId = req.user?.branchId;
-    const items = await prisma.items.findMany({
-      where: {
-        companyId,
-        ...(branchId ? { branchId } : {}),
-        OR: [{ isStockItem: true }, { isStockItem: null }],
-        stockReceipts: {
-          some: {
-            ...(branchId ? { branchId } : {}),
-            OR: [
-              { approvals: { some: { approvalStatus: "APPROVED" } } },
-              { receiptType: "DIRECT_ADDITION" },
-              { receiptType: "DELIVERY" },
-              { receiptType: "REFUND" },
-            ],
-          },
-        },
-        ...searchCondition,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryName: true,
-          },
-        },
-        stockReceipts: {
-          where: {
-            ...(branchId ? { branchId } : {}),
-            OR: [
-              { approvals: { some: { approvalStatus: "APPROVED" } } },
-              { receiptType: "DIRECT_ADDITION" },
-              { receiptType: "DELIVERY" },
-              { receiptType: "REFUND" },
-            ],
-          },
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                supplierName: true,
-              },
-            },
-            warehouse: true,
-            stocks: {
-              where: {
-                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
-              },
-              select: {
-                id: true,
-                status: true,
-              },
-            },
-            approvals: {
-              where: { approvalStatus: "APPROVED" },
-              orderBy: { dateApproved: "desc" },
-              take: 1,
-              select: {
-                ExpectedSellPrice: true,
-                dateApproved: true,
-                approvedByUser: { select: { firstName: true, lastName: true } },
-              },
-            },
-          },
+    const where: any = {
+      companyId,
+      ...(branchId ? { branchId } : {}),
+      OR: [{ isStockItem: true }, { isStockItem: null }],
+      stockReceipts: {
+        some: {
+          ...(branchId ? { branchId } : {}),
+          OR: [
+            { approvals: { some: { approvalStatus: "APPROVED" } } },
+            { receiptType: "DIRECT_ADDITION" },
+            { receiptType: "DELIVERY" },
+            { receiptType: "REFUND" },
+          ],
         },
       },
-      orderBy: { updatedAt: "desc" },
-    });
+      ...searchCondition,
+    };
+
+    const [items, totalItems] = await Promise.all([
+      prisma.items.findMany({
+        where,
+        select: {
+          id: true,
+          itemCodeSku: true,
+          productCode: true,
+          itemFullName: true,
+          minLevel: true,
+          maxLevel: true,
+          insurancePrice: true,
+          category: {
+            select: {
+              id: true,
+              categoryName: true,
+            },
+          },
+          stockReceipts: {
+            where: {
+              ...(branchId ? { branchId } : {}),
+              OR: [
+                { approvals: { some: { approvalStatus: "APPROVED" } } },
+                { receiptType: "DIRECT_ADDITION" },
+                { receiptType: "DELIVERY" },
+                { receiptType: "REFUND" },
+              ],
+            },
+            select: {
+              id: true,
+              dateReceived: true,
+              expiryDate: true,
+              quantityReceived: true,
+              totalCost: true,
+              currency: true,
+              condition: true,
+              tempReq: true,
+              uom: true,
+              packSize: true,
+              supplier: {
+                select: {
+                  id: true,
+                  supplierName: true,
+                },
+              },
+              warehouse: true,
+              stocks: {
+                where: {
+                  status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+                },
+                select: {
+                  id: true,
+                },
+              },
+              approvals: {
+                where: { approvalStatus: "APPROVED" },
+                orderBy: { dateApproved: "desc" },
+                take: 1,
+                select: {
+                  ExpectedSellPrice: true,
+                  dateApproved: true,
+                  approvedByUser: {
+                    select: { firstName: true, lastName: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+        skip,
+        take: limitNum,
+        orderBy: { updatedAt: "desc" },
+      }),
+      prisma.items.count({ where }),
+    ]);
 
     const inventoryData = items.map((item) => {
-      const totalCurrentStock = item.stockReceipts.reduce((total, receipt) => {
-        return total + receipt.stocks.length;
-      }, 0);
+      const totalCurrentStock = item.stockReceipts.reduce(
+        (total, receipt) => total + receipt.stocks.length,
+        0,
+      );
 
-      const latestReceipt = item.stockReceipts.reduce((latest, current) => {
-        return new Date(current.dateReceived) > new Date(latest.dateReceived)
-          ? current
-          : latest;
-      }, item.stockReceipts[0]);
+      const latestReceipt = item.stockReceipts.reduce(
+        (latest, current) =>
+          new Date(current.dateReceived) > new Date(latest.dateReceived)
+            ? current
+            : latest,
+        item.stockReceipts[0],
+      );
+
+      const warehouseReceipt =
+        item.stockReceipts.find((r) => r.warehouse) || latestReceipt;
 
       let latestExpectedSellPrice = null;
       let latestApprovalDate: Date | null = null;
@@ -130,9 +167,7 @@ export class InventoryService {
       });
 
       const totalQuantityReceived = item.stockReceipts.reduce(
-        (total, receipt) => {
-          return total + Number(receipt.quantityReceived);
-        },
+        (total, receipt) => total + Number(receipt.quantityReceived),
         0,
       );
 
@@ -184,7 +219,7 @@ export class InventoryService {
         avgUnitCost: avgUnitCost,
         totalValue: totalCurrentStock * avgUnitCost,
         currency: latestReceipt.currency,
-        warehouse: latestReceipt.warehouse,
+        warehouse: warehouseReceipt.warehouse,
         condition: latestReceipt.condition,
         stockStatus,
         minLevel: item.minLevel,
@@ -200,19 +235,159 @@ export class InventoryService {
       };
     });
 
-    const pageNum = Number(page) > 0 ? Number(page) : 1;
-    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
-    const skip = (pageNum - 1) * limitNum;
-
-    const paginatedData = inventoryData.slice(skip, skip + limitNum);
-
     return {
-      data: paginatedData,
-      totalItems: inventoryData.length,
+      data: inventoryData,
+      totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
       message: "Inventory retrieved successfully",
     };
+  }
+
+  /** Export-only: returns ALL inventory items for the company/branch with no pagination.
+   *  Uses the same query and data-mapping as getInventory — just without skip/take.
+   */
+  public static async getAllForExport(req: Request) {
+    const companyId = req.user?.company?.companyId;
+    if (!companyId) throw new AppError("Company ID is missing", 400);
+    await assertCompanyExists(companyId);
+
+    const branchId = req.user?.branchId;
+    const where: any = {
+      companyId,
+      ...(branchId ? { branchId } : {}),
+      OR: [{ isStockItem: true }, { isStockItem: null }],
+      stockReceipts: {
+        some: {
+          ...(branchId ? { branchId } : {}),
+          OR: [
+            { approvals: { some: { approvalStatus: "APPROVED" } } },
+            { receiptType: "DIRECT_ADDITION" },
+            { receiptType: "DELIVERY" },
+            { receiptType: "REFUND" },
+          ],
+        },
+      },
+    };
+
+    const items = await prisma.items.findMany({
+      where,
+      select: {
+        id: true,
+        itemCodeSku: true,
+        productCode: true,
+        itemFullName: true,
+        minLevel: true,
+        maxLevel: true,
+        insurancePrice: true,
+        category: { select: { id: true, categoryName: true } },
+        stockReceipts: {
+          where: {
+            ...(branchId ? { branchId } : {}),
+            OR: [
+              { approvals: { some: { approvalStatus: "APPROVED" } } },
+              { receiptType: "DIRECT_ADDITION" },
+              { receiptType: "DELIVERY" },
+              { receiptType: "REFUND" },
+            ],
+          },
+          select: {
+            dateReceived: true,
+            expiryDate: true,
+            quantityReceived: true,
+            totalCost: true,
+            currency: true,
+            condition: true,
+            supplier: { select: { id: true, supplierName: true } },
+            warehouse: true,
+            stocks: {
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+              },
+              select: { id: true },
+            },
+            approvals: {
+              where: { approvalStatus: "APPROVED" },
+              orderBy: { dateApproved: "desc" },
+              take: 1,
+              select: {
+                ExpectedSellPrice: true,
+                dateApproved: true,
+                approvedByUser: { select: { firstName: true, lastName: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { itemFullName: "asc" },
+    });
+
+    const data = items.map((item) => {
+      const totalCurrentStock = item.stockReceipts.reduce(
+        (t, r) => t + r.stocks.length,
+        0,
+      );
+      const latestReceipt = item.stockReceipts.reduce(
+        (latest, current) =>
+          new Date(current.dateReceived) > new Date(latest.dateReceived)
+            ? current
+            : latest,
+        item.stockReceipts[0],
+      );
+      const warehouseReceipt =
+        item.stockReceipts.find((r) => r.warehouse) || latestReceipt;
+
+      let latestExpectedSellPrice = null;
+      let latestApprovalDate: Date | null = null;
+      item.stockReceipts.forEach((receipt) => {
+        if (receipt.approvals[0]) {
+          const approval = receipt.approvals[0];
+          if (
+            !latestApprovalDate ||
+            new Date(approval.dateApproved) > new Date(latestApprovalDate)
+          ) {
+            latestExpectedSellPrice = approval.ExpectedSellPrice;
+            latestApprovalDate = approval.dateApproved;
+          }
+        }
+      });
+
+      const minLevel = Number(item.minLevel);
+      const maxLevel = Number(item.maxLevel);
+      let stockStatus = "NORMAL";
+      if (totalCurrentStock <= minLevel) stockStatus = "LOW_STOCK";
+      else if (totalCurrentStock >= maxLevel) stockStatus = "OVER_STOCK";
+
+      const earliestExpiry = item.stockReceipts.reduce(
+        (earliest, receipt) => {
+          if (!receipt.expiryDate) return earliest;
+          if (!earliest) return receipt.expiryDate;
+          return new Date(receipt.expiryDate) < new Date(earliest)
+            ? receipt.expiryDate
+            : earliest;
+        },
+        null as Date | null,
+      );
+
+      return {
+        productCode: item.productCode,
+        itemFullName: item.itemFullName,
+        category: item.category,
+        primarySupplier: latestReceipt?.supplier?.supplierName,
+        currentStock: totalCurrentStock,
+        minLevel: item.minLevel,
+        maxLevel: item.maxLevel,
+        stockStatus,
+        expectedSellPrice: latestExpectedSellPrice,
+        insurancePrice: item.insurancePrice,
+        currency: latestReceipt?.currency,
+        warehouse: warehouseReceipt?.warehouse,
+        condition: latestReceipt?.condition,
+        expiryDate: earliestExpiry,
+      };
+    });
+
+    return { data, totalItems: data.length, message: "Inventory export ready" };
   }
 
   public static async getExpiringItems(
@@ -227,6 +402,10 @@ export class InventoryService {
     }
     await assertCompanyExists(companyId);
 
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
     const now = new Date();
     const threeMonthsFromNow = new Date();
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
@@ -236,89 +415,110 @@ export class InventoryService {
           OR: [
             { itemFullName: { contains: searchq } },
             { itemCodeSku: { contains: searchq } },
-            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : {};
 
     const branchId = req.user?.branchId;
-    const items = await prisma.items.findMany({
-      where: {
-        companyId,
-        ...(branchId ? { branchId } : {}),
-        OR: [{ isStockItem: true }, { isStockItem: null }],
-        stockReceipts: {
-          some: {
-            ...(branchId ? { branchId } : {}),
-            OR: [
-              { approvals: { some: { approvalStatus: "APPROVED" } } },
-              { receiptType: "DIRECT_ADDITION" },
-              { receiptType: "DELIVERY" },
-              { receiptType: "REFUND" },
-            ],
-            expiryDate: {
-              not: null,
-              gt: now,
-              lte: threeMonthsFromNow,
-            },
+    const where: any = {
+      companyId,
+      ...(branchId ? { branchId } : {}),
+      OR: [{ isStockItem: true }, { isStockItem: null }],
+      stockReceipts: {
+        some: {
+          ...(branchId ? { branchId } : {}),
+          OR: [
+            { approvals: { some: { approvalStatus: "APPROVED" } } },
+            { receiptType: "DIRECT_ADDITION" },
+            { receiptType: "DELIVERY" },
+            { receiptType: "REFUND" },
+          ],
+          expiryDate: {
+            not: null,
+            gt: now,
+            lte: threeMonthsFromNow,
           },
-        },
-        ...searchCondition,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryName: true,
-          },
-        },
-        stockReceipts: {
-          where: {
-            ...(branchId ? { branchId } : {}),
-            OR: [
-              { approvals: { some: { approvalStatus: "APPROVED" } } },
-              { receiptType: "DIRECT_ADDITION" },
-              { receiptType: "DELIVERY" },
-              { receiptType: "REFUND" },
-            ],
-            expiryDate: {
-              not: null,
-              gt: now,
-              lte: threeMonthsFromNow,
-            },
-          },
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                supplierName: true,
-              },
-            },
-            warehouse: true,
-            stocks: {
-              where: {
-                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
-              },
-              select: {
-                id: true,
-                status: true,
-              },
-            },
-            approvals: {
-              where: { approvalStatus: "APPROVED" },
-              orderBy: { dateApproved: "desc" },
-              take: 1,
-              select: {
-                ExpectedSellPrice: true,
-                dateApproved: true,
-                approvedByUser: { select: { firstName: true, lastName: true } },
-              },
-            },
-          },
-          orderBy: { expiryDate: "asc" },
         },
       },
-    });
+      ...searchCondition,
+    };
+
+    const [items, totalItems] = await Promise.all([
+      prisma.items.findMany({
+        where,
+        select: {
+          id: true,
+          productCode: true,
+          itemCodeSku: true,
+          itemFullName: true,
+          insurancePrice: true,
+          category: {
+            select: {
+              id: true,
+              categoryName: true,
+            },
+          },
+          stockReceipts: {
+            where: {
+              ...(branchId ? { branchId } : {}),
+              OR: [
+                { approvals: { some: { approvalStatus: "APPROVED" } } },
+                { receiptType: "DIRECT_ADDITION" },
+                { receiptType: "DELIVERY" },
+                { receiptType: "REFUND" },
+              ],
+              expiryDate: {
+                not: null,
+                gt: now,
+                lte: threeMonthsFromNow,
+              },
+            },
+            select: {
+              dateReceived: true,
+              expiryDate: true,
+              quantityReceived: true,
+              unitCost: true,
+              totalCost: true,
+              currency: true,
+              condition: true,
+              tempReq: true,
+              uom: true,
+              supplier: {
+                select: {
+                  id: true,
+                  supplierName: true,
+                },
+              },
+              warehouse: true,
+              stocks: {
+                where: {
+                  status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+                },
+                select: {
+                  id: true,
+                },
+              },
+              approvals: {
+                where: { approvalStatus: "APPROVED" },
+                orderBy: { dateApproved: "desc" },
+                take: 1,
+                select: {
+                  ExpectedSellPrice: true,
+                  dateApproved: true,
+                  approvedByUser: {
+                    select: { firstName: true, lastName: true },
+                  },
+                },
+              },
+            },
+            orderBy: { expiryDate: "asc" },
+          },
+        },
+        skip,
+        take: limitNum,
+      }),
+      prisma.items.count({ where }),
+    ]);
 
     const expiringData = items.map((item) => {
       const earliestExpiringReceipt = item.stockReceipts[0];
@@ -337,9 +537,10 @@ export class InventoryService {
         urgencyLevel = "MEDIUM";
       }
 
-      const totalCurrentStock = item.stockReceipts.reduce((total, receipt) => {
-        return total + receipt.stocks.length;
-      }, 0);
+      const totalCurrentStock = item.stockReceipts.reduce(
+        (total, receipt) => total + receipt.stocks.length,
+        0,
+      );
 
       let latestExpectedSellPrice = null;
       let latestApprovalDate: Date | null = null;
@@ -360,9 +561,7 @@ export class InventoryService {
       });
 
       const totalQuantityReceived = item.stockReceipts.reduce(
-        (total, receipt) => {
-          return total + Number(receipt.quantityReceived);
-        },
+        (total, receipt) => total + Number(receipt.quantityReceived),
         0,
       );
 
@@ -393,32 +592,9 @@ export class InventoryService {
       };
     });
 
-    type UrgencyLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-
-    const urgencyOrder: Record<UrgencyLevel, number> = {
-      CRITICAL: 0,
-      HIGH: 1,
-      MEDIUM: 2,
-      LOW: 3,
-    };
-
-    expiringData.sort((a, b) => {
-      const urgencyComparison =
-        urgencyOrder[a.urgencyLevel as UrgencyLevel] -
-        urgencyOrder[b.urgencyLevel as UrgencyLevel];
-      if (urgencyComparison !== 0) return urgencyComparison;
-      return a.daysUntilExpiry - b.daysUntilExpiry;
-    });
-
-    const pageNum = Number(page) > 0 ? Number(page) : 1;
-    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
-    const skip = (pageNum - 1) * limitNum;
-
-    const paginatedData = expiringData.slice(skip, skip + limitNum);
-
     return {
-      data: paginatedData,
-      totalItems: expiringData.length,
+      data: expiringData,
+      totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
       message: "Expiring items retrieved successfully",
@@ -437,7 +613,10 @@ export class InventoryService {
     }
     await assertCompanyExists(companyId);
 
-    // use current date to find items that are already expired
+    const pageNum = Number(page) > 0 ? Number(page) : 1;
+    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
+    const skip = (pageNum - 1) * limitNum;
+
     const now = new Date();
 
     const searchCondition = searchq
@@ -445,87 +624,108 @@ export class InventoryService {
           OR: [
             { itemFullName: { contains: searchq } },
             { itemCodeSku: { contains: searchq } },
-            // { brandManufacturer: { contains: searchq } },
           ],
         }
       : {};
 
     const branchId = req.user?.branchId;
-    const items = await prisma.items.findMany({
-      where: {
-        companyId,
-        ...(branchId ? { branchId } : {}),
-        OR: [{ isStockItem: true }, { isStockItem: null }],
-        stockReceipts: {
-          some: {
-            ...(branchId ? { branchId } : {}),
-            OR: [
-              { approvals: { some: { approvalStatus: "APPROVED" } } },
-              { receiptType: "DIRECT_ADDITION" },
-              { receiptType: "DELIVERY" },
-              { receiptType: "REFUND" },
-            ],
-            expiryDate: {
-              not: null,
-              lte: now,
-            },
+    const where: any = {
+      companyId,
+      ...(branchId ? { branchId } : {}),
+      OR: [{ isStockItem: true }, { isStockItem: null }],
+      stockReceipts: {
+        some: {
+          ...(branchId ? { branchId } : {}),
+          OR: [
+            { approvals: { some: { approvalStatus: "APPROVED" } } },
+            { receiptType: "DIRECT_ADDITION" },
+            { receiptType: "DELIVERY" },
+            { receiptType: "REFUND" },
+          ],
+          expiryDate: {
+            not: null,
+            lte: now,
           },
-        },
-        ...searchCondition,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryName: true,
-          },
-        },
-        stockReceipts: {
-          where: {
-            ...(branchId ? { branchId } : {}),
-            OR: [
-              { approvals: { some: { approvalStatus: "APPROVED" } } },
-              { receiptType: "DIRECT_ADDITION" },
-              { receiptType: "DELIVERY" },
-              { receiptType: "REFUND" },
-            ],
-            expiryDate: {
-              not: null,
-              lte: now,
-            },
-          },
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                supplierName: true,
-              },
-            },
-            warehouse: true,
-            stocks: {
-              where: {
-                status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
-              },
-              select: {
-                id: true,
-                status: true,
-              },
-            },
-            approvals: {
-              where: { approvalStatus: "APPROVED" },
-              orderBy: { dateApproved: "desc" },
-              take: 1,
-              select: {
-                ExpectedSellPrice: true,
-                dateApproved: true,
-                approvedByUser: { select: { firstName: true, lastName: true } },
-              },
-            },
-          },
-          orderBy: { expiryDate: "asc" },
         },
       },
-    });
+      ...searchCondition,
+    };
+
+    const [items, totalItems] = await Promise.all([
+      prisma.items.findMany({
+        where,
+        select: {
+          id: true,
+          productCode: true,
+          itemCodeSku: true,
+          itemFullName: true,
+          insurancePrice: true,
+          category: {
+            select: {
+              id: true,
+              categoryName: true,
+            },
+          },
+          stockReceipts: {
+            where: {
+              ...(branchId ? { branchId } : {}),
+              OR: [
+                { approvals: { some: { approvalStatus: "APPROVED" } } },
+                { receiptType: "DIRECT_ADDITION" },
+                { receiptType: "DELIVERY" },
+                { receiptType: "REFUND" },
+              ],
+              expiryDate: {
+                not: null,
+                lte: now,
+              },
+            },
+            select: {
+              dateReceived: true,
+              expiryDate: true,
+              quantityReceived: true,
+              unitCost: true,
+              totalCost: true,
+              currency: true,
+              condition: true,
+              tempReq: true,
+              uom: true,
+              supplier: {
+                select: {
+                  id: true,
+                  supplierName: true,
+                },
+              },
+              warehouse: true,
+              stocks: {
+                where: {
+                  status: { in: ["AVAILABLE", "RESERVED", "IN_TRANSIT"] },
+                },
+                select: {
+                  id: true,
+                },
+              },
+              approvals: {
+                where: { approvalStatus: "APPROVED" },
+                orderBy: { dateApproved: "desc" },
+                take: 1,
+                select: {
+                  ExpectedSellPrice: true,
+                  dateApproved: true,
+                  approvedByUser: {
+                    select: { firstName: true, lastName: true },
+                  },
+                },
+              },
+            },
+            orderBy: { expiryDate: "asc" },
+          },
+        },
+        skip,
+        take: limitNum,
+      }),
+      prisma.items.count({ where }),
+    ]);
 
     const expiringData = items.map((item) => {
       const earliestExpiringReceipt = item.stockReceipts[0];
@@ -545,9 +745,10 @@ export class InventoryService {
         urgencyLevel = "MEDIUM";
       }
 
-      const totalCurrentStock = item.stockReceipts.reduce((total, receipt) => {
-        return total + receipt.stocks.length;
-      }, 0);
+      const totalCurrentStock = item.stockReceipts.reduce(
+        (total, receipt) => total + receipt.stocks.length,
+        0,
+      );
 
       let latestExpectedSellPrice = null;
       let latestApprovalDate: Date | null = null;
@@ -568,9 +769,7 @@ export class InventoryService {
       });
 
       const totalQuantityReceived = item.stockReceipts.reduce(
-        (total, receipt) => {
-          return total + Number(receipt.quantityReceived);
-        },
+        (total, receipt) => total + Number(receipt.quantityReceived),
         0,
       );
 
@@ -601,32 +800,9 @@ export class InventoryService {
       };
     });
 
-    type UrgencyLevel = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
-
-    const urgencyOrder: Record<UrgencyLevel, number> = {
-      CRITICAL: 0,
-      HIGH: 1,
-      MEDIUM: 2,
-      LOW: 3,
-    };
-
-    expiringData.sort((a, b) => {
-      const urgencyComparison =
-        urgencyOrder[a.urgencyLevel as UrgencyLevel] -
-        urgencyOrder[b.urgencyLevel as UrgencyLevel];
-      if (urgencyComparison !== 0) return urgencyComparison;
-      return a.daysUntilExpiry - b.daysUntilExpiry;
-    });
-
-    const pageNum = Number(page) > 0 ? Number(page) : 1;
-    const limitNum = Number(limit) > 0 ? Number(limit) : 15;
-    const skip = (pageNum - 1) * limitNum;
-
-    const paginatedData = expiringData.slice(skip, skip + limitNum);
-
     return {
-      data: paginatedData,
-      totalItems: expiringData.length,
+      data: expiringData,
+      totalItems,
       currentPage: pageNum,
       itemsPerPage: limitNum,
       message: "Expired items retrieved successfully",
@@ -647,28 +823,43 @@ export class InventoryService {
       throw new AppError("User ID is missing", 400);
     }
 
-    return await prisma.$transaction(async (tx) => {
-      const item = await tx.items.findFirst({
-        where: {
-          id: stockData.itemId,
-          companyId: companyId,
-        },
-      });
+    const branchId = req.user?.branchId;
 
-      if (!item) {
-        throw new AppError(
-          "Item not found or doesn't belong to your company",
-          404,
-        );
-      }
+    // ─────────────────────────────────────────────────────────────────────
+    // PRE-TRANSACTION: validate the item exists (read before opening tx)
+    // ─────────────────────────────────────────────────────────────────────
+    const item = await prisma.items.findFirst({
+      where: { id: stockData.itemId, companyId },
+    });
 
-      const totalCost = stockData.unitCost * stockData.quantityReceived;
+    if (!item) {
+      throw new AppError(
+        "Item not found or doesn't belong to your company",
+        404,
+      );
+    }
 
-      const branchId = req.user?.branchId;
+    const totalCost = stockData.unitCost * stockData.quantityReceived;
+
+    // PRE-TRANSACTION: calculate sell price (read before opening tx)
+    const companyTools = await prisma.companyTools.findFirst({
+      where: { companyId },
+    });
+    const markupPercentage = Number(companyTools?.markupPrice || 0);
+    const calculatedSellPrice = applyMarkup(
+      stockData.unitCost,
+      markupPercentage,
+    );
+
+    // ─────────────────────────────────────────────────────────────────────
+    // TRANSACTION: 3 pure writes only — receipt, approval, item flag.
+    // No reads, no external API calls. Completes in < 300 ms.
+    // ─────────────────────────────────────────────────────────────────────
+    const stockReceiptId = await prisma.$transaction(async (tx) => {
       const stockReceipt = await tx.stockReceipts.create({
         data: {
           itemId: stockData.itemId,
-          companyId: companyId,
+          companyId,
           branchId: branchId as any,
           supplierId: stockData.supplierId,
           dateReceived: new Date(stockData.dateReceived),
@@ -677,56 +868,50 @@ export class InventoryService {
             : null,
           quantityReceived: stockData.quantityReceived,
           unitCost: stockData.unitCost,
-          totalCost: totalCost,
+          totalCost,
           packSize: stockData.packSize,
           uom: stockData.uom,
           tempReq: stockData.tempReq,
           currency: stockData.currency,
           condition: stockData.condition,
-          // Normalize empty string to null so the foreign key constraint is not violated
-          warehouseId: stockData.warehouseId ? stockData.warehouseId : null,
+          warehouseId: stockData.warehouseId || null,
           specialHandlingNotes: stockData.specialHandlingNotes,
           remarksNotes: `${stockData.reason}${stockData.remarksNotes ? ` | ${stockData.remarksNotes}` : ""}`,
           receiptType: "DIRECT_ADDITION",
-          purchaseOrderId: null,
-          purchaseOrderItemId: null,
           invoiceNo: null,
         },
       });
-
-      // Fetch company tools for markup
-      const companyTools = await tx.companyTools.findFirst({
-        where: { companyId },
-      });
-      const markupPercentage = Number(companyTools?.markupPrice || 0);
-      const calculatedSellPrice = applyMarkup(
-        stockData.unitCost,
-        markupPercentage,
-      );
 
       await tx.approvals.create({
         data: {
           stockReceiptId: stockReceipt.id,
           approvedByUserId: userId,
-          approvalStatus: "APPROVED", // Directly approved
+          approvalStatus: "APPROVED",
           ExpectedSellPrice: calculatedSellPrice,
           dateApproved: new Date(),
           comments: stockData.reason,
         },
       });
 
-      await StockService.addToStock(stockReceipt.id, tx, userId);
-
       await tx.items.update({
         where: { id: stockData.itemId },
         data: { isStockItem: true },
       });
 
-      return {
-        stockReceipt,
-        message: "Stock added directly to inventory successfully",
-      };
-    });
+      return stockReceipt.id;
+    }); // 3 pure writes — safe within default 5 s timeout
+
+    // ─────────────────────────────────────────────────────────────────────
+    // POST-TRANSACTION: EBM registration + stock unit creation.
+    // StockService.addToStock makes an EBM HTTP call — running it OUTSIDE
+    // the transaction prevents DB timeout if EBM is slow.
+    // ─────────────────────────────────────────────────────────────────────
+    await StockService.addToStock(stockReceiptId, undefined, userId);
+
+    return {
+      stockReceiptId,
+      message: "Stock added directly to inventory successfully",
+    };
   }
   public static async downloadStockTemplate() {
     // Headers requested: NO, ITEM NAME, TAX CODE, QTIES, UNIT COST, TOTAL COST, UNIT PRICE, TOTAL PRICE
@@ -1014,8 +1199,10 @@ export class InventoryService {
         try {
           const itemCode = await ItemCodeGenerator.generate(categoryId);
           // Generate product code for the new item
-          const { productCode } = await (await import("./ItemService")).ItemService.generateProductCode(companyId);
-          
+          const { productCode } = await (
+            await import("./ItemService")
+          ).ItemService.generateProductCode(companyId);
+
           // Register with EBM before creating locally
           let ebmSynced = false;
           if (company && user) {
@@ -1026,24 +1213,23 @@ export class InventoryService {
               taxCode: ["A", "B"].includes(taxCode) ? taxCode : "A",
               taxRate,
             };
-            
+
             const { EbmService } = await import("./EbmService");
-            // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
-            // const ebmResponse = await EbmService.saveItemToEBM(
-            //   itemData,
-            //   company,
-            //   user,
-            //   branchId,
-            // );
-            //
-            // if (ebmResponse.resultCd === "000") {
-            //   ebmSynced = true;
-            // } else {
-            //   console.warn(`EBM registration failed for ${repRow!.itemName}: ${ebmResponse.resultMsg}`);
-            //   // Continue anyway, but mark as not synced
-            // }
-            // Mock not synced for now
-            ebmSynced = false;
+            const ebmResponse = await EbmService.saveItemToEBM(
+              itemData,
+              company,
+              user,
+              branchId,
+            );
+
+            if (ebmResponse.resultCd === "000") {
+              ebmSynced = true;
+            } else {
+              console.warn(
+                `EBM registration failed for ${repRow!.itemName}: ${ebmResponse.resultMsg}`,
+              );
+              // Continue anyway, but mark as not synced
+            }
           }
 
           const newItem = await prisma.items.create({
@@ -1071,76 +1257,99 @@ export class InventoryService {
       }
     }
 
-    // 2. Process Transactions in Batches
-    // We group rows into chunks (e.g., 50 rows per transaction) to manage memory and connections.
+    // ─────────────────────────────────────────────────────────────────────
+    // 2. Process DB writes in batches, EBM + stock-unit creation AFTER each batch
+    //
+    // Pattern mirrors SellService.createSell:
+    //   TRANSACTION  → pure writes only  (receipt + approval + item flag)
+    //   POST-TX      → addToStock per receipt (EBM HTTP call + stock.createMany)
+    //
+    // Why: StockService.addToStock calls EbmService.saveStockToEBM (external
+    // HTTP). Holding a Prisma transaction open during a network call causes the
+    // 5 s default timeout to fire on any slow EBM response.
+    // ─────────────────────────────────────────────────────────────────────
     const BATCH_SIZE = 50;
     let successfulImports = 0;
 
     for (let i = 0; i < validRows.length; i += BATCH_SIZE) {
       const batch = validRows.slice(i, i + BATCH_SIZE);
 
+      // Step A: commit all DB writes for this batch atomically (no EBM calls)
+      let batchReceiptIds: string[] = [];
       try {
-        await prisma.$transaction(
-          async (tx) => {
-            for (const row of batch) {
-              const itemId = itemMap.get(row.itemName.toLowerCase());
-              if (!itemId) {
-                // Should have been created, if missing -> skip/error
-                throw new Error(`Item ${row.itemName} could not be resolved`);
-              }
+        batchReceiptIds = await prisma.$transaction(async (tx) => {
+          const ids: string[] = [];
 
-              // Create Receipt
-              const receipt = await tx.stockReceipts.create({
-                data: {
-                  itemId,
-                  companyId,
-                  branchId: branchId as any,
-                  dateReceived: new Date(),
-                  quantityReceived: row.quantity,
-                  unitCost: row.unitCost,
-                  totalCost: row.totalCost,
-                  receiptType: "DIRECT_ADDITION",
-                  remarksNotes: `Bulk Import - ${row.itemName}`,
-                },
-              });
-
-              // Create Approval
-              await tx.approvals.create({
-                data: {
-                  stockReceiptId: receipt.id,
-                  approvedByUserId: userId,
-                  approvalStatus: "APPROVED",
-                  ExpectedSellPrice: row.unitPrice,
-                  dateApproved: new Date(),
-                  comments: "Auto-approved via Bulk Import",
-                },
-              });
-
-              await StockService.addToStock(receipt.id, tx, userId);
-
-              await tx.items.update({
-                where: { id: itemId },
-                data: { isStockItem: true },
-              });
+          for (const row of batch) {
+            const itemId = itemMap.get(row.itemName.toLowerCase());
+            if (!itemId) {
+              throw new Error(`Item ${row.itemName} could not be resolved`);
             }
-          },
-          {
-            timeout: 20000, // Increase timeout for batch
-            maxWait: 5000,
-          },
-        );
+
+            // Create Receipt
+            const receipt = await tx.stockReceipts.create({
+              data: {
+                itemId,
+                companyId,
+                branchId: branchId as any,
+                dateReceived: new Date(),
+                quantityReceived: row.quantity,
+                unitCost: row.unitCost,
+                totalCost: row.totalCost,
+                receiptType: "DIRECT_ADDITION",
+                remarksNotes: `Bulk Import - ${row.itemName}`,
+              },
+            });
+
+            // Create Approval
+            await tx.approvals.create({
+              data: {
+                stockReceiptId: receipt.id,
+                approvedByUserId: userId,
+                approvalStatus: "APPROVED",
+                ExpectedSellPrice: row.unitPrice,
+                dateApproved: new Date(),
+                comments: "Auto-approved via Bulk Import",
+              },
+            });
+
+            await tx.items.update({
+              where: { id: itemId },
+              data: { isStockItem: true },
+            });
+
+            ids.push(receipt.id);
+          }
+
+          return ids;
+        }); // pure writes — safe within default 5 s timeout
+
         successfulImports += batch.length;
       } catch (err: any) {
-        // If batch fails, log individual errors?
-        // With transactions, the whole batch rolls back.
-        // We add a generic error for the batch rows.
+        // Entire batch rolled back — record errors for each row
         batch.forEach((row) => {
           errors.push({
             row: row.rowNum,
-            message: `Batch import failed: ${err.message}`,
+            message: `Batch DB write failed: ${err.message}`,
             item: row.itemName,
           });
         });
+        continue; // skip addToStock for this batch since nothing was committed
+      }
+
+      // Step B: EBM registration + stock unit creation, one receipt at a time.
+      // Running outside the transaction — a slow/failing EBM call no longer
+      // blocks or rolls back the DB writes above.
+      for (const receiptId of batchReceiptIds) {
+        try {
+          await StockService.addToStock(receiptId, undefined, userId);
+        } catch (err: any) {
+          console.error(
+            `[importStock] addToStock failed for receipt ${receiptId}: ${err.message}`,
+          );
+          // Stock record is committed; EBM can be re-synced later.
+          // We don't roll back or decrement successfulImports here.
+        }
       }
     }
 
@@ -1151,6 +1360,343 @@ export class InventoryService {
         successful: successfulImports,
         failed: errors.length,
         errors: errors.slice(0, 100), // Limit error output size
+      },
+    };
+  }
+
+  /**
+   * Syncs the current master inventory (rsdQty = Remain Quantity) of all products
+   * with the EBM RRA server via the /stockMaster/saveStockMaster endpoint.
+   *
+   * IMPORTANT: This also activates any pending EBM stock (status = PENDING_EBM_SYNC)
+   * and makes it available for sale.
+   */
+  public static async syncEbmStockMaster(
+    companyId: string,
+    userId: string,
+    branchId: string | null,
+    itemIds?: string[],
+  ): Promise<any> {
+    await assertCompanyExists(companyId);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, TIN: true },
+    });
+
+    if (!company?.TIN) {
+      throw new AppError("Company TIN is missing", 400);
+    }
+
+    // STEP 1: Find all pending stock receipts (ebmSynced = false)
+    const pendingReceipts = await prisma.stockReceipts.findMany({
+      where: {
+        companyId,
+        ebmSynced: false,
+        ...(itemIds?.length ? { itemId: { in: itemIds } } : {}),
+      },
+      include: {
+        stocks: {
+          where: { status: "PENDING_EBM_SYNC" },
+        },
+        item: true,
+      },
+    });
+
+    console.log(
+      `[EBM Sync] Found ${pendingReceipts.length} pending receipts to activate`,
+    );
+
+    // Get all items that are stocked and have a product code
+    const items = await prisma.items.findMany({
+      where: {
+        companyId,
+        ...(branchId ? { branchId } : {}),
+        productCode: { not: null },
+        ...(itemIds?.length ? { id: { in: itemIds } } : {}),
+      },
+      include: {
+        stockReceipts: {
+          include: {
+            stocks: {
+              where: {
+                status: { in: ["AVAILABLE", "RESERVED", "PENDING_EBM_SYNC"] },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const results = [];
+    let successCount = 0;
+    let failCount = 0;
+    let activatedCount = 0;
+
+    // Loop through each product to calculate Remain Quantity (rsdQty)
+    for (const item of items) {
+      if (!item.productCode) continue;
+
+      // Calculate total quantity including pending
+      const rsdQty = item.stockReceipts.reduce((sum, receipt) => {
+        return (
+          sum +
+          receipt.stocks.reduce(
+            (stockSum, stock) => stockSum + Number(stock.quantityAvailable),
+            0,
+          )
+        );
+      }, 0);
+
+      if (rsdQty > 0) {
+        try {
+          // ALWAYS activate local stock for pending receipts related to this item FIRST
+          // to ensure local app stays usable even if EBM is offline or throws errors.
+          const itemPendingReceipts = pendingReceipts.filter(
+            (r) => r.itemId === item.id,
+          );
+
+          let expectedSellPrice = 0;
+
+          for (const receipt of itemPendingReceipts) {
+            // Update stock status from PENDING_EBM_SYNC to AVAILABLE
+            const updatedStocks = await prisma.stock.updateMany({
+              where: {
+                stockReceiptId: receipt.id,
+                status: "PENDING_EBM_SYNC",
+              },
+              data: {
+                status: "AVAILABLE",
+              },
+            });
+
+            // Update receipt ebmSynced flag
+            await prisma.stockReceipts.update({
+              where: { id: receipt.id },
+              data: { ebmSynced: true },
+            });
+
+            // --- PRICING LOGIC ---
+            const approvalRec = await prisma.approvals.findFirst({
+              where: { stockReceiptId: receipt.id },
+              orderBy: { dateApproved: "desc" },
+            });
+
+            expectedSellPrice =
+              Number(approvalRec?.ExpectedSellPrice) || expectedSellPrice;
+
+            if (approvalRec && approvalRec.approvalStatus === "PENDING") {
+              await prisma.approvals.update({
+                where: { id: approvalRec.id },
+                data: { approvalStatus: "APPROVED", dateApproved: new Date() },
+              });
+            }
+
+            if (expectedSellPrice) {
+              const allReceipts = await prisma.stockReceipts.findMany({
+                where: { itemId: item.id },
+                select: { id: true },
+              });
+              const receiptIds = allReceipts.map((r: any) => r.id);
+
+              await prisma.approvals.updateMany({
+                where: {
+                  stockReceiptId: { in: receiptIds },
+                  approvalStatus: "APPROVED",
+                },
+                data: { ExpectedSellPrice: expectedSellPrice },
+              });
+            }
+            // -----------------------
+
+            activatedCount += updatedStocks.count;
+            console.log(
+              `[EBM Sync] Activated ${updatedStocks.count} units for ${item.itemFullName}`,
+            );
+          }
+
+          // Register or update the Item (with its new Expected Sell Price) on EBM
+          if (expectedSellPrice) {
+            (item as any).expectedSellPrice = expectedSellPrice;
+          }
+          await EbmService.saveItemToEBM(item, company, user, branchId);
+
+          // Push Stock Master using EBM-initialized branch (not local branch UUID)
+          const resolvedBhfId = await EbmService.resolveCompanyBhfId(companyId);
+
+          // Push Stock Master
+          const ebmResponse = await EbmService.saveStockMasterToEbm(
+            company.TIN,
+            resolvedBhfId,
+            item.productCode,
+            rsdQty,
+            user,
+          );
+
+          if (ebmResponse.resultCd === "000") {
+            successCount++;
+
+            // POST-SYNC: EBM Stock Telemetry (01 - Import, 02 - Purchase, 14 - Adjustment)
+            for (const receipt of itemPendingReceipts) {
+              try {
+                let code = "14"; // Default Stock Addition Adjustment
+                const rType = (receipt.receiptType || "").toUpperCase();
+                if (rType.includes("IMPORT")) code = "01";
+                if (rType.includes("PURCHASE")) code = "02";
+                if (rType.includes("REFUND")) code = "03";
+
+                await EbmService.saveStockItems(
+                  code,
+                  [{ ...receipt, item: item }], // Unified payload wrapper
+                  company,
+                  user,
+                  branchId,
+                  `Stock Sync Activation: ${rType || "Adjustment"}`,
+                );
+              } catch (err) {
+                console.error(
+                  "Non-fatal: saveStockItems delta telemetry failed",
+                  err,
+                );
+              }
+            }
+          } else {
+            failCount++;
+            console.error(
+              `[EBM StockMaster] Failed to sync Item ${item.itemFullName}:`,
+              ebmResponse,
+            );
+          }
+
+          results.push({
+            itemCode: item.productCode,
+            itemName: item.itemFullName,
+            qty: rsdQty,
+            ebmResponse,
+          });
+        } catch (err: any) {
+          failCount++;
+          console.error(
+            `[EBM StockMaster] Exception syncing Item ${item.itemFullName}:`,
+            err,
+          );
+        }
+      }
+    }
+
+    return {
+      message: `Stock Master Sync completed. Success: ${successCount}, Failed: ${failCount}, Activated: ${activatedCount} units`,
+      data: {
+        results,
+        activatedUnits: activatedCount,
+        successCount,
+        failCount,
+      },
+    };
+  }
+
+  /**
+   * Update the expiry date of the earliest-expiring stock receipt for an item.
+   * The inventory view shows the earliest expiry across receipts, so that is the
+   * one the user sees and wants to edit.
+   */
+  public static async updateItemExpiry(
+    companyId: string,
+    userId: string,
+    itemId: string,
+    expiryDate: string | null,
+  ) {
+    await assertCompanyExists(companyId);
+
+    if (!itemId) throw new AppError("Item ID is required", 400);
+
+    const item = await prisma.items.findFirst({ where: { id: itemId, companyId } });
+    if (!item) throw new AppError("Item not found", 404);
+
+    // Target the receipt that currently holds the earliest expiry (what the UI displays)
+    const receipt = await prisma.stockReceipts.findFirst({
+      where: { itemId, companyId, expiryDate: { not: null } },
+      orderBy: { expiryDate: "asc" },
+    });
+
+    if (!receipt) throw new AppError("No stock receipt with an expiry date found for this item", 400);
+
+    await prisma.stockReceipts.update({
+      where: { id: receipt.id },
+      data: { expiryDate: expiryDate ? new Date(expiryDate) : null },
+    });
+
+    return {
+      message: "Expiry date updated successfully",
+      data: { itemId, expiryDate },
+    };
+  }
+
+  /**
+   * Update the expectedSellPrice of an item by updating/creating an approval record
+   * with the new price
+   */
+  public static async updateItemPrice(
+    companyId: string,
+    userId: string,
+    itemId: string,
+    expectedSellPrice: number,
+  ) {
+    await assertCompanyExists(companyId);
+
+    if (!itemId) {
+      throw new AppError("Item ID is required", 400);
+    }
+
+    if (typeof expectedSellPrice !== "number" || expectedSellPrice < 0) {
+      throw new AppError("Price must be a non-negative number", 400);
+    }
+
+    // Verify item exists and belongs to the company
+    const item = await prisma.items.findFirst({
+      where: { id: itemId, companyId },
+      include: { stockReceipts: { take: 1, orderBy: { createdAt: "desc" } } },
+    });
+
+    if (!item) {
+      throw new AppError("Item not found", 404);
+    }
+
+    // Get the most recent stock receipt for this item
+    const latestReceipt = item.stockReceipts?.[0];
+    if (!latestReceipt) {
+      throw new AppError(
+        "No stock receipts found for this item. Cannot update price.",
+        400,
+      );
+    }
+
+    // Create or update approval with the new price
+    const approval = await prisma.approvals.create({
+      data: {
+        stockReceiptId: latestReceipt.id,
+        approvedByUserId: userId,
+        ExpectedSellPrice: new Decimal(expectedSellPrice),
+        dateApproved: new Date(),
+        approvalStatus: "APPROVED",
+        comments: "Price updated from inventory management",
+      },
+    });
+
+    return {
+      message: "Item price updated successfully",
+      data: {
+        itemId,
+        expectedSellPrice: approval.ExpectedSellPrice,
       },
     };
   }

@@ -55,38 +55,3 @@ export async function getWarehouseOrThrow(
   }
   return warehouse;
 }
-
-export async function getPurchaseOrderOrThrow(id: string) {
-  const po = await prisma.purchaseOrder.findUnique({ where: { id } });
-  if (!po) {
-    throw new AppError("Purchase order not found", 404);
-  }
-  return po;
-}
-
-export async function getPOByNumberOrThrow(
-  poNumber: string,
-  companyId?: string,
-) {
-  const po = await prisma.purchaseOrder.findFirst({
-    where: { poNumber, ...(companyId ? { companyId } : {}) },
-  });
-  if (!po) {
-    throw new AppError("Purchase order not found", 404);
-  }
-  return po;
-}
-
-export async function getPOItemOrThrow(id: string, companyId?: string) {
-  const poItem = await prisma.purchaseOrderItem.findUnique({
-    where: { id },
-    include: { purchaseOrder: true },
-  });
-  if (!poItem) {
-    throw new AppError("Purchase order item not found", 404);
-  }
-  if (companyId && poItem.purchaseOrder.companyId !== companyId) {
-    throw new AppError("Invalid purchase order item", 400);
-  }
-  return poItem;
-}

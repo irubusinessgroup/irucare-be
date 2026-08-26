@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { $Enums, PaymentMethod } from "@prisma/client";
 import { TsoaResponse } from "tsoa";
 import { DeliveryItemStatus } from "@prisma/client";
@@ -16,11 +17,13 @@ export interface UpdateDoctorDto {
 export interface CreateBranchDto {
   name: string;
   location?: string;
+  bhfId?: string;
 }
 
 export interface UpdateBranchDto {
   name?: string;
   location?: string;
+  bhfId?: string;
 }
 
 export interface IResponse<T> {
@@ -69,9 +72,14 @@ export type TUser = {
     branchId?: string | null;
     company: {
       industry?: string | null;
+      name?: string | null;
+      TIN?: string | null;
     };
   };
   companyName?: string | null;
+  /** Set when platform ADMIN/DEVELOPER switches into a tenant company */
+  activeCompanyId?: string | null;
+  isCompanySwitch?: boolean;
 };
 
 export interface IClinicUserRole {
@@ -146,42 +154,6 @@ export type TErrorResponse = TsoaResponse<
   IResponse<{ message: string }>
 >;
 
-export type TService = {
-  id: string;
-  title: string;
-  description: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateServiceDto {
-  title: string;
-  description: string;
-}
-
-export type TTestimony = {
-  id: string;
-  userId: string | null;
-  agentReviewId: string | null;
-  reviewsId: string | null;
-  name: string;
-  message: string;
-  rating?: number | null;
-  photo?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateTestimonyDto {
-  userId?: string | null;
-  agentReviewId?: string | null;
-  reviewsId?: string | null;
-  name: string;
-  message: string;
-  rating?: number | null;
-  photo?: Express.Multer.File | string | null;
-}
-
 export interface ReplyToContactDto {
   message: string;
   adminName?: string | null;
@@ -238,154 +210,9 @@ export interface IResponse<T> {
   data?: T;
 }
 
-export type TFaq = {
-  id: string;
-  question: string;
-  solution: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateFaqDto {
-  question: string;
-  solution: string;
-}
-
-export type TBlog = {
-  id: string;
-  title: string;
-  thumbnail: Express.Multer.File | string;
-  teaser: string;
-  description: string;
-  category: string;
-  likes: number;
-  views: number;
-  featured: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateBlogDto {
-  title: string;
-  thumbnail: Express.Multer.File | string;
-  teaser: string;
-  description: string;
-  category: string;
-  likes?: number;
-  views?: number;
-  featured: boolean;
-}
-
-export type TLikes = {
-  id: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type TAds = {
-  id: string;
-  title: string;
-  thumbnail: Express.Multer.File | string;
-  location: string;
-  description: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateAdsDto {
-  title: string;
-  thumbnail: Express.Multer.File | string;
-  location: string;
-  description: string;
-}
-
-export type TAgent = {
-  id: string;
-  experience: string;
-  description: string;
-  speciality: string[];
-  whatsapp: string;
-  joined: string;
-  languages: string;
-  about: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateAgentDto {
-  experience: string;
-  description: string;
-  speciality: string[];
-  whatsapp: string;
-  joined: string;
-  languages: string;
-  about: string;
-  email: string;
-  phoneNumber: string;
-  firstName: string;
-  lastName: string;
-  photo?: Express.Multer.File | string;
-}
-
-export type TProduct = {
-  id: string;
-  name: string;
-  isFeatured?: boolean;
-  description: string;
-  teaser: string;
-  model?: string | null;
-  warranty?: string | null;
-  featuresOne?: string | null;
-  featuresTwo?: string | null;
-  featuresThree?: string | null;
-  featuresFour?: string | null;
-  featuresFive?: string | null;
-  featuresFix?: string | null;
-  featuresSeven?: string | null;
-  featuresEight?: string | null;
-  featuresNine?: string | null;
-  featuresTen?: string | null;
-  price: number;
-  discountPercentage?: number | null;
-  category: string;
-  brand?: string | null;
-  stockQuantity: number;
-  isActive: boolean;
-  thumbnail: string;
-  galleryImages?: (Express.Multer.File | string)[];
-  rating?: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-  reviews?: TReviews;
-  orderItems?: TOrderItem[];
-};
-
-export type ProductCategory = $Enums.ProductCategory;
 export type PaymentStatus = $Enums.PaymentStatus;
 export type DeliveryStatus = $Enums.DeliveryStatus;
 export type OrderStatus = $Enums.OrderStatus;
-
-export type TOrder = {
-  id: string;
-  orderNumber: string;
-  deliveryFee?: number | null;
-  status: string;
-  totalAmount: number;
-  subTotal: number;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type TOrderItem = {
-  id: string;
-  orderId: string;
-  productId: string;
-  quantity: number;
-  discount?: number | null;
-  unitPrice: number;
-  order?: TOrder;
-  product?: TProduct;
-};
 
 export enum SellType {
   SALE = "SALE",
@@ -401,6 +228,7 @@ export interface CreateSellDto {
     itemId: string;
     quantity: number;
     sellPrice: number;
+    discount?: number;
     totalAmount?: number;
   }[];
   paymentMode?: string;
@@ -453,6 +281,20 @@ export type TPayment = {
   updatedAt: Date;
 };
 
+/** Cross-app Paypack ref registration (IRULOVE, IRUCLAIMS, …) */
+export interface RegisterPaypackTxDto {
+  /** IRUCARE | IRULOVE | IRUCLAIMS */
+  source: string;
+  /** Paypack transaction ref */
+  refId: string;
+  externalId?: string;
+  amount?: number;
+  phone?: string;
+  status?: string;
+  kind?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface withdrawalPaymentDto {
   amount: number;
   accountNumber: string;
@@ -466,84 +308,6 @@ export interface UpdatePaymentDto {
   accountNumber: string;
   accountProvider?: string;
   refId?: string;
-}
-
-export type TDelivery = {
-  id: string;
-  orderId: string;
-  address: string;
-  city: string;
-  province: string;
-  country: string;
-  postalCode: string;
-  customerFirstName: string;
-  customerLastName: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerNote?: string | null;
-  deliveryStatus: string;
-  estimatedDate?: Date | null;
-  deliveredAt?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateProductDto {
-  name: string;
-  isFeatured?: boolean;
-  teaser: string;
-  model?: string;
-  warranty?: string;
-  featuresOne?: string;
-  featuresTwo?: string;
-  featuresThree?: string;
-  featuresFour?: string;
-  featuresFive?: string;
-  featuresFix?: string;
-  featuresSeven?: string;
-  featuresEight?: string;
-  featuresNine?: string;
-  featuresTen?: string;
-  description: string;
-  price: number;
-  discountPercentage?: number;
-  category: string;
-  brand?: string;
-  stockQuantity: number;
-  isActive?: boolean;
-  thumbnail: string;
-  galleryImages?: string[];
-}
-
-export interface CreateOrderDto {
-  discount?: number;
-  deliveryFee?: number;
-  orderItems: {
-    productId: string;
-    quantity: number;
-  }[];
-}
-
-export interface CreateOrderItemDto {
-  orderId: string;
-  productId: string;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-}
-
-export type TReviews = {
-  id: string;
-  productId: string;
-  count: number;
-  rating: number;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export interface CreateReviewsDto {
-  count: number;
-  rating: number;
 }
 
 export type TCompany = {
@@ -630,6 +394,7 @@ export interface CreateCompanyToolsDto {
   ebmDeviceSerialNumber?: string;
   taxReportingFrequency?: string;
   bankAccounts?: Array<{ bankName?: string; accountNumber?: string }>;
+  invoiceDeclarationDate?: string;
 }
 
 export interface UpdateCompanyToolsDto extends Partial<CreateCompanyToolsDto> {}
@@ -654,6 +419,15 @@ export interface CompanyToolsResponseDto {
     logo?: string | null;
     website?: string | null;
   } | null;
+}
+
+export interface EbmConnectionStatusDto {
+  connected: boolean;
+  status: "CONNECTED" | "DISCONNECTED";
+  message: string;
+  checkedAt: string;
+  baseUrl: string | null;
+  responseStatus?: number | null;
 }
 
 export interface CreatePatientDto {
@@ -728,7 +502,8 @@ export interface CreateBranchInsuranceDto {
   branchId?: string;
 }
 
-export interface UpdateBranchInsuranceDto extends Partial<CreateBranchInsuranceDto> {
+export interface UpdateBranchInsuranceDto
+  extends Partial<CreateBranchInsuranceDto> {
   useYn?: "Y" | "N";
 }
 
@@ -741,9 +516,12 @@ export interface CreateItemDto {
   maxLevel: number;
   // Tax fields (optional from clients; coerced server-side)
   isTaxable?: boolean | string;
-  taxCode?: "A" | "B";
+  taxCode?: "A" | "B" | "C" | "D";
   taxRate?: number;
   insurancePrice?: number;
+  isStockItem?: string;
+  itemTypeCd?: string;
+  expectedSellPrice?: number;
 }
 
 export interface UpdateItemDto {
@@ -755,15 +533,16 @@ export interface UpdateItemDto {
   maxLevel: number;
   // Tax fields (optional from clients; coerced server-side)
   isTaxable?: boolean | string;
-  taxCode?: "A" | "B";
+  taxCode?: "A" | "B" | "C" | "D";
   taxRate?: number;
   insurancePrice?: number;
+  isStockItem?: string;
+  itemTypeCd?: string;
+  expectedSellPrice?: number;
 }
 
 export interface CreateStockDto {
   itemId?: string;
-  purchaseOrderItemId: string;
-  purchaseOrderId: string;
   invoiceNo?: string;
   supplierId?: string;
   // Accept both Date and string so controllers can receive flexible date inputs (ISO string, empty string, etc.)
@@ -803,7 +582,6 @@ export interface CreateManualStockReceiptDto {
 
 export interface UpdateStockDto {
   itemId?: string;
-  purchaseOrderItemId: string;
   invoiceNo?: string;
   supplierId?: string;
   dateReceived?: Date | string;
@@ -821,23 +599,20 @@ export interface UpdateStockDto {
   remarksNotes?: string;
 }
 
-export interface CreateStockReceiptFromPODto {
-  purchaseOrderItemId: string;
-  quantityReceived: number;
-  unitCost?: number;
-  expiryDate?: Date;
-  invoiceNo?: string;
-  warehouseId: string;
-  condition?: string;
-  tempReq?: string;
-  uom?: string;
-  currency?: string;
-  packSize?: number;
-}
-
 export interface BulkCreateStockReceiptsDto {
   poNumber: string;
-  receipts: CreateStockReceiptFromPODto[];
+  receipts: Array<{
+    quantityReceived: number;
+    unitCost?: number;
+    expiryDate?: Date;
+    invoiceNo?: string;
+    warehouseId: string;
+    condition?: string;
+    tempReq?: string;
+    uom?: string;
+    currency?: string;
+    packSize?: number;
+  }>;
 }
 
 export interface CreateSupplierRequest {
@@ -908,69 +683,6 @@ export interface CreateCategoryRequest {
 export interface UpdateCategoryRequest {
   categoryName: string;
   description?: string | null;
-}
-
-export interface PurchaseOrderItemDto {
-  itemId: string;
-  quantity: number;
-  packSize?: number | null;
-}
-
-export interface CreatePurchaseOrderDto {
-  poNumber?: string;
-  items: PurchaseOrderItemDto[];
-  supplierId: string;
-  notes?: string;
-  expectedDeliveryDate: Date;
-}
-
-export interface UpdatePurchaseOrderDto {
-  poNumber?: string;
-  items?: PurchaseOrderItemDto[];
-  supplierId?: string;
-  notes?: string;
-  expectedDeliveryDate?: Date;
-}
-
-// Client order DTOs (used when creating orders for individual clients)
-export interface CreateClientOrderDto {
-  items: PurchaseOrderItemDto[];
-  clientId: string; // user id of the client
-  companyId?: string | null; // optional buyer company id (empty if client not part of company)
-  clientAddress?: string | null;
-  notes?: string;
-  expectedDeliveryDate: Date | string;
-}
-
-export interface UpdateClientOrderDto {
-  poNumber?: string;
-  items?: PurchaseOrderItemDto[];
-  clientId?: string;
-  companyId?: string | null;
-  clientAddress?: string | null;
-  notes?: string;
-  expectedDeliveryDate?: Date | string;
-}
-
-export interface CreateProcessingEntryDto {
-  subtotal?: number;
-  vatRate?: number;
-  vat?: number;
-  grandTotal?: number;
-  purchaseOrderId: string;
-  items: ItemsDto[];
-}
-
-export interface ItemsDto {
-  purchaseOrderItemId: string;
-  batchNo?: string;
-  expiryDate?: Date;
-  unitPrice?: number;
-  quantityIssued?: number;
-  totalPrice?: number;
-}
-export interface UpdateProcessingStatusDto {
-  status: "PENDING" | "SENT" | "RECEIVED" | "REJECTED";
 }
 
 export interface ApproveItemDto {
@@ -1079,7 +791,10 @@ export interface DirectStockAdditionRequest {
 }
 
 export interface CreateDeliveryDto {
-  purchaseOrderId?: string;
+  /** Link to a normal sale — items & invoiceNumber come from this sell */
+  sellId?: string;
+  /** Tax invoice number (Sell.invcNo) — used for lookup / delivery note */
+  invoiceNumber?: string;
   plannedDeliveryDate: string;
   deliveryAddress?: string;
   contactPerson?: string;
@@ -1089,13 +804,10 @@ export interface CreateDeliveryDto {
   specialInstructions?: string;
   deliveryCharges?: number;
   items?: CreateDeliveryItemDto[];
-
-  buyerCompanyId?: string; // Required when no PO
-  deliveryType?: "PURCHASE_ORDER" | "DIRECT_STOCK";
+  deliveryType?: "SALE_INVOICE";
 }
 
 export interface CreateDeliveryItemDto {
-  purchaseOrderItemId?: string;
   itemId?: string;
   quantityToDeliver: number;
   actualBatchNo?: string;
@@ -1116,7 +828,7 @@ export interface UpdateDeliveryDto {
 }
 
 export interface UpdateDeliveryItemDto {
-  purchaseOrderItemId: string;
+  itemId?: string;
   quantityToDeliver?: number;
   quantityDelivered?: number;
   quantityDamaged?: number;
@@ -1159,7 +871,7 @@ export interface ConfirmDeliveryDto {
 }
 
 export interface ConfirmDeliveryItemDto {
-  purchaseOrderItemId: string;
+  itemId: string;
   quantityReceived: number;
   quantityDamaged?: number;
   quantityRejected?: number;
@@ -1222,12 +934,14 @@ export type TSubscription = {
   cvv?: string | null;
   nameOnCard?: string | null;
   selectedPlan: string;
-  planId: string;
+  planId?: string | null;
   planPrice: number;
   setupFee?: number | null;
   totalDueToday: number;
   billingCycle: string;
   periodLabel: string;
+  usersCount: number;
+  locationsCount: number;
   isActive: boolean;
   startDate?: Date | null;
   endDate?: Date | null;
@@ -1236,6 +950,12 @@ export type TSubscription = {
   // Relations (optional in DTOs)
   company?: { id: string; name: string } | null;
   plan?: TPlan | null;
+  payment?: {
+    id: string;
+    status: string;
+    amount: number;
+    method: string;
+  } | null;
 };
 
 export interface CreateSubscriptionDto {
@@ -1254,13 +974,31 @@ export interface CreateSubscriptionDto {
   expiryDate?: string;
   cvv?: string;
   nameOnCard?: string;
-  selectedPlan: string;
-  planId: string;
-  planPrice: number;
+  /** Custom quotas — server recalculates price */
+  users: number;
+  locations: number;
+  billingCycle: string; // month | year | monthly | yearly
+  /** @deprecated ignored — server builds label */
+  selectedPlan?: string;
+  /** @deprecated ignored */
+  planId?: string;
+  /** @deprecated ignored — server pricing */
+  planPrice?: number;
   setupFee?: number;
-  totalDueToday: number;
-  billingCycle: string;
-  periodLabel: string;
+  totalDueToday?: number;
+  periodLabel?: string;
+}
+
+/** Super-admin free access grant durations (days). */
+export type FreeTierDays = 3 | 7 | 14 | 30 | 60;
+
+export interface GrantFreeTierDto {
+  companyId: string;
+  /** Trial length in days: 3 | 7 | 14 | 30 | 60 */
+  days: FreeTierDays;
+  /** Optional quotas — defaults cover current staff/branches (min 1 each) */
+  users?: number;
+  locations?: number;
 }
 
 export interface UpdateSubscriptionDto extends Partial<CreateSubscriptionDto> {

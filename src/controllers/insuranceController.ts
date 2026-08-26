@@ -31,7 +31,7 @@ export class InsuranceController {
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return InsuranceService.getAllInsurance(req, searchq, limit, page);
   }
@@ -40,7 +40,7 @@ export class InsuranceController {
   @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public createInsurance(
     @Body() body: CreateInsuranceDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -52,7 +52,7 @@ export class InsuranceController {
   public updateInsurance(
     @Path() id: string,
     @Body() body: UpdateInsuranceDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;

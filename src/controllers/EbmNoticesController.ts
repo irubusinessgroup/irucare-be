@@ -9,7 +9,10 @@ import {
   Controller,
 } from "tsoa";
 import express from "express";
-import { EbmNoticeService } from "../services/EbmNoticeService";
+import {
+  EbmNoticeService,
+  SyncNoticesResult,
+} from "../services/EbmNoticeService";
 
 interface SyncNoticesRequest {
   companyId: string;
@@ -18,9 +21,10 @@ interface SyncNoticesRequest {
 interface SyncNoticesResponse {
   message: string;
   status: string;
+  data?: SyncNoticesResult;
 }
 
-@Route("ebm/notices")
+@Route("api/ebm/notices")
 @Tags("EBM Notices")
 export class EbmNoticesController extends Controller {
   /**
@@ -44,10 +48,13 @@ export class EbmNoticesController extends Controller {
     }
 
     try {
-      await EbmNoticeService.syncNotices(body.companyId, io);
+      const data = await EbmNoticeService.syncNotices(body.companyId, io, {
+        fullSync: true,
+      });
       return {
         message: "EBM notices synced successfully",
         status: "success",
+        data,
       };
     } catch (error: any) {
       this.setStatus(500);
@@ -88,10 +95,19 @@ export class EbmNoticesController extends Controller {
     }
 
     try {
-      await EbmNoticeService.syncNotices(user.company.companyId, io);
+      const data = await EbmNoticeService.syncNotices(
+        user.company.companyId,
+        io,
+      );
+
+      if (user.id) {
+        await EbmNoticeService.pushUserNotificationsToSocket(user.id, io);
+      }
+
       return {
         message: "EBM notices refreshed successfully",
         status: "success",
+        data,
       };
     } catch (error: any) {
       this.setStatus(500);

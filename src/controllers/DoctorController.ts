@@ -23,36 +23,36 @@ import { checkRole } from "../middlewares";
 @Tags("Doctor")
 export class DoctorController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getAllDoctors(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return DoctorService.getAllDoctors(req, searchq, limit, page);
   }
 
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getDoctorById(@Path() id: string) {
     return DoctorService.getDoctorById(id);
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public createDoctor(@Body() body: CreateDoctorDto) {
     return DoctorService.createDoctor(body);
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public updateDoctor(@Path() id: string, @Body() body: UpdateDoctorDto) {
     return DoctorService.updateDoctor(id, body);
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public deleteDoctor(@Path() id: string) {
     return DoctorService.deleteDoctor(id);
   }

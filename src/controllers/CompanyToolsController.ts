@@ -20,6 +20,7 @@ import {
   CreateCompanyToolsDto,
   UpdateCompanyToolsDto,
   CompanyToolsResponseDto,
+  EbmConnectionStatusDto,
 } from "../utils/interfaces/common";
 import upload from "../utils/cloudinary";
 
@@ -29,7 +30,7 @@ import upload from "../utils/cloudinary";
 export class CompanyToolsController {
   @Post("/")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
+    checkRole(roles.COMPANY_ADMIN),
     upload.any(),
     appendCompanyToolsAttachments,
   )
@@ -42,7 +43,7 @@ export class CompanyToolsController {
   }
 
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public get(
     @Path() id: string,
   ): Promise<{ message: string; data: CompanyToolsResponseDto }> {
@@ -50,7 +51,7 @@ export class CompanyToolsController {
   }
 
   @Get("/company/current")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getCurrentCompanyTools(
     @Request() req: ExpressRequest,
   ): Promise<{ message: string; data: CompanyToolsResponseDto | null }> {
@@ -60,7 +61,7 @@ export class CompanyToolsController {
 
   @Put("/{id}")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
+    checkRole(roles.COMPANY_ADMIN),
     upload.any(),
     appendCompanyToolsAttachments,
   )
@@ -74,7 +75,7 @@ export class CompanyToolsController {
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public delete(
     @Path() id: string,
     @Request() req: ExpressRequest,
@@ -84,7 +85,7 @@ export class CompanyToolsController {
   }
 
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public list(
     @Request() req: ExpressRequest,
     @Query() limit?: number,
@@ -100,8 +101,27 @@ export class CompanyToolsController {
   }
 
   @Get("/dashboard/str")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
   public getSTRDashboard(@Request() req: ExpressRequest) {
     return CompanyToolsService.getSTRDashboard(req);
+  }
+
+  @Post("/ebm/initialize")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  public async initializeEbm(
+    @Body() data: { tin: string; ebmDeviceSerialNumber: string; bhfId: string },
+    @Request() req: ExpressRequest,
+  ) {
+    const companyId = req.user?.company?.companyId as string;
+    return CompanyToolsService.initializeEbmDevice(data, companyId);
+  }
+
+  @Get("/ebm/connection-status")
+  public async getEbmConnectionStatus(): Promise<{
+    message: string;
+    data: EbmConnectionStatusDto;
+    success: boolean;
+  }> {
+    return CompanyToolsService.getEbmConnectionStatus();
   }
 }

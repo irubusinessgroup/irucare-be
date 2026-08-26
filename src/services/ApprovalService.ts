@@ -38,7 +38,7 @@ export class ApprovalService {
       const markupPercentage = Number(companyTools?.markupPrice || 0);
       const calculatedSellPrice = applyMarkup(
         Number(stockReceipt.unitCost),
-        markupPercentage
+        markupPercentage,
       );
 
       const approval = await tx.approvals.create({
@@ -59,7 +59,7 @@ export class ApprovalService {
       });
 
       if (data.approvalStatus === "APPROVED") {
-        await StockService.addToStock(approval.stockReceiptId);
+        await StockService.addToStock(data.stockReceiptId);
       }
 
       return {
@@ -102,7 +102,7 @@ export class ApprovalService {
   public static async updateApproval(
     id: string,
     data: UpdateApprovalDto,
-    req: Request
+    req: Request,
   ) {
     const userId = req.user?.id;
     if (!userId) {
@@ -118,11 +118,16 @@ export class ApprovalService {
       throw new AppError("Approval not found", 404);
     }
 
+    if (!approval.stockReceiptId) {
+      throw new AppError("Approval is missing a stock receipt", 400);
+    }
+    const stockReceiptId = approval.stockReceiptId;
+
     return await prisma.$transaction(async (tx) => {
       const { ...rest } = data;
 
       const stockReceipt = await tx.stockReceipts.findUnique({
-        where: { id: approval.stockReceiptId },
+        where: { id: stockReceiptId },
       });
 
       const companyTools = await tx.companyTools.findFirst({
@@ -155,10 +160,10 @@ export class ApprovalService {
         approval.approvalStatus !== "APPROVED"
       ) {
         const existingStock = await tx.stock.findFirst({
-          where: { stockReceiptId: approval.stockReceiptId },
+          where: { stockReceiptId },
         });
         if (!existingStock) {
-          await StockService.addToStock(approval.stockReceiptId);
+          await StockService.addToStock(stockReceiptId);
         }
       }
 

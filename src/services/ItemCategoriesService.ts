@@ -8,6 +8,7 @@ import {
   UpdateCategoryRequest,
 } from "../utils/interfaces/common";
 import { Paginations, QueryOptions } from "../utils/DBHelpers";
+import { requireBranchId, enrichWithBranchLabels } from "../utils/branchScope";
 
 export class ItemCategoriesService {
   static async createCategory(
@@ -23,15 +24,21 @@ export class ItemCategoriesService {
       throw new AppError("Company not found", 404);
     }
 
+    const resolvedBranchId = await requireBranchId(companyId, branchId);
+
     const existingCategory = await prisma.itemCategories.findFirst({
       where: {
         categoryName: data.categoryName,
         companyId: companyId,
+        branchId: resolvedBranchId,
       },
     });
 
     if (existingCategory) {
-      throw new AppError("Category with this name already exists", 400);
+      throw new AppError(
+        "Category with this name already exists for this branch",
+        400,
+      );
     }
 
     const category = await prisma.itemCategories.create({
@@ -39,7 +46,7 @@ export class ItemCategoriesService {
         categoryName: data.categoryName,
         description: data.description,
         companyId: companyId,
-        branchId: branchId,
+        branchId: resolvedBranchId,
       },
     });
 
@@ -108,12 +115,16 @@ export class ItemCategoriesService {
         where: {
           categoryName: data.categoryName,
           companyId: companyId,
+          branchId: existingCategory.branchId,
           NOT: { id: categoryId },
         },
       });
 
       if (nameExists) {
-        throw new AppError("Category with this name already exists", 400);
+        throw new AppError(
+          "Category with this name already exists for this branch",
+          400,
+        );
       }
     }
 
@@ -173,7 +184,7 @@ export class ItemCategoriesService {
   ): Promise<IPaged<CategoryResponse[]>> {
     try {
       const searchOptions = QueryOptions(
-        ["category_name", "description"],
+        ["categoryName", "description"],
         searchq,
       );
 
@@ -204,7 +215,7 @@ export class ItemCategoriesService {
       return {
         statusCode: 200,
         message: "Categories fetched successfully",
-        data: categories,
+        data: await enrichWithBranchLabels(categories),
         totalItems,
         currentPage: currentPage || 1,
         itemsPerPage: limit || 10,

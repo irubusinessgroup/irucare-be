@@ -21,7 +21,6 @@ import {
 } from "../utils/interfaces/common";
 import { checkRole } from "../middlewares";
 import { roles } from "../utils/roles";
-import { PurchaseOrderService } from "../services/PurchaseOrderService";
 import AppError from "../utils/error";
 
 @Security("jwt")
@@ -29,19 +28,19 @@ import AppError from "../utils/error";
 @Tags("Stock")
 export class StockController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getAllStock(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     const branchId = req.user?.branchId;
     return StockService.getAllStock(req, branchId, searchq, limit, page);
   }
 
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getStockReceipt(@Path() id: string, @Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -49,10 +48,10 @@ export class StockController {
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public createStockReceipt(
     @Body() body: CreateStockDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -60,10 +59,10 @@ export class StockController {
   }
 
   @Post("/manual")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public createManualStockReceipt(
     @Body() body: CreateManualStockReceiptDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -71,11 +70,11 @@ export class StockController {
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public updateStockReceipt(
     @Path() id: string,
     @Body() body: UpdateStockDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
@@ -83,29 +82,13 @@ export class StockController {
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public deleteStockReceipt(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     const branchId = req.user?.branchId;
     return StockService.deleteStockReceipt(id, companyId!, branchId);
-  }
-
-  @Get("/by-po/{poNumber}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
-  public getPurchaseOrderForStockReceipt(
-    @Path() poNumber: string,
-    @Request() req: ExpressRequest
-  ) {
-    const companyId = req.user?.company?.companyId;
-    const branchId = req.user?.branchId;
-    if (!companyId) throw new AppError("Company ID is missing", 400);
-    return PurchaseOrderService.getPurchaseOrderForStockReceipt(
-      poNumber,
-      companyId,
-      branchId
-    );
   }
 }

@@ -21,13 +21,9 @@ model User {
   photo                      String                @default("https://img.freepik.com/premium-vector/user-profile-icon-flat-style-member-avatar-vector-illustration-isolated-background-human-permission-sign-business-concept_157943-15752.jpg")
   mrcNo                      String?               @unique
   userRoles                  UserRole[]
-  likes                      Likes[]
-  testimonials               Testimony[]
-  agents                     Agents[]
   company                    CompanyUser?
   notification               Notification[]
   approvals                  Approvals[]
-  purchaseOrders             PurchaseOrder[]
   createdDeliveries          Delivery[]
   deliveryTracking           DeliveryTracking[]
   pharmacyDispensesDispensed PharmacyDispenses[]
@@ -77,12 +73,8 @@ model User {
 
 enum RoleType {
   ADMIN
-  AGENT
   COMPANY_ADMIN
-  COMPANY_USER
   DEVELOPER
-  ADMINISTRATOR
-  MANAGER
   STAFF
   CLIENT
   BRANCH_ADMIN
@@ -122,7 +114,6 @@ model Suppliers {
   supplierCompany   Company? @relation("supplier_company", fields: [supplierCompanyId], references: [id])
 
   stockReceipts  StockReceipts[]
-  purchaseOrders PurchaseOrder[]
   reorderRules   ReorderRule[]
 }
 
@@ -144,12 +135,15 @@ model Items {
   isTaxable           Boolean               @default(false)
   taxCode             String                @default("A") @db.VarChar(1)
   taxRate             Decimal               @default(0) @db.Decimal(5, 2)
+  /// Number of times this item's taxCode was changed while company is in VAT mode.
+  /// Used to enforce "tax type can be changed only once".
+  taxCodeChangeCount  Int                   @default(0)
   insurancePrice      Decimal?              @default(0) @db.Decimal(18, 2)
+  soldQty             Int?                  @default(0)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   ebmSynced           Boolean               @default(false)
   stockReceipts       StockReceipts[]
-  purchaseOrderItems  PurchaseOrderItem[]
   sells               Sell[]
   sellItems           SellItem[]
   deliveries          DeliveryItem[]
@@ -169,38 +163,34 @@ model Items {
 }
 
 model StockReceipts {
-  id                   String             @id @default(uuid())
+  id                   String     @id @default(uuid())
   itemId               String
-  item                 Items              @relation(fields: [itemId], references: [id])
-  purchaseOrderId      String?
-  purchaseOrderNo      PurchaseOrder?     @relation(fields: [purchaseOrderId], references: [id])
-  purchaseOrderItemId  String?
-  purchaseOrderItem    PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
+  item                 Items      @relation(fields: [itemId], references: [id])
   manualPoNumber       String?
   invoiceNo            String?
   supplierId           String?
-  supplier             Suppliers?         @relation(fields: [supplierId], references: [id])
+  supplier             Suppliers? @relation(fields: [supplierId], references: [id])
   companyId            String
-  company              Company            @relation(fields: [companyId], references: [id])
+  company              Company    @relation(fields: [companyId], references: [id])
   branchId             String?
   dateReceived         DateTime
   expiryDate           DateTime?
-  quantityReceived     Decimal            @db.Decimal(10, 2)
-  unitCost             Decimal            @db.Decimal(18, 4)
-  totalCost            Decimal            @db.Decimal(18, 2)
-  packSize             Decimal?           @db.Decimal(10, 2)
+  quantityReceived     Decimal    @db.Decimal(10, 2)
+  unitCost             Decimal    @db.Decimal(18, 4)
+  totalCost            Decimal    @db.Decimal(18, 2)
+  packSize             Decimal?   @db.Decimal(10, 2)
   uom                  String?
   tempReq              String?
   currency             String?
   condition            String?
   warehouseId          String?
-  warehouse            Warehouse?         @relation(fields: [warehouseId], references: [id])
+  warehouse            Warehouse? @relation(fields: [warehouseId], references: [id])
   specialHandlingNotes String?
-  receiptType          String             @default("PURCHASE_ORDER")
+  receiptType          String     @default("MANUAL")
   remarksNotes         String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  ebmSynced            Boolean            @default(false)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  ebmSynced            Boolean    @default(false)
   approvals            Approvals[]
   stocks               Stock[]
 
@@ -226,99 +216,17 @@ model Stock {
   issuanceDetails   StockIssuanceDetail[]
 }
 
-enum ProcessingStatus {
-  PENDING
-  SENT
-  RECEIVED
-  REJECTED
-}
-
-enum POApprovalStatus {
-  NOT_YET
-  SOME_APPROVED
-  ALL_APPROVED
-  REJECTED
-}
-
-enum ItemApprovalStatus {
-  NOT_ACTED
-  APPROVED
-  REJECTED
-}
-
 model Approvals {
-  id                String        @id @default(uuid())
-  stockReceiptId    String
-  stockReceipts     StockReceipts @relation(fields: [stockReceiptId], references: [id])
+  id                String         @id @default(uuid())
+  stockReceiptId    String?
+  stockReceipts     StockReceipts? @relation(fields: [stockReceiptId], references: [id])
   approvedByUserId  String
-  approvedByUser    User          @relation(fields: [approvedByUserId], references: [id])
-  ExpectedSellPrice Decimal?      @db.Decimal(18, 2)
+  approvedByUser    User           @relation(fields: [approvedByUserId], references: [id])
+  ExpectedSellPrice Decimal?       @db.Decimal(18, 2)
   dateApproved      DateTime
-  approvalStatus    String        @default("PENDING")
+  approvalStatus    String         @default("PENDING")
   comments          String?
-  createdAt         DateTime      @default(now())
-}
-
-model PurchaseOrder {
-  id                   String                    @id @default(uuid())
-  poNumber             String                    @unique
-  companyId            String?
-  branchId             String?
-  reqById              String?
-  reqClientId          String?
-  isDelivered          Boolean                   @default(false)
-  deliveredAt          DateTime?
-  company              Company?                  @relation(fields: [companyId], references: [id])
-  items                PurchaseOrderItem[]
-  supplierId           String
-  suppliers            Suppliers                 @relation(fields: [supplierId], references: [id])
-  user                 User?                     @relation(fields: [reqById], references: [id])
-  client               Client?                   @relation(fields: [reqClientId], references: [id])
-  notes                String?
-  expectedDeliveryDate DateTime
-  overallStatus        POApprovalStatus          @default(NOT_YET)
-  grandTotal           Decimal?                  @db.Decimal(18, 4)
-  subtotal             Decimal?                  @db.Decimal(18, 4)
-  vat                  Decimal?                  @db.Decimal(18, 4)
-  vatRate              Float?
-  clientAddress        String?
-  createdAt            DateTime                  @default(now())
-  stockReceipts        StockReceipts[]
-  processingEntries    PurchaseOrderProcessing[]
-  deliveries           Delivery[]
-  ebmSynced            Boolean                   @default(false)
-}
-
-model PurchaseOrderItem {
-  id              String             @id @default(uuid())
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id])
-  itemId          String
-  item            Items              @relation(fields: [itemId], references: [id])
-  quantity        Decimal            @db.Decimal(10, 2)
-  packSize        Decimal?           @db.Decimal(10, 2)
-  itemStatus      ItemApprovalStatus @default(NOT_ACTED)
-  quantityIssued  Decimal?           @db.Decimal(10, 2)
-  batchNo         String?
-  expiryDate      DateTime?
-  unitPrice       Decimal?           @db.Decimal(18, 4)
-  totalPrice      Decimal?           @db.Decimal(18, 2)
-  stockReceipts   StockReceipts[]
-  deliveryItems   DeliveryItem[]
-}
-
-model PurchaseOrderProcessing {
-  id              String           @id @default(uuid())
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder    @relation(fields: [purchaseOrderId], references: [id])
-  companyFromId   String
-  companyFrom     Company          @relation("processing_from", fields: [companyFromId], references: [id])
-  companyToId     String
-  companyTo       Company          @relation("processing_to", fields: [companyToId], references: [id])
-  status          ProcessingStatus @default(PENDING)
-  branchId        String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt         DateTime       @default(now())
 }
 
 model Client {
@@ -333,7 +241,6 @@ model Client {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   sells          Sell[]
-  purchaseOrders PurchaseOrder[]
   transactions   Transaction[]
   directInvoices DirectInvoice[]
   insuranceCards InsuranceCard[]
@@ -396,6 +303,10 @@ model Sell {
   refundReasonNote String?
 
   isTrainingMode Boolean @default(false)
+  isCopy         Boolean @default(false)
+
+  transactions Transaction[]
+  deliveries   Delivery[]
 
   @@index([patientId])
   @@index([insuranceCardId])
@@ -414,6 +325,8 @@ model SellItem {
   // Optional per-item split for insurance (PHARMACY)
   insuranceCoveredPerUnit Decimal  @default(0) @db.Decimal(18, 2)
   patientPricePerUnit     Decimal  @default(0) @db.Decimal(18, 2)
+  discount                Float?   @default(0)
+  itemSnapshot            String?
   branchId                String?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -426,6 +339,15 @@ model Transaction {
   branchId  String?
   amount    Decimal  @db.Decimal(18, 2)
   date      DateTime
+
+  sellId String?
+  sell   Sell?   @relation(fields: [sellId], references: [id], onDelete: SetNull)
+
+  type          String? // "SALE" | "REFUND" | "PROFORMA" | "INVOICE_PAYMENT"
+  paymentMode   String? // "FULL_PAID" | "HALF_PAID" | "CREDIT"
+  paymentMethod String? // "CASH" | "MOMO" | "CARD" | …
+  invcNo        Int?    // EBM invoice number
+  notes         String?
 
   client  Client? @relation(fields: [clientId], references: [id])
   company Company @relation(fields: [companyId], references: [id])
@@ -459,41 +381,6 @@ enum NotificationType {
   error
 }
 
-model Services {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Testimony {
-  id            String       @id @default(uuid())
-  name          String
-  message       String
-  photo         String?
-  rating        Int?
-  reviewsId     String?
-  agentReviewId String?
-  userId        String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  reviews       Reviews?     @relation(fields: [reviewsId], references: [id])
-  agentReviews  AgentReview? @relation(fields: [agentReviewId], references: [id])
-  user          User?        @relation(fields: [userId], references: [id])
-}
-
-model Reviews {
-  id           String      @id @default(uuid())
-  productId    String      @unique
-  count        Int         @default(0)
-  rating       Float
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  product      Product     @relation(fields: [productId], references: [id])
-  testimonials Testimony[]
-}
-
 model Contact {
   id             String         @id @default(cuid())
   name           String
@@ -522,35 +409,6 @@ enum ContactStatus {
   RESOLVED
 }
 
-enum ProductCategory {
-  WOMENS_FASHION
-  MENS_FASHION
-  FASHION
-  ELECTRONICS
-  FURNITURES
-  MADE_IN_RWANDA
-  HOME_AND_LIVING
-  SUPERMARKETING
-  MOBILES_AND_TABLETS
-  COMPUTERS_AND_GAMING
-  HEALTH_AND_BEAUTY
-  SPORTS_EQUIPMENT
-  ART_AND_ENTERTAINMENT
-  RESTAURANTS
-  JEWELRY_AND_WATCHES
-  KIDS_AND_BABIES
-  AUTO_SPARE_PARTS
-  VEHICLES_SHOPPING
-}
-
-// enum OrderStatus {
-//   PENDING
-//   CONFIRMED
-//   SHIPPED
-//   DELIVERED
-//   CANCELLED
-// }
-
 enum PaymentStatus {
   PENDING
   SUCCESS
@@ -576,144 +434,8 @@ enum PaymentMethod {
   CASH
   MOMO
   CHEQUE
-}
-
-model Faq {
-  id        String   @id @default(uuid())
-  question  String
-  solution  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Blog {
-  id          String   @id @default(uuid())
-  title       String
-  thumbnail   String
-  teaser      String
-  description String
-  category    String
-  likes       Int      @default(0)
-  views       Int      @default(0)
-  featured    Boolean
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  likesModel  Likes[]
-}
-
-model Likes {
-  id        String   @id @default(uuid())
-  userId    String
-  blogId    String
-  blog      Blog     @relation(fields: [blogId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([blogId, userId])
-}
-
-model Ads {
-  id          String   @id @default(uuid())
-  thumbnail   String
-  title       String
-  location    String
-  description String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Agents {
-  id              String            @id @default(uuid())
-  userId          String
-  description     String
-  experience      String
-  speciality      String[]
-  whatsapp        String
-  joined          String
-  languages       String
-  about           String
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  user            User              @relation(fields: [userId], references: [id])
-  agentReviews    AgentReview?
-  enquiryProperty EnquiryProperty[]
-}
-
-model AgentReview {
-  id           String      @id @default(uuid())
-  agentId      String      @unique
-  count        Int         @default(0)
-  rating       Float       @default(0.0)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  agent        Agents      @relation(fields: [agentId], references: [id])
-  testimonials Testimony[]
-}
-
-model Product {
-  id                 String          @id @default(uuid())
-  name               String
-  isFeatured         Boolean         @default(true)
-  description        String
-  teaser             String
-  model              String?
-  warranty           String?
-  brand              String?
-  category           ProductCategory
-  price              Float
-  featuresOne        String?
-  featuresTwo        String?
-  featuresThree      String?
-  featuresFour       String?
-  featuresFive       String?
-  featuresFix        String?
-  featuresSeven      String?
-  featuresEight      String?
-  featuresNine       String?
-  featuresTen        String?
-  discountPercentage Float?
-  stockQuantity      Int             @default(0)
-  isActive           Boolean         @default(true)
-  thumbnail          String
-  galleryImages      String[]        @default([])
-  rating             Float?          @default(4.5)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  reviews            Reviews?
-  orderItem          OrderItem[]
-}
-
-model EnquiryProperty {
-  id        String   @id @default(uuid())
-  agentId   String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  agent     Agents   @relation(fields: [agentId], references: [id])
-}
-
-model Order {
-  id          String      @id @default(uuid())
-  orderNumber String
-  status      OrderStatus @default(PENDING)
-  totalAmount Float
-  subTotal    Float
-  deliveryFee Float?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  orderItems OrderItem[]
-}
-
-model OrderItem {
-  id        String  @id @default(uuid())
-  orderId   String
-  productId String
-  discount  Float?
-  quantity  Int     @default(1)
-  unitPrice Float
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id])
+  BANK_CHECK
+  MOBILE_PAYMENT
 }
 
 model Payment {
@@ -733,6 +455,28 @@ model Payment {
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 }
 
+/// Cross-app Paypack ownership registry (IRUCARE / IRULOVE / IRUCLAIMS / …).
+/// Other systems POST to /api/payments/paypack/register after cash-in.
+model PaypackTxRegistry {
+  id         String   @id @default(uuid())
+  /// Paypack transaction ref (unique across merchant)
+  refId      String   @unique
+  /// IRUCARE | IRULOVE | IRUCLAIMS | …
+  source     String
+  /// External system id (e.g. Love purchaseId)
+  externalId String?
+  amountRwf  Float?
+  phone      String?
+  status     String?
+  kind       String?
+  metadata   Json?
+  reportedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([source])
+  @@map("paypack_tx_registry")
+}
+
 model Company {
   id                     String                    @id @default(uuid())
   name                   String
@@ -749,6 +493,9 @@ model Company {
   district               String
   sector                 String
   isActive               Boolean                   @default(true)
+  isVatRegistered        Boolean?                  @default(false)
+  /// When true, company admins may switch Non-VAT → VAT. Only platform ADMIN may switch VAT → Non-VAT.
+  allowVatModeSwitch     Boolean                   @default(false)
   createdAt              DateTime                  @default(now())
   updatedAt              DateTime                  @updatedAt
   CompanyUser            CompanyUser[]
@@ -757,13 +504,9 @@ model Company {
   itemCategories         ItemCategories[]
   suppliers              Suppliers[]
   stockReceipts          StockReceipts[]
-  processingFrom         PurchaseOrderProcessing[] @relation("processing_from")
-  processingTo           PurchaseOrderProcessing[] @relation("processing_to")
   supplierFor            Suppliers[]               @relation("supplier_company")
-  purchaseOrders         PurchaseOrder[]
   companyTools           CompanyTools[]
-  supplierDeliveries     Delivery[]                @relation("DeliverySupplier")
-  buyerDeliveries        Delivery[]                @relation("DeliveryBuyer")
+  deliveries             Delivery[]
   warehouse              Warehouse[]
   transactions           Transaction[]
   subscription           Subscription[]
@@ -803,17 +546,33 @@ model Company {
   reorderRules     ReorderRule[]
   stockAlerts      StockAlert[]
   branches         Branch[]
+
+  // EBM Draft relations
+  ebmPurchaseDrafts EbmPurchaseDraft[]
+  ebmImportDrafts   EbmImportDraft[]
+  ebmSyncCursors    EbmSyncCursor[]
+
+  xReportSessions      XReportSession[]
+  zReportSessions      ZReportSession[]
+  dailyOpeningDeposits DailyOpeningDeposit[]
 }
 
 model Branch {
-  id        String        @id @default(uuid())
-  name      String
-  location  String?
-  companyId String
-  company   Company       @relation(fields: [companyId], references: [id])
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  users     CompanyUser[]
+  id                     String        @id @default(uuid())
+  name                   String
+  location               String?
+  bhfId                  String        @default("00")
+  companyId              String
+  company                Company       @relation(fields: [companyId], references: [id])
+  /// True for the branch currently registered on the EBM/VSDC device for this company.
+  isEbmInitialized       Boolean       @default(false)
+  ebmDeviceSerialNumber  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  users                  CompanyUser[]
+
+  @@unique([companyId, bhfId])
+  @@index([companyId, isEbmInitialized])
 }
 
 model CompanyUser {
@@ -956,9 +715,11 @@ model CompanyTools {
   companySignature      String?
   companyStamp          String?
   bankAccounts          Json?
-  businessTin           String?
-  taxReportingFrequency String?
-  ebmDeviceSerialNumber String?
+  businessTin            String?
+  taxReportingFrequency  String?
+  ebmDeviceSerialNumber  String?
+  ebmBhfId               String? // EBM branch id used at device init (e.g. "02")
+  invoiceDeclarationDate DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -980,16 +741,18 @@ enum DeliveryType {
 }
 
 model Delivery {
-  id              String         @id @default(uuid())
-  deliveryNumber  String         @unique
-  purchaseOrderId String?
-  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
-  branchId        String?
+  id             String @id @default(uuid())
+  deliveryNumber String @unique
+  /// Link to a normal sale invoice (invcNo stored in invoiceNumber)
+  sellId         String?
+  sell           Sell?  @relation(fields: [sellId], references: [id], onDelete: SetNull)
+  /// Denormalized tax invoice number (Sell.invcNo) for search / delivery note
+  invoiceNumber  String?
+  branchId       String?
 
-  supplierCompanyId String
-  supplierCompany   Company @relation("DeliverySupplier", fields: [supplierCompanyId], references: [id])
-  buyerCompanyId    String
-  buyerCompany      Company @relation("DeliveryBuyer", fields: [buyerCompanyId], references: [id])
+  /// Company that owns this delivery (same as the sale)
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
 
   status       DeliveryStatus @default(PENDING)
   deliveryType DeliveryType   @default(FULL_DELIVERY)
@@ -1021,16 +784,17 @@ model Delivery {
 
   deliveryItems    DeliveryItem[]
   deliveryTracking DeliveryTracking[]
+
+  @@index([sellId])
+  @@index([invoiceNumber])
 }
 
 model DeliveryItem {
-  id                  String             @id @default(uuid())
-  deliveryId          String
-  delivery            Delivery           @relation(fields: [deliveryId], references: [id])
-  purchaseOrderItemId String?
-  purchaseOrderItem   PurchaseOrderItem? @relation(fields: [purchaseOrderItemId], references: [id])
-  itemId              String? // For direct stock deliveries
-  item                Items?             @relation(fields: [itemId], references: [id])
+  id         String   @id @default(uuid())
+  deliveryId String
+  delivery   Delivery @relation(fields: [deliveryId], references: [id])
+  itemId     String?
+  item       Items?   @relation(fields: [itemId], references: [id])
 
   quantityToDeliver Decimal  @db.Decimal(10, 2)
   quantityDelivered Decimal? @db.Decimal(10, 2)
@@ -1114,6 +878,7 @@ model Plan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Legacy catalog — new subscriptions are custom (no plan required).
   subscription Subscription[]
 }
 
@@ -1139,14 +904,16 @@ model Subscription {
   cvv            String? // ⚠️ same — better not store, use payment gateway
   nameOnCard     String?
 
-  // Plan details
-  selectedPlan  String // Plan display name e.g. "Essential Partner"
-  planId        String // Reference key (e.g. "essential")
-  planPrice     Float
-  setupFee      Float?
-  totalDueToday Float
-  billingCycle  String // e.g. "month", "year"
-  periodLabel   String // e.g. "/month"
+  // Custom partnership (users × locations) — no fixed plan catalog
+  selectedPlan    String // Display label e.g. "Custom (3 users, 2 locations)"
+  planId          String? // Legacy optional plan id
+  planPrice       Float
+  setupFee        Float?
+  totalDueToday   Float
+  billingCycle    String // e.g. "month", "year"
+  periodLabel     String // e.g. "/month"
+  usersCount      Int    @default(1)
+  locationsCount  Int    @default(1)
 
   // Relations
   company Company @relation(fields: [companyId], references: [id])
@@ -1154,12 +921,15 @@ model Subscription {
 
   payment Payment?
 
-  // Metadata
-  isActive  Boolean   @default(true)
+  // Metadata — only true after successful payment (or admin activate)
+  isActive  Boolean   @default(false)
   startDate DateTime  @default(now())
   endDate   DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([companyId, isActive])
+  @@index([companyId, endDate])
 }
 
 model TrialApplication {
@@ -2817,7 +2587,8 @@ model EbmCodeDetail {
 
 model ProductCodeSequence {
   id        String   @id @default(uuid())
-  prefix    String   @unique
+  prefix    String?
+  companyId String?  @unique
   lastSeq   Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2855,3 +2626,77 @@ model BranchInsurance {
   @@index([companyId])
 }
 
+model EbmPurchaseDraft {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  lastReqDt String
+  isVat     Boolean  @default(false)  // true = VAT mode, false = NON-VAT mode
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([companyId, isVat])
+  @@index([companyId, lastReqDt])
+}
+
+model EbmImportDraft {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  lastReqDt String
+  isVat     Boolean  @default(false)  // true = VAT mode, false = NON-VAT mode
+  payload   Json
+  createdAt DateTime @default(now())
+
+  @@index([companyId, isVat])
+  @@index([companyId, lastReqDt])
+}
+
+model EbmSyncCursor {
+  id           String   @id @default(uuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  type         String
+  lastSyncedAt String
+  batchDates   Json     @default("[]")
+  updatedAt    DateTime @updatedAt
+
+  @@unique([companyId, type])
+  @@index([companyId])
+}
+
+model XReportSession {
+  id        String   @id @default(uuid())
+  companyId String
+  branchId  String?
+  startedAt DateTime
+  endedAt   DateTime
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, startedAt])
+}
+
+model ZReportSession {
+  id        String   @id @default(uuid())
+  companyId String
+  branchId  String?
+  startedAt DateTime
+  endedAt   DateTime
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, endedAt])
+}
+
+model DailyOpeningDeposit {
+  id        String   @id @default(uuid())
+  companyId String
+  branchId  String?
+  amount    Decimal  @default(0) @db.Decimal(18, 2)
+  date      DateTime
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, date])
+}

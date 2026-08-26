@@ -3,6 +3,7 @@ import AppError from "../utils/error";
 import { CreateClientDto, UpdateClientDto } from "../utils/interfaces/common";
 import type { Request } from "express";
 import { EbmService } from "./EbmService";
+import { requireBranchId, enrichWithBranchLabels } from "../utils/branchScope";
 
 export class ClientService {
   public static async getAllClients(
@@ -54,7 +55,7 @@ export class ClientService {
     const totalItems = await prisma.client.count({ where: queryOptions });
 
     return {
-      data: clients,
+      data: await enrichWithBranchLabels(clients),
       totalItems,
       currentPage: page || 1,
       itemsPerPage: limit || clients.length,
@@ -111,11 +112,13 @@ export class ClientService {
       throw new AppError("Company ID is missing", 400);
     }
 
+    const resolvedBranchId = await requireBranchId(companyId, branchId);
+
     const existingClient = await prisma.client.findFirst({
       where: {
         phone: data.phone,
         companyId,
-        branchId,
+        branchId: resolvedBranchId,
       },
     });
 
@@ -128,30 +131,28 @@ export class ClientService {
       where: { id: companyId },
     });
 
-    if (company && req?.user) {
-      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
+    if (company && req?.user && data.tin) {
       // Use the actual logged-in user who's creating the client
-      // const ebmResponse = await EbmService.saveCustomerToEBM(
-      //   data,
-      //   company,
-      //   req.user,
-      //   branchId,
-      // );
-      //
-      // if (ebmResponse.resultCd !== "000") {
-      //   throw new AppError(
-      //     `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-      //     400,
-      //   );
-      // }
-      // Mock success for now - client will be created without EBM sync
+      const ebmResponse = await EbmService.saveCustomerToEBM(
+        data,
+        company,
+        req.user,
+        resolvedBranchId,
+      );
+
+      if (ebmResponse.resultCd !== "000") {
+        throw new AppError(
+          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+          400,
+        );
+      }
     }
 
     const client = await prisma.client.create({
       data: {
         ...data,
         companyId,
-        branchId,
+        branchId: resolvedBranchId,
       },
     });
 

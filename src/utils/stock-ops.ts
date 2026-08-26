@@ -7,7 +7,11 @@ export type StockSelectStrategy = "FIFO" | "LIFO";
 
 export async function countAvailableStock(
   tx: Tx,
-  params: { itemIds: string[] | string; companyId: string; branchId?: string | null },
+  params: {
+    itemIds: string[] | string;
+    companyId: string;
+    branchId?: string | null;
+  },
 ): Promise<number> {
   const itemIds = Array.isArray(params.itemIds)
     ? params.itemIds
@@ -128,19 +132,13 @@ export async function createBuyerStockFromDeliveryItem(
   params: {
     delivery: {
       id: string;
-      buyerCompanyId: string;
+      companyId: string;
       branchId?: string | null;
-      purchaseOrderId: string | null;
-      supplierCompanyId: string;
     };
     deliveryItem: {
       id: string;
-      purchaseOrderItemId: string | null;
       actualUnitPrice: unknown | null;
-      purchaseOrderItem?: {
-        unitPrice: unknown | null;
-        packSize?: unknown | null;
-      } | null;
+      packSize?: unknown | null;
     };
     buyerItemId: string;
     quantityReceived: number;
@@ -152,18 +150,14 @@ export async function createBuyerStockFromDeliveryItem(
     data: {
       id: `${params.delivery.id}-${params.buyerItemId}-${params.expiryDate?.toISOString() || "no-expiry"}`,
       itemId: params.buyerItemId,
-      purchaseOrderId: params.delivery.purchaseOrderId,
-      purchaseOrderItemId: params.deliveryItem.purchaseOrderItemId,
       supplierId: null,
-      companyId: params.delivery.buyerCompanyId,
+      companyId: params.delivery.companyId,
       branchId: params.delivery.branchId ?? null,
       dateReceived: new Date(),
       quantityReceived: params.quantityReceived,
       unitCost: params.unitCost,
       totalCost: params.unitCost * params.quantityReceived,
-      packSize:
-        (params.deliveryItem.purchaseOrderItem?.packSize as number | null) ||
-        null,
+      packSize: (params.deliveryItem.packSize as number | null) || null,
       expiryDate: params.expiryDate,
       uom: "UNITS",
       tempReq: "ROOM_TEMP",

@@ -54,7 +54,12 @@ export class WarehouseController {
   ): Promise<IResponse<WarehouseResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
-    return WarehouseService.updateWarehouse(warehouseId, data, companyId, branchId);
+    return WarehouseService.updateWarehouse(
+      warehouseId,
+      data,
+      companyId,
+      branchId,
+    );
   }
 
   @Delete("/{warehouseId}")

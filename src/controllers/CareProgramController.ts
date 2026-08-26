@@ -37,13 +37,13 @@ export class CareProgramController extends Controller {
       roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.PROVIDER,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<any> {
     const { programType, isActive } = req.query;
     return CareProgramService.list(req, page, limit, {
@@ -58,8 +58,8 @@ export class CareProgramController extends Controller {
       roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
       ClinicRole.PROVIDER,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return CareProgramService.getById(id, req);
@@ -69,7 +69,7 @@ export class CareProgramController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateCareProgramDto
+    @Body() body: CreateCareProgramDto,
   ): Promise<any> {
     return CareProgramService.create(req, body);
   }
@@ -79,7 +79,7 @@ export class CareProgramController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateCareProgramDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return CareProgramService.update(id, body, req);
   }
@@ -88,63 +88,63 @@ export class CareProgramController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return CareProgramService.remove(id, req);
   }
 
   @Post("/enroll")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public enrollPatient(
     @Request() req: ExpressRequest,
-    @Body() body: EnrollPatientDto
+    @Body() body: EnrollPatientDto,
   ): Promise<any> {
     return CareProgramService.enrollPatient(req, body);
   }
 
   @Get("/patient/{patientId}/enrollments")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public patientEnrollments(
     @Path() patientId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return CareProgramService.getPatientEnrollments(patientId, req);
   }
 
   @Put("/enrollment/{id}")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public updateEnrollment(
     @Path() id: string,
     @Body() body: UpdateEnrollmentDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return CareProgramService.updateEnrollment(id, body, req);
   }
 
   @Post("/visit")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public recordVisit(
     @Request() req: ExpressRequest,
-    @Body() body: RecordVisitDto
+    @Body() body: RecordVisitDto,
   ): Promise<any> {
     return CareProgramService.recordVisit(req, body);
   }
 
   @Get("/enrollment/{enrollmentId}/visits")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public enrollmentVisits(
     @Path() enrollmentId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return CareProgramService.getEnrollmentVisits(enrollmentId, req);
   }
@@ -156,14 +156,14 @@ export class CareProgramController extends Controller {
     @Request() req: ExpressRequest,
     @Query() page?: number,
     @Query() limit?: number,
-    @Query() status?: string
+    @Query() status?: string,
   ): Promise<any> {
     return CareProgramService.getProgramEnrollments(
       programId,
       req,
       page,
       limit,
-      status
+      status,
     );
   }
 }

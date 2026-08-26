@@ -35,13 +35,13 @@ export class EncounterController extends Controller {
       ClinicRole.PROVIDER,
       ClinicRole.NURSE,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.RECEPTIONIST
-    )
+      ClinicRole.RECEPTIONIST,
+    ),
   )
   public list(
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<any> {
     const {
       patientId,
@@ -69,8 +69,8 @@ export class EncounterController extends Controller {
       roles.COMPANY_ADMIN,
       ClinicRole.PROVIDER,
       ClinicRole.NURSE,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return EncounterService.getById(id, req);
@@ -81,12 +81,12 @@ export class EncounterController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.NURSE
-    )
+      ClinicRole.NURSE,
+    ),
   )
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateEncounterDto
+    @Body() body: CreateEncounterDto,
   ): Promise<any> {
     return EncounterService.create(req, body);
   }
@@ -96,7 +96,7 @@ export class EncounterController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateEncounterDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return EncounterService.update(id, body, req);
   }
@@ -105,7 +105,7 @@ export class EncounterController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public remove(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return EncounterService.remove(id, req);
   }
@@ -114,7 +114,7 @@ export class EncounterController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public checkIn(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return EncounterService.checkIn(id, req);
   }
@@ -123,7 +123,7 @@ export class EncounterController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public complete(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return EncounterService.complete(id, req);
   }
@@ -133,12 +133,12 @@ export class EncounterController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public cancel(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return EncounterService.cancel(id, req);
   }
@@ -147,20 +147,20 @@ export class EncounterController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.RECEPTIONIST))
   public noShow(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return EncounterService.noShow(id, req);
   }
 
   @Get("/patient/{patientId}/history")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER, ClinicRole.NURSE)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER, ClinicRole.NURSE),
   )
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<any> {
     return EncounterService.getPatientHistory(patientId, req, page, limit);
   }

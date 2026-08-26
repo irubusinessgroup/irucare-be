@@ -9,6 +9,7 @@ import {
   Put,
   Delete,
   Request,
+  Security,
 } from "tsoa";
 import { companyService } from "../services/companyService";
 import { Request as ExpressRequest } from "express";
@@ -21,6 +22,9 @@ import {
   appendAttachments,
 } from "../middlewares/company.middlewares";
 import upload from "../utils/cloudinary";
+import { checkRole } from "../middlewares";
+import { roles } from "../utils/roles";
+
 @Tags("Company")
 @Route("/api/company")
 export class CompanyController extends Controller {
@@ -38,6 +42,23 @@ export class CompanyController extends Controller {
   @Get("/analysis/count-by-month/{year}")
   public getSchoolsCountByMonth(year: number) {
     return companyService.getCompaniesCountByMonth(year);
+  }
+
+  @Put("/{id}/vat-access")
+  @Security("jwt")
+  @Middlewares(checkRole(roles.ADMIN))
+  public setVatAccess(
+    id: string,
+    @Body() body: { allowVatModeSwitch: boolean },
+  ) {
+    return companyService.setAllowVatModeSwitch(id, !!body.allowVatModeSwitch);
+  }
+
+  @Put("/{id}/vat-mode")
+  @Security("jwt")
+  @Middlewares(checkRole(roles.ADMIN))
+  public adminSetVatMode(id: string, @Body() body: { isVatMode: boolean }) {
+    return companyService.adminSetVatMode(id, !!body.isVatMode);
   }
 
   @Get("/{id}")

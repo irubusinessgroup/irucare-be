@@ -30,8 +30,8 @@ export class ReferralController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public list(@Request() req: ExpressRequest) {
     const {
@@ -52,7 +52,7 @@ export class ReferralController extends Controller {
         referringProviderId: referringProviderId as string | undefined,
         referredToProviderId: referredToProviderId as string | undefined,
         status: status as string | undefined,
-      }
+      },
     );
   }
 
@@ -61,8 +61,8 @@ export class ReferralController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public get(@Path() id: string) {
     return ReferralService.getById(id);
@@ -72,7 +72,7 @@ export class ReferralController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateReferralDto
+    @Body() body: CreateReferralDto,
   ) {
     return ReferralService.create(req, body);
   }
@@ -94,7 +94,7 @@ export class ReferralController extends Controller {
   public accept(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body?: { appointmentDate?: string }
+    @Body() body?: { appointmentDate?: string },
   ) {
     return ReferralService.accept(req, id, body?.appointmentDate);
   }
@@ -104,13 +104,13 @@ export class ReferralController extends Controller {
   public complete(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body?: { responseNotes?: string; followUpEncounterId?: string }
+    @Body() body?: { responseNotes?: string; followUpEncounterId?: string },
   ) {
     return ReferralService.complete(
       req,
       id,
       body?.responseNotes,
-      body?.followUpEncounterId
+      body?.followUpEncounterId,
     );
   }
 }

@@ -1,12 +1,36 @@
 import { prisma } from "../utils/client";
 import AppError from "../utils/error";
 import { CreateBranchDto, UpdateBranchDto } from "../utils/interfaces/common";
+import { assertCanAddBranch } from "../utils/subscriptionQuotas";
 
 export class BranchService {
+  /**
+   * Returns the next available bhfId (01, 02, 03...) for the company.
+   * "00" is reserved for the auto-generated Main Branch.
+   */
+  public static async getNextBhfId(companyId: string): Promise<string> {
+    const branches = await prisma.branch.findMany({
+      where: { companyId },
+      select: { bhfId: true },
+    });
+    const used = new Set(branches.map((b) => b.bhfId));
+    for (let i = 1; i <= 99; i++) {
+      const code = i.toString().padStart(2, "0");
+      if (!used.has(code)) return code;
+    }
+    throw new AppError("Maximum number of branches (99) reached", 400);
+  }
+
   public static async createBranch(data: CreateBranchDto, companyId: string) {
+    await assertCanAddBranch(companyId);
+
+    // Auto-assign next sequential bhfId if not provided (01, 02, …)
+    const bhfId = data.bhfId ?? (await BranchService.getNextBhfId(companyId));
+
     const branch = await prisma.branch.create({
       data: {
         ...data,
+        bhfId,
         companyId,
       },
     });
@@ -25,6 +49,7 @@ export class BranchService {
           select: { users: true },
         },
       },
+      orderBy: { bhfId: "asc" },
     });
 
     return {
@@ -106,12 +131,13 @@ export class BranchService {
       );
     }
 
-    // Check for operational data referring to this branch
-    // (This is a simplified check, ideally we'd check all related models)
-    // However, since we added branchId to dozens of models, we should probably 
-    // just try-catch the delete if there are foreign key constraints, 
-    // OR just allow it if we want to delete everything (unlikely).
-    // For now, let's keep it simple.
+    // Prevent deletion of the main branch (bhfId "00")
+    if (branch.bhfId === "00") {
+      throw new AppError(
+        "Cannot delete the main branch (bhfId 00). It is auto-generated with the company.",
+        400,
+      );
+    }
 
     await prisma.branch.delete({
       where: { id },

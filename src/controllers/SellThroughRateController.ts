@@ -24,7 +24,7 @@ export class SellThroughRateController {
    * Get STR for a specific item
    */
   @Get("/sell-through-rate/item/{itemId}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async getItemSTR(
     @Path() itemId: string,
     @Request() req: ExpressRequest,
@@ -50,7 +50,7 @@ export class SellThroughRateController {
    * Get STR for all items in company
    */
   @Get("/sell-through-rate/company")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async getCompanySTR(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,
@@ -72,7 +72,7 @@ export class SellThroughRateController {
    * Get STR trends over time for an item
    */
   @Get("/sell-through-rate/trends/{itemId}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async getSTRTrends(
     @Path() itemId: string,
     @Request() req: ExpressRequest,
@@ -85,7 +85,7 @@ export class SellThroughRateController {
    * Get STR summary statistics
    */
   @Get("/sell-through-rate/summary")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
   public async getSTRSummary(
     @Request() req: ExpressRequest,
     @Query() startDate?: string,

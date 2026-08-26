@@ -29,7 +29,7 @@ import { appendBarcodeQrCode } from "../middlewares/appendBarcodeQrCode";
 export class ItemController {
   @Post("/")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
+    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF),
     upload.any(),
     appendBarcodeQrCode,
   )
@@ -39,18 +39,26 @@ export class ItemController {
   ) {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
-    return ItemService.createItem(data, companyId, branchId);
+    const userId = req.user?.id;
+    return ItemService.createItem(data, companyId, branchId, userId);
   }
 
   @Get("/generate-product-code")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public async generateProductCode(@Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId as string;
     return ItemService.generateProductCode(companyId);
   }
 
+  @Get("/next-sequence")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
+  public async getNextProductCodeSequence(@Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId as string;
+    return ItemService.getNextProductCodeSequence(companyId);
+  }
+
   @Post("/generate-code-with-classifications")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public async generateCodeWithClassifications(
     @Body()
     body: {
@@ -71,9 +79,8 @@ export class ItemController {
     );
   }
 
-
   @Get("/search")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public searchItems(
     @Request() req: ExpressRequest,
     @Query() q?: string,
@@ -85,7 +92,7 @@ export class ItemController {
   }
 
   @Put("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN), upload.any())
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF), upload.any())
   public updateItem(
     @Path() id: string,
     @Body() body: UpdateItemDto,
@@ -97,7 +104,7 @@ export class ItemController {
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public deleteItem(@Path() id: string, @Request() req: ExpressRequest) {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -105,7 +112,7 @@ export class ItemController {
   }
 
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getAllItems(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
@@ -116,9 +123,16 @@ export class ItemController {
     return ItemService.getItems(req, searchq, limit, page, branchId);
   }
 
+  /** Export-only endpoint — no pagination, returns all items for company/branch. */
+  @Get("/export")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
+  public exportAllItems(@Request() req: ExpressRequest) {
+    return ItemService.getAllForExport(req);
+  }
+
   @Post("/import")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN),
+    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF),
     uploadToMemory.single("file"),
   )
   public async importItems(@Request() req: ExpressRequest) {
@@ -134,7 +148,7 @@ export class ItemController {
   }
 
   @Get("/template/download")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public async downloadTemplate(@Request() req: ExpressRequest): Promise<void> {
     const buffer = await ItemService.downloadTemplate(req);
 
@@ -171,10 +185,48 @@ export class ItemController {
     );
   }
 
+  @Get("/plu-report")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
+  public getPluReport(
+    @Request() req: ExpressRequest,
+    @Query() startDate?: string,
+    @Query() endDate?: string,
+  ) {
+    return ItemService.getPluReport(req, startDate, endDate);
+  }
+
+  @Get("/vat-mode")
+  public async getVatMode(@Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId as string;
+    if (!companyId) {
+      return {
+        message: "No company context",
+        data: {
+          isVatRegistered: false,
+          allowVatModeSwitch: false,
+          canSwitchToVat: false,
+          canSwitchToNonVat: false,
+        },
+      };
+    }
+    const userRoles = (req.user?.userRoles || []).map((r) => r.name);
+    return ItemService.getVatModeStatus(companyId, userRoles);
+  }
+
+  @Put("/vat-mode/toggle")
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF, roles.ADMIN))
+  public async toggleVatMode(
+    @Body() body: { isVatMode: boolean },
+    @Request() req: ExpressRequest,
+  ) {
+    const companyId = req.user?.company?.companyId as string;
+    const userRoles = (req.user?.userRoles || []).map((r) => r.name);
+    return ItemService.toggleVatMode(companyId, body.isVatMode, userRoles);
+  }
+
   @Get("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
+  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
   public getItem(@Path() id: string, @Request() req: ExpressRequest) {
-    const branchId = req.user?.branchId;
-    return ItemService.getItem(id, branchId);
+    return ItemService.getItem(id, req);
   }
 }

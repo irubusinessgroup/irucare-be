@@ -61,74 +61,6 @@ export interface EbmStockItem {
   totAmt: number;
 }
 
-export interface EbmPurchasePayload {
-  tin: string;
-  bhfId: string;
-  invcNo: number;
-  orgInvcNo: number;
-  spplrTin: string | null;
-  spplrBhfId: string | null;
-  spplrNm: string | null;
-  spplrInvcNo: string | null;
-  regTyCd: string;
-  pchsTyCd: string;
-  rcptTyCd: string;
-  pmtTyCd: string;
-  pchsSttsCd: string;
-  cfmDt: string;
-  pchsDt: string;
-  wrhsDt: string;
-  cnclReqDt: string;
-  cnclDt: string;
-  rfdDt: string;
-  totItemCnt: number;
-  taxblAmtA: number;
-  taxblAmtB: number;
-  taxblAmtC: number;
-  taxblAmtD: number;
-  taxRtA: number;
-  taxRtB: number;
-  taxRtC: number;
-  taxRtD: number;
-  taxAmtA: number;
-  taxAmtB: number;
-  taxAmtC: number;
-  taxAmtD: number;
-  totTaxblAmt: number;
-  totTaxAmt: number;
-  totAmt: number;
-  remark: string | null;
-  regrId: string;
-  regrNm: string;
-  modrId: string;
-  modrNm: string;
-  itemList: EbmPurchaseItem[];
-}
-
-export interface EbmPurchaseItem {
-  itemSeq: number;
-  itemCd: string;
-  itemClsCd: string;
-  itemNm: string;
-  bcd: string | null;
-  spplrItemClsCd: string | null;
-  spplrItemCd: string | null;
-  spplrItemNm: string | null;
-  pkgUnitCd: string;
-  pkg: number;
-  qtyUnitCd: string;
-  qty: number;
-  prc: number;
-  splyAmt: number;
-  dcRt: number;
-  dcAmt: number;
-  taxblAmt: number;
-  taxTyCd: string;
-  taxAmt: number;
-  totAmt: number;
-  itemExprDt: string | null;
-}
-
 export interface EbmSalesPayload {
   tin: string;
   bhfId: string;
@@ -220,6 +152,15 @@ export interface EbmResponse {
   resultMsg: string;
   resultDt: string;
   data: any;
+}
+
+export interface EbmConnectionStatusResponse {
+  connected: boolean;
+  status: "CONNECTED" | "DISCONNECTED";
+  message: string;
+  checkedAt: string;
+  baseUrl: string | null;
+  responseStatus?: number | null;
 }
 
 // EBM Notices interfaces

@@ -9,7 +9,9 @@ export const createCompanySchema = z.object({
     sector: z.string().optional(),
     email: z.string().email(),
     phoneNumber: z.string().optional(),
-    industry: z.string().optional(),
+    industry: z
+      .enum(["STOCK_AND_LOGISTICS", "PHARMACY", "CLINIC"])
+      .optional(),
     website: z.string().optional(),
     TIN: z.string().optional(),
     type: z.string().optional(),

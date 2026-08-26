@@ -26,18 +26,18 @@ export class TriageController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreateTriageDto
+    @Body() body: CreateTriageDto,
   ): Promise<any> {
     return TriageService.create(req, body);
   }
 
   @Get("/encounter/{encounterId}")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public getByEncounter(
     @Path() encounterId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return TriageService.getByEncounterId(encounterId, req);
   }
@@ -47,26 +47,26 @@ export class TriageController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdateTriageDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return TriageService.update(id, body, req);
   }
 
   @Get("/patient/{patientId}/vitals-history")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public vitalsHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<any> {
     return TriageService.getPatientVitalsHistory(patientId, req, limit);
   }
 
   @Get("/queue")
   @Middlewares(
-    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER)
+    checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.NURSE, ClinicRole.PROVIDER),
   )
   public triageQueue(@Request() req: ExpressRequest): Promise<any> {
     return TriageService.getTriageQueue(req);

@@ -8,7 +8,9 @@ import { prisma } from "../utils/client";
 import AppError, { ValidationError } from "../utils/error";
 import { CreateCompanyDto, IResponse } from "../utils/interfaces/common";
 import { roles } from "../utils/roles";
-import { ItemSeederService } from "./ItemSeederService";
+import { ItemService } from "./ItemService";
+import { companyCreatedHandler } from "../events/company";
+import { TEMPORARY_PASSWORD } from "../utils/generatePassword";
 
 export class companyService {
   public static async getCompanies(
@@ -69,6 +71,8 @@ export class companyService {
           certificate: company!.certificate,
           logo: company!.logo,
           isActive: company!.isActive,
+          isVatRegistered: company!.isVatRegistered === true,
+          allowVatModeSwitch: company!.allowVatModeSwitch === true,
         },
         contactPerson:
           company.CompanyUser.length > 0
@@ -137,6 +141,8 @@ export class companyService {
         certificate: company!.certificate,
         logo: company!.logo,
         isActive: company!.isActive,
+        isVatRegistered: company!.isVatRegistered === true,
+        allowVatModeSwitch: company!.allowVatModeSwitch === true,
       },
       contactPerson: {
         id: company!.CompanyUser[0].user.id,
@@ -193,43 +199,68 @@ export class companyService {
   }
 
   static async createCompany(data: CreateCompanyDto) {
-    // console.log("data:--:", data);
-    const errors = await companyValidations.onCreate(data);
-    if (errors[0]) {
-      throw new ValidationError(errors);
-    }
-    const newCompany = await prisma.company.create({
-      data: {
-        ...data.company,
-        country: data.company.country ?? "",
-        province: data.company.province ?? "",
-        district: data.company.district ?? "",
-        sector: data.company.sector ?? "",
-        phoneNumber: data.company.phoneNumber ?? "",
-        email: data.company.email ?? "",
-        industry: data.company.industry ?? "",
-        website: data.company.website ?? "",
-        TIN: data.company.TIN ?? "",
-        type: data.company.type ?? "",
-        certificate: (data.company.certificate as string) ?? "",
-        logo: (data.company.logo as string) ?? "",
-      },
-    });
+    try {
+      // console.log("data:--:", data);
+      const errors = await companyValidations.onCreate(data);
+      if (errors[0]) {
+        throw new ValidationError(errors);
+      }
 
-    // Seed items if industry is PHARMACY
-    if (newCompany.industry === "PHARMACY") {
-      // Run in background to not block response
-      ItemSeederService.seedPharmacyItems(newCompany.id).catch((err) => {
-        console.error("Failed to seed pharmacy items:", err);
+      const newCompany = await prisma.$transaction(async (tx) => {
+        const company = await tx.company.create({
+          data: {
+            ...data.company,
+            country: data.company.country ?? "",
+            province: data.company.province ?? "",
+            district: data.company.district ?? "",
+            sector: data.company.sector ?? "",
+            phoneNumber: data.company.phoneNumber ?? "",
+            email: data.company.email ?? "",
+            industry: data.company.industry ?? "",
+            website: data.company.website ?? "",
+            TIN: data.company.TIN ?? "",
+            type: data.company.type ?? "",
+            certificate: (data.company.certificate as string) ?? "",
+            logo: (data.company.logo as string) ?? "",
+          },
+        });
+
+        // Every company must have at least one branch (Main / bhfId 00)
+        await tx.branch.create({
+          data: {
+            name: "Main Branch",
+            location:
+              [company.province, company.district, company.sector]
+                .filter(Boolean)
+                .join(", ") || "Main Location",
+            bhfId: "00",
+            companyId: company.id,
+          },
+        });
+
+        return company;
       });
-    }
 
-    Emitter.emit(EventType.COMPANY_CREATED, newCompany, data);
-    return {
-      message: "Company Created Successfully!!",
-      statusCode: 201,
-      data: newCompany,
-    };
+      await companyCreatedHandler(newCompany, data);
+      return {
+        message: "Company Created Successfully!!",
+        statusCode: 201,
+        data: newCompany,
+        temporaryPassword: TEMPORARY_PASSWORD,
+      };
+    } catch (error: any) {
+      if (error.code === "P2002") {
+        const target = error.meta?.target?.[0] || "field";
+        throw new AppError(
+          `A company with this ${target} already exists.`,
+          400,
+        );
+      }
+      if (error instanceof ValidationError) {
+        throw error;
+      }
+      throw new AppError(error, 500);
+    }
   }
 
   public static async updateCompany(id: string, data: CreateCompanyDto) {
@@ -317,5 +348,82 @@ export class companyService {
     } catch (error) {
       throw new AppError(error, 500);
     }
+  }
+
+  /**
+   * Platform admin grants/revokes company permission to switch Non-VAT → VAT.
+   */
+  public static async setAllowVatModeSwitch(
+    companyId: string,
+    allowVatModeSwitch: boolean,
+  ) {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, isVatRegistered: true, name: true },
+    });
+
+    if (!company) {
+      throw new AppError("Company not found", 404);
+    }
+
+    if (allowVatModeSwitch && company.isVatRegistered === true) {
+      throw new AppError(
+        "Company is already in VAT Mode. Grant is only needed for Non-VAT → VAT.",
+        400,
+      );
+    }
+
+    const updated = await prisma.company.update({
+      where: { id: companyId },
+      data: { allowVatModeSwitch },
+      select: {
+        id: true,
+        name: true,
+        isVatRegistered: true,
+        allowVatModeSwitch: true,
+      },
+    });
+
+    return {
+      message: allowVatModeSwitch
+        ? `Granted ${company.name} permission to switch to VAT Mode`
+        : `Revoked VAT Mode switch permission for ${company.name}`,
+      statusCode: 200,
+      data: {
+        ...updated,
+        isVatRegistered: updated.isVatRegistered === true,
+        allowVatModeSwitch: updated.allowVatModeSwitch === true,
+      },
+    };
+  }
+
+  /**
+   * Platform admin force-sets VAT mode (including VAT → Non-VAT).
+   */
+  public static async adminSetVatMode(companyId: string, isVatMode: boolean) {
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, name: true, isVatRegistered: true },
+    });
+
+    if (!company) {
+      throw new AppError("Company not found", 404);
+    }
+
+    const result = await ItemService.toggleVatMode(
+      companyId,
+      isVatMode,
+      [roles.ADMIN],
+    );
+
+    return {
+      ...result,
+      statusCode: 200,
+      data: {
+        id: company.id,
+        name: company.name,
+        ...(result.data ?? {}),
+      },
+    };
   }
 }

@@ -23,12 +23,14 @@ import { createCompanyStaffSchema } from "../utils/typeSchemas/companyStaff";
 import { checkCompanyStaff } from "../middlewares/checkCompanyStaff";
 import AppError from "../utils/error";
 
+const staffManagers = checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN);
+
 @Security("jwt")
 @Route("/api/staff")
 @Tags("Company Staff")
 export class CompanyStaffController {
   @Get("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(staffManagers)
   public getCompanyStaff(@Request() req: ExpressRequest) {
     const { searchq, limit, page } = req.query;
     const currentPage = page ? parseInt(page as string) : undefined;
@@ -40,7 +42,7 @@ export class CompanyStaffController {
     );
   }
   @Get("/my-staff")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN))
+  @Middlewares(staffManagers)
   public getAllMyStaff(@Request() req: ExpressRequest) {
     const { searchq, limit, page } = req.query;
     const currentPage = page ? parseInt(page as string) : undefined;
@@ -67,7 +69,7 @@ export class CompanyStaffController {
 
   @Post("/")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN),
+    staffManagers,
     upload.any(),
     appendNIDAttachment,
     validate(createCompanyStaffSchema),
@@ -77,7 +79,11 @@ export class CompanyStaffController {
     @Request() request: ExpressRequest,
   ) {
     const companyId = request.user?.company?.companyId;
-    return CompanyStaffService.createCompanyStaff(companyStaff, companyId!, request);
+    return CompanyStaffService.createCompanyStaff(
+      companyStaff,
+      companyId!,
+      request,
+    );
   }
 
   @Get("/{id}")
@@ -86,9 +92,25 @@ export class CompanyStaffController {
     return CompanyStaffService.getCompanyStaff(id);
   }
 
+  @Put("/{id}/mrc")
+  @Middlewares(staffManagers)
+  public async updateStaffMrc(
+    id: string,
+    @Body() body: { mrcNo: string },
+    @Request() request: ExpressRequest,
+  ) {
+    const companyId = request.user?.company?.companyId;
+    const { mrcNo } = body;
+    return CompanyStaffService.updateStaffMrcNumber(
+      id,
+      mrcNo,
+      companyId!,
+      request,
+    );
+  }
   @Put("/{id}")
   @Middlewares(
-    checkRole(roles.COMPANY_ADMIN),
+    staffManagers,
     upload.any(),
     appendNIDAttachment,
   )
@@ -98,12 +120,20 @@ export class CompanyStaffController {
     @Request() request: ExpressRequest,
   ) {
     const companyId = request.user?.company?.companyId;
-    return CompanyStaffService.updateCompanyStaff(id, companyStaff, companyId!);
+    return CompanyStaffService.updateCompanyStaff(
+      id,
+      companyStaff,
+      companyId!,
+      request,
+    );
   }
 
   @Delete("/{id}")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN), checkCompanyStaff)
-  public deleteCompanyStaff(id: string) {
-    return CompanyStaffService.deleteCompanyStaff(id);
+  @Middlewares(staffManagers, checkCompanyStaff)
+  public deleteCompanyStaff(
+    id: string,
+    @Request() request: ExpressRequest,
+  ) {
+    return CompanyStaffService.deleteCompanyStaff(id, request);
   }
 }

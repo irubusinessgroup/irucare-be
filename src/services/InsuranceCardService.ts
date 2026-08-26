@@ -5,13 +5,14 @@ import {
   UpdateInsuranceCardDto,
 } from "../utils/interfaces/common";
 import type { Request } from "express";
+import { requireBranchId } from "../utils/branchScope";
 
 export class InsuranceCardService {
   public static async getAllInsuranceCards(
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -19,11 +20,10 @@ export class InsuranceCardService {
     }
 
     const branchId = req.user?.branchId;
-    console.log(`[InsuranceCardService DEBUG] companyId: ${companyId}, branchId: ${branchId}`);
     const queryOptions: any = searchq
       ? {
           companyId,
-          branchId: branchId || null, // Explicitly filter
+          ...(branchId ? { branchId } : {}),
           OR: [
             { affiliationNumber: { contains: searchq } },
             { affiliateName: { contains: searchq } },
@@ -31,7 +31,7 @@ export class InsuranceCardService {
         }
       : {
           companyId,
-          branchId: branchId || null, // Explicitly filter
+          ...(branchId ? { branchId } : {}),
         };
 
     const skip = page && limit ? (page - 1) * limit : undefined;
@@ -66,8 +66,10 @@ export class InsuranceCardService {
   public static async createInsuranceCard(
     data: CreateInsuranceCardDto,
     companyId: string,
-    branchId?: string | null
+    branchId?: string | null,
   ) {
+    const resolvedBranchId = await requireBranchId(companyId, branchId);
+
     return prisma.$transaction(async (tx) => {
       if (!data.patientId && !data.clientId) {
         throw new AppError("Either Patient ID or Client ID is required", 400);
@@ -76,7 +78,7 @@ export class InsuranceCardService {
       const insuranceCard = await tx.insuranceCard.create({
         data: {
           companyId,
-          branchId: branchId as any,
+          branchId: resolvedBranchId,
           patientId: data.patientId,
           clientId: data.clientId,
           insuranceId: data.insuranceId,
@@ -101,14 +103,14 @@ export class InsuranceCardService {
     id: string,
     data: UpdateInsuranceCardDto,
     companyId: string,
-    branchId?: string | null
+    branchId?: string | null,
   ) {
     return prisma.$transaction(async (tx) => {
       const existingCard = await tx.insuranceCard.findFirst({
         where: {
           id,
           companyId,
-          branchId: branchId || null,
+          ...(branchId ? { branchId } : {}),
         },
       });
 
@@ -142,13 +144,13 @@ export class InsuranceCardService {
   public static async deleteInsuranceCard(
     id: string,
     companyId: string,
-    branchId?: string | null
+    branchId?: string | null,
   ) {
     const insuranceCard = await prisma.insuranceCard.findFirst({
       where: {
         id,
         companyId,
-        branchId: branchId || null,
+        ...(branchId ? { branchId } : {}),
       },
     });
     if (!insuranceCard) throw new AppError("Insurance card not found", 404);

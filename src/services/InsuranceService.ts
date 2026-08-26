@@ -5,13 +5,14 @@ import {
   UpdateInsuranceDto,
 } from "../utils/interfaces/common";
 import type { Request } from "express";
+import { requireBranchId } from "../utils/branchScope";
 
 export class InsuranceService {
   public static async getAllInsurance(
     req: Request,
     searchq?: string,
     limit?: number,
-    page?: number
+    page?: number,
   ) {
     const companyId = req.user?.company?.companyId;
     if (!companyId) {
@@ -19,16 +20,15 @@ export class InsuranceService {
     }
 
     const branchId = req.user?.branchId;
-    console.log(`[InsuranceService DEBUG] companyId: ${companyId}, branchId: ${branchId}`);
     const queryOptions: any = searchq
       ? {
           companyId,
-          branchId: branchId || null, // Explicitly filter
+          ...(branchId ? { branchId } : {}),
           name: { contains: searchq },
         }
       : {
           companyId,
-          branchId: branchId || null, // Explicitly filter
+          ...(branchId ? { branchId } : {}),
         };
 
     const skip = page && limit ? (page - 1) * limit : undefined;
@@ -55,11 +55,13 @@ export class InsuranceService {
   public static async createInsurance(
     data: CreateInsuranceDto,
     companyId: string,
-    branchId?: string | null
+    branchId?: string | null,
   ) {
     if (!companyId) {
       throw new AppError("Company ID is missing", 400);
     }
+
+    const resolvedBranchId = await requireBranchId(companyId, branchId);
 
     const insurance = await prisma.insurance.create({
       data: {
@@ -69,7 +71,7 @@ export class InsuranceService {
         description: data.description,
         address: data.address,
         companyId,
-        branchId: branchId as any,
+        branchId: resolvedBranchId,
       },
     });
     return { message: "Insurance created successfully", data: insurance };
@@ -79,13 +81,13 @@ export class InsuranceService {
     id: string,
     data: UpdateInsuranceDto,
     companyId: string,
-    branchId?: string | null
+    branchId?: string | null,
   ) {
     const existingInsurance = await prisma.insurance.findFirst({
       where: {
         id,
         companyId,
-        branchId: branchId || null,
+        ...(branchId ? { branchId } : {}),
       },
     });
 
@@ -110,13 +112,13 @@ export class InsuranceService {
   public static async deleteInsurance(
     id: string,
     companyId: string,
-    branchId?: string | null
+    branchId?: string | null,
   ) {
     const existingInsurance = await prisma.insurance.findFirst({
       where: {
         id,
         companyId,
-        branchId: branchId || null,
+        ...(branchId ? { branchId } : {}),
       },
     });
 

@@ -27,10 +27,7 @@ import { Request as ExpressRequest } from "express";
 export class BranchInsuranceController {
   @Get("/")
   @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN))
-  public getAll(
-    @Request() req: ExpressRequest,
-    @Query() branchId?: string,
-  ) {
+  public getAll(@Request() req: ExpressRequest, @Query() branchId?: string) {
     return BranchInsuranceService.getAll(req, branchId);
   }
 

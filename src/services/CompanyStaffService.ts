@@ -6,7 +6,12 @@ import type {
   RoleType,
 } from "../utils/interfaces/common";
 import { IResponse } from "../utils/interfaces/common";
-import { ClinicRole, roles } from "../utils/roles";
+import {
+  ClinicRole,
+  roles,
+  assertAssignableCompanyRole,
+  isPlatformRole,
+} from "../utils/roles";
 import type { Request } from "express";
 import { companyStaffValidations } from "./../varifications/companyStaff";
 import { hashSync } from "bcrypt";
@@ -15,6 +20,48 @@ import { Emitter } from "../events";
 import { EventType } from "../events/types";
 import { QueryOptions, Paginations } from "../utils/DBHelpers";
 import { EbmService } from "./EbmService";
+import { assertCanAddCompanyUser } from "../utils/subscriptionQuotas";
+
+type StaffAccess = {
+  companyId: string;
+  /** When set, list/mutate only this branch (BRANCH_ADMIN lock or COMPANY_ADMIN filter). */
+  branchScope: string | null;
+  isBranchAdminOnly: boolean;
+};
+
+function resolveStaffAccess(req: Request): StaffAccess {
+  const companyId = req.user?.company?.companyId;
+  if (!companyId) {
+    throw new AppError("Company context is required", 400);
+  }
+
+  const roleNames = (req.user?.userRoles || []).map((r) => r.name as string);
+  const isCompanyWide =
+    roleNames.includes(roles.COMPANY_ADMIN) || isPlatformRole(roleNames);
+  const isBranchAdminOnly =
+    roleNames.includes(roles.BRANCH_ADMIN) && !isCompanyWide;
+
+  const branchScope = isBranchAdminOnly
+    ? req.user?.branchId || req.user?.company?.branchId || null
+    : req.user?.branchId || null;
+
+  if (isBranchAdminOnly && !branchScope) {
+    throw new AppError("BRANCH_ADMIN must be assigned to a branch", 400);
+  }
+
+  return { companyId, branchScope, isBranchAdminOnly };
+}
+
+/** BRANCH_ADMIN may only assign branch-level roles (not COMPANY_ADMIN). */
+function assertBranchAdminAssignableRole(role: string): void {
+  const allowed = [roles.BRANCH_ADMIN, roles.STAFF, ...Object.values(ClinicRole)];
+  if (!allowed.includes(role as any)) {
+    throw new AppError(
+      `BRANCH_ADMIN can only assign: BRANCH_ADMIN, STAFF, or clinic roles`,
+      403,
+    );
+  }
+}
 
 export class CompanyStaffService {
   public static async getStaff(
@@ -23,67 +70,7 @@ export class CompanyStaffService {
     limit?: number,
     currentPage?: number,
   ) {
-    const requestingUser = await prisma.companyUser.findFirst({
-      where: {
-        userId: req.user?.company?.companyId,
-      },
-    });
-
-    const queryOptions = QueryOptions(
-      ["user.firstName", "user.lastName", "user.email"],
-      searchq,
-    );
-    const pagination = Paginations(currentPage, limit);
-
-    const selection = {
-      user: {
-        select: { email: true, id: true, lastName: true, firstName: true },
-      },
-    };
-
-    const companyUser = req.user?.userRoles?.some(
-      (role) => role.name === roles.ADMIN,
-    )
-      ? await prisma.companyUser.findMany({
-          where: queryOptions,
-          include: selection,
-          ...pagination,
-          orderBy: {
-            createdAt: "desc",
-          },
-        })
-      : await prisma.companyUser.findMany({
-          where: {
-            companyId: requestingUser?.companyId,
-            ...queryOptions,
-          },
-          include: selection,
-          ...pagination,
-          orderBy: {
-            createdAt: "desc",
-          },
-        });
-
-    if (!companyUser) {
-      throw new AppError("Company does not exist or has no staff members", 400);
-    }
-
-    const totalItems = await prisma.companyUser.count({
-      where: {
-        companyId: requestingUser?.companyId,
-        ...queryOptions,
-      },
-    });
-
-    const staff = companyUser.map((staff) => staff.user);
-    return {
-      data: staff,
-      statusCode: 200,
-      message: "Staff members retrieved successfully",
-      totalItems,
-      currentPage: currentPage || 1,
-      itemsPerPage: limit || 15,
-    };
+    return this.getAllMyStaff(req, searchq, limit, currentPage);
   }
 
   public static async getCompanyStaff(id: string) {
@@ -98,9 +85,11 @@ export class CompanyStaffService {
       firstName: staffInfo!.user.firstName,
       lastName: staffInfo!.user.lastName,
       email: staffInfo!.user.email,
+      mrcNo: staffInfo!.user.mrcNo,
       title: staffInfo!.title,
       idNumber: staffInfo!.idNumber,
       idAttachment: staffInfo!.idAttachment,
+      branchId: staffInfo!.branchId,
     };
     return {
       message: "company fetched successfully",
@@ -115,24 +104,7 @@ export class CompanyStaffService {
     limit?: number,
     currentPage?: number,
   ) {
-    const requestingUser = await prisma.companyUser.findFirst({
-      where: {
-        userId: req.user?.id,
-      },
-      include: {
-        company: true,
-        user: true,
-      },
-    });
-
-    if (!requestingUser || !requestingUser.company) {
-      throw new AppError(
-        "Company does not exist or you do not have access",
-        400,
-      );
-    }
-
-    const companyId = requestingUser.company.id;
+    const { companyId, branchScope } = resolveStaffAccess(req);
 
     const queryOptions = QueryOptions(
       ["user.firstName", "user.lastName", "user.email"],
@@ -140,12 +112,18 @@ export class CompanyStaffService {
     );
     const pagination = Paginations(currentPage, limit);
 
+    const where = {
+      companyId,
+      ...(branchScope ? { branchId: branchScope } : {}),
+      ...queryOptions,
+    };
+
     const companyUsers = await prisma.companyUser.findMany({
-      where: {
-        companyId: companyId,
-        ...queryOptions,
-      },
+      where,
       include: {
+        branch: {
+          select: { id: true, name: true, bhfId: true },
+        },
         user: {
           select: {
             email: true,
@@ -154,6 +132,7 @@ export class CompanyStaffService {
             lastName: true,
             phoneNumber: true,
             photo: true,
+            mrcNo: true,
             userRoles: true,
             clinicUserRoles: true,
           },
@@ -165,19 +144,9 @@ export class CompanyStaffService {
       },
     });
 
-    if (companyUsers.length === 0) {
-      throw new AppError("No staff members found for your company", 404);
-    }
-
-    const totalItems = await prisma.companyUser.count({
-      where: {
-        companyId: companyId,
-        ...queryOptions,
-      },
-    });
+    const totalItems = await prisma.companyUser.count({ where });
 
     const staff = companyUsers.map((companyUser) => {
-      // Combine both role types
       const systemRoles = companyUser.user.userRoles.map((role) => role.name);
       const clinicRoles = companyUser.user.clinicUserRoles.map(
         (role) => role.role,
@@ -191,9 +160,13 @@ export class CompanyStaffService {
         email: companyUser.user.email,
         phoneNumber: companyUser.user.phoneNumber,
         photo: companyUser.user.photo,
+        mrcNo: companyUser.user.mrcNo,
         title: companyUser.title,
         idNumber: companyUser.idNumber,
         idAttachment: companyUser.idAttachment,
+        branchId: companyUser.branchId,
+        branchName: companyUser.branch?.name ?? null,
+        branchBhfId: companyUser.branch?.bhfId ?? null,
         role: allRoles.join(", "),
       };
     });
@@ -253,56 +226,69 @@ export class CompanyStaffService {
       throw new ValidationError(errors);
     }
 
-    // Fetch the company to check its industry
+    await assertCanAddCompanyUser(companyId);
+
     const company = await prisma.company.findUnique({
       where: { id: companyId },
-      select: { industry: true, TIN: true }, // Include TIN for EBM
+      select: { id: true, industry: true, TIN: true },
     });
 
     if (!company) {
       throw new AppError("Company not found", 404);
     }
 
-    // Determine if this is a healthcare company
-    const isHealthcareCompany = ["clinic", "hospital"].includes(
+    const isHealthcareCompany = ["clinic"].includes(
       (company.industry || "").toLowerCase(),
     );
 
-    // Validate Branch Assignment
-    if (data.branchId) {
+    let branchId = data.branchId || null;
+    if (req) {
+      const access = resolveStaffAccess(req);
+      if (access.isBranchAdminOnly) {
+        branchId = access.branchScope;
+        assertBranchAdminAssignableRole(data.role);
+      }
+    }
+
+    if (branchId) {
       const branch = await prisma.branch.findUnique({
-        where: { id: data.branchId },
+        where: { id: branchId },
       });
-      if (!branch) throw new AppError("The specified branch does not exist", 404);
+      if (!branch)
+        throw new AppError("The specified branch does not exist", 404);
       if (branch.companyId !== companyId) {
         throw new AppError(
           "The specified branch does not belong to your company",
           403,
         );
       }
+    } else if (req) {
+      const access = resolveStaffAccess(req);
+      if (access.isBranchAdminOnly) {
+        throw new AppError("Branch is required", 400);
+      }
     }
 
-    // Save user to EBM before creating in database
     if (req?.user) {
-      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
-      // const ebmResponse = await EbmService.saveUserToEBM(
-      //   data,
-      //   company,
-      //   req.user,
-      //   data.branchId,
-      // );
-      //
-      // if (ebmResponse.resultCd !== "000") {
-      //   throw new AppError(
-      //     `EBM Registration Failed: ${ebmResponse.resultMsg}`,
-      //     400,
-      //   );
-      // }
-      // Mock success - user will be created without EBM sync
+      const ebmResponse = await EbmService.saveUserToEBM(
+        data,
+        company,
+        req.user,
+        branchId,
+      );
+
+      if (ebmResponse.resultCd !== "000") {
+        throw new AppError(
+          `EBM Registration Failed: ${ebmResponse.resultMsg}`,
+          400,
+        );
+      }
     }
 
-    // Check if the role is a ClinicRole
     const isClinicRole = Object.values(ClinicRole).includes(data.role as any);
+    if (!isClinicRole) {
+      assertAssignableCompanyRole(data.role);
+    }
 
     const userInfo = await prisma.user.create({
       data: {
@@ -312,19 +298,18 @@ export class CompanyStaffService {
         phoneNumber: data.phoneNumber,
         password: hashSync("Password123!", 10),
 
-        // Conditionally create the appropriate role
         ...(isHealthcareCompany && isClinicRole
           ? {
               clinicUserRoles: {
                 create: {
-                  role: data.role as ClinicRole, // Use ClinicRole
+                  role: data.role as ClinicRole,
                 },
               },
             }
           : {
               userRoles: {
                 create: {
-                  name: data.role as RoleType, // Use RoleType
+                  name: data.role as RoleType,
                 },
               },
             }),
@@ -335,7 +320,6 @@ export class CompanyStaffService {
       },
     });
 
-    // Create the company user entry
     await prisma.companyUser.create({
       data: {
         companyId: companyId,
@@ -344,7 +328,7 @@ export class CompanyStaffService {
         idNumber: data.idNumber ?? "N/A",
         idAttachment:
           typeof data.idAttachment === "string" ? data.idAttachment : undefined,
-        branchId: data.branchId,
+        branchId,
       },
     });
 
@@ -355,20 +339,31 @@ export class CompanyStaffService {
     id: string,
     data: CreateCompanyStaffUnionDto,
     companyId: string,
+    req?: Request,
   ) {
     try {
-      // Check if email, phoneNumber, or idNumber is already taken by another user
       const errors = await companyStaffValidations.onUpdate(id, data);
       if (errors[0]) {
         throw new ValidationError(errors);
       }
 
-      // Validate Branch Assignment if provided
-      if (data.branchId) {
+      await this.assertCanManageStaff(id, companyId, req);
+
+      let branchId = data.branchId || null;
+      if (req) {
+        const access = resolveStaffAccess(req);
+        if (access.isBranchAdminOnly) {
+          branchId = access.branchScope;
+          if (data.role) assertBranchAdminAssignableRole(data.role);
+        }
+      }
+
+      if (branchId) {
         const branch = await prisma.branch.findUnique({
-          where: { id: data.branchId },
+          where: { id: branchId },
         });
-        if (!branch) throw new AppError("The specified branch does not exist", 404);
+        if (!branch)
+          throw new AppError("The specified branch does not exist", 404);
         if (branch.companyId !== companyId) {
           throw new AppError(
             "The specified branch does not belong to your company",
@@ -396,7 +391,7 @@ export class CompanyStaffService {
             typeof data.idAttachment === "string"
               ? data.idAttachment
               : undefined,
-          branchId: data.branchId,
+          branchId,
         },
       });
 
@@ -417,9 +412,13 @@ export class CompanyStaffService {
     }
   }
 
-  public static async deleteCompanyStaff(id: string) {
+  public static async deleteCompanyStaff(id: string, req?: Request) {
     try {
-      // Delete the company user entry
+      const companyId = req?.user?.company?.companyId;
+      if (companyId) {
+        await this.assertCanManageStaff(id, companyId, req);
+      }
+
       await prisma.companyUser.delete({
         where: { userId: id },
       });
@@ -427,7 +426,6 @@ export class CompanyStaffService {
       await prisma.userRole.deleteMany({
         where: { userId: id },
       });
-      // Delete the user entry
       const deletedUser = await prisma.user.delete({
         where: { id },
       });
@@ -438,6 +436,99 @@ export class CompanyStaffService {
         message: "Company staff member deleted successfully",
         statusCode: 200,
         data: deletedUser,
+      };
+    } catch (error) {
+      throw new AppError(error, 500);
+    }
+  }
+
+  private static async assertCanManageStaff(
+    userId: string,
+    companyId: string,
+    req?: Request,
+  ) {
+    const membership = await prisma.companyUser.findUnique({
+      where: { userId },
+      select: { companyId: true, branchId: true },
+    });
+    if (!membership || membership.companyId !== companyId) {
+      throw new AppError("Staff member not found in your company", 404);
+    }
+    if (req) {
+      const access = resolveStaffAccess(req);
+      if (
+        access.branchScope &&
+        membership.branchId &&
+        membership.branchId !== access.branchScope
+      ) {
+        throw new AppError(
+          "You can only manage staff assigned to your branch",
+          403,
+        );
+      }
+      if (access.isBranchAdminOnly && membership.branchId !== access.branchScope) {
+        throw new AppError(
+          "You can only manage staff assigned to your branch",
+          403,
+        );
+      }
+    }
+  }
+
+  public static async updateStaffMrcNumber(
+    userId: string,
+    newMrcNo: string,
+    companyId: string,
+    req?: Request,
+  ) {
+    try {
+      await this.assertCanManageStaff(userId, companyId, req);
+
+      const staffMember = await prisma.companyUser.findUnique({
+        where: { userId },
+        include: {
+          user: true,
+          company: true,
+        },
+      });
+
+      if (!staffMember) {
+        throw new AppError("Staff member not found", 404);
+      }
+
+      if (!newMrcNo || newMrcNo.trim().length !== 11) {
+        throw new AppError(
+          "MRC number must be exactly 11 characters long",
+          400,
+        );
+      }
+
+      const existingUser = await prisma.user.findUnique({
+        where: { mrcNo: newMrcNo },
+      });
+
+      if (existingUser && existingUser.id !== userId) {
+        throw new AppError("MRC number is already in use", 400);
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: { mrcNo: newMrcNo },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          mrcNo: true,
+          phoneNumber: true,
+          photo: true,
+        },
+      });
+
+      return {
+        statusCode: 200,
+        message: "Staff MRC number updated successfully",
+        data: updatedUser,
       };
     } catch (error) {
       throw new AppError(error, 500);

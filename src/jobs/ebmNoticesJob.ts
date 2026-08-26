@@ -3,48 +3,71 @@ import { Server as SocketIOServer } from "socket.io";
 import { prisma } from "../utils/client";
 import { EbmNoticeService } from "../services/EbmNoticeService";
 
-/**
- * Start EBM notices cron job to sync notices for all active companies
- * Runs every 6 hours
- */
-export function startEbmNoticesCron(io: SocketIOServer): void {
-  // Run every 6 hours
-  cron.schedule("0 */6 * * *", async () => {
-    console.log("🔔 Running EBM notices sync...");
+const CRON_SCHEDULE = "*/1 * * * *"; // every 1 minute
 
-    try {
-      // Get all active companies
-      const companies = await prisma.company.findMany({
-        where: { isActive: true },
-        select: { id: true, TIN: true, name: true },
-      });
+let isSyncRunning = false;
 
-      console.log(`Found ${companies.length} active companies to sync`);
+async function syncNoticesForAllCompanies(io: SocketIOServer): Promise<void> {
+  if (isSyncRunning) {
+    console.log("[EBM Notices Cron] Skipping run — previous sync still in progress");
+    return;
+  }
 
-      let successCount = 0;
-      let errorCount = 0;
+  isSyncRunning = true;
 
-      // Sync notices for each company
-      for (const company of companies) {
-        try {
-          await EbmNoticeService.syncNotices(company.id, io);
-          successCount++;
-        } catch (error) {
-          console.error(`✗ Failed to sync notices for ${company.name}:`, error);
-          errorCount++;
-        }
-      }
+  try {
+    // Only companies that already initialized EBM on a branch (or cached ebmBhfId).
+    // Avoids noisy errors every minute for tenants that have not set up VSDC yet.
+    const companies = (
+      await prisma.company.findMany({
+        where: {
+          TIN: { not: "" },
+          OR: [
+            { branches: { some: { isEbmInitialized: true } } },
+            { companyTools: { some: { ebmBhfId: { not: null } } } },
+          ],
+        },
+        select: { id: true, name: true, TIN: true },
+      })
+    ).filter((c) => Boolean(c.TIN?.trim()));
 
-      console.log(`
-🔔 EBM Notices Sync Summary:
-  - Companies processed: ${companies.length}
-  - Successful: ${successCount}
-  - Errors: ${errorCount}
-      `);
-    } catch (error) {
-      console.error("Fatal error during EBM notices sync:", error);
+    if (companies.length === 0) {
+      return;
     }
+
+    console.log(
+      `[EBM Notices Cron] Syncing ${companies.length} compan${companies.length === 1 ? "y" : "ies"}…`,
+    );
+
+    for (const company of companies) {
+      try {
+        const result = await EbmNoticeService.syncNotices(company.id, io);
+        if (result.fetched > 0) {
+          console.log(
+            `[EBM Notices Cron] ${company.name}: fetched=${result.fetched}, processed=${result.processed}, skipped=${result.skipped}, cursor=${result.lastSyncedAt}`,
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[EBM Notices Cron] Failed for company ${company.name} (${company.id}):`,
+          error,
+        );
+      }
+    }
+  } finally {
+    isSyncRunning = false;
+  }
+}
+
+export function startEbmNoticesCron(io: SocketIOServer): void {
+  if (process.env.EBM_NOTICES_CRON_ENABLED === "false") {
+    console.log("[EBM Notices Cron] Disabled via EBM_NOTICES_CRON_ENABLED=false");
+    return;
+  }
+
+  cron.schedule(CRON_SCHEDULE, () => {
+    void syncNoticesForAllCompanies(io);
   });
 
-  console.log("📅 EBM notices cron job scheduled (every 6 hours)");
+  console.log(`[EBM Notices Cron] Scheduled (${CRON_SCHEDULE})`);
 }

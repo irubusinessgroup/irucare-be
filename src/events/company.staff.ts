@@ -13,7 +13,7 @@ export const companyStaffCreatedHandler = async (
       const assignRole = await tx.userRole.create({
         data: {
           userId: user?.id,
-          name: roles.COMPANY_USER,
+          name: roles.STAFF,
         },
       });
 

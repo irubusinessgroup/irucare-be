@@ -13,6 +13,12 @@ export const sendEmail = async ({
   body?: string;
   html?: string;
 }) => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error(
+      "Email is not configured. Set EMAIL_USER and EMAIL_PASS for Gmail SMTP.",
+    );
+  }
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {

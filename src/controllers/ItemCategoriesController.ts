@@ -27,7 +27,7 @@ export class ItemCategoriesController {
   @Security("jwt")
   public async createCategory(
     @Body() data: CreateCategoryRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<CategoryResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -38,14 +38,14 @@ export class ItemCategoriesController {
   @Security("jwt")
   public async getCategoryById(
     @Path() categoryId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<CategoryResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
     return ItemCategoriesService.getCategoryById(
       categoryId,
       companyId,
-      branchId
+      branchId,
     );
   }
 
@@ -54,7 +54,7 @@ export class ItemCategoriesController {
   public async updateCategory(
     @Path() categoryId: string,
     @Body() data: UpdateCategoryRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<CategoryResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -62,7 +62,7 @@ export class ItemCategoriesController {
       categoryId,
       data,
       companyId,
-      branchId
+      branchId,
     );
   }
 
@@ -70,21 +70,21 @@ export class ItemCategoriesController {
   @Security("jwt")
   public async deleteCategory(
     @Path() categoryId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
     return ItemCategoriesService.deleteCategory(
       categoryId,
       companyId,
-      branchId
+      branchId,
     );
   }
 
   @Get("/")
   @Security("jwt")
   public async getCategories(
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IPaged<CategoryResponse[]>> {
     const { searchq, limit, page } = req.query as Record<string, string>;
     const currentPage = page ? parseInt(page as string, 10) : undefined;
@@ -97,7 +97,7 @@ export class ItemCategoriesController {
       branchId,
       (searchq as string) || undefined,
       parsedLimit,
-      currentPage
+      currentPage,
     );
   }
 }

@@ -2,6 +2,7 @@ import {
   Body,
   Delete,
   Get,
+  Middlewares,
   Path,
   Post,
   Put,
@@ -12,6 +13,8 @@ import {
 } from "tsoa";
 import { Request as ExpressRequest } from "express";
 import { SupplierService } from "../services/SupplierService";
+import { checkRole } from "../middlewares";
+import { STAFF_OPS_ROLES } from "../utils/roles";
 import {
   CreateSupplierRequest,
   IResponse,
@@ -22,12 +25,13 @@ import {
 
 @Tags("Suppliers")
 @Route("/api/suppliers")
+@Security("jwt")
+@Middlewares(checkRole(...STAFF_OPS_ROLES))
 export class SupplierController {
   @Post("/")
-  @Security("jwt")
   public async createSupplier(
     @Body() data: CreateSupplierRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<SupplierResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -35,10 +39,9 @@ export class SupplierController {
   }
 
   @Get("/{id}")
-  @Security("jwt")
   public async getSupplier(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<SupplierResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -46,11 +49,10 @@ export class SupplierController {
   }
 
   @Put("/{id}")
-  @Security("jwt")
   public async updateSupplier(
     @Path() id: string,
     @Body() data: UpdateSupplierRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<SupplierResponse>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -58,10 +60,9 @@ export class SupplierController {
   }
 
   @Delete("/{id}")
-  @Security("jwt")
   public async deleteSupplier(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<null>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -74,9 +75,8 @@ export class SupplierController {
   }
 
   @Get("/")
-  @Security("jwt")
   public async getSuppliers(
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IPaged<SupplierResponse[]>> {
     const companyId = req.user?.company?.companyId as string;
     const branchId = req.user?.branchId;
@@ -89,14 +89,13 @@ export class SupplierController {
       branchId,
       (searchq as string) || undefined,
       parsedLimit,
-      currentPage
+      currentPage,
     );
   }
 
-  @Get("/by-company/:supplierCompanyId")
-  @Security("jwt")
+  @Get("/by-company/{supplierCompanyId}")
   public async getSuppliersByCompany(
-    @Path() supplierCompanyId: string
+    @Path() supplierCompanyId: string,
   ): Promise<IResponse<SupplierResponse[]>> {
     return await SupplierService.getSuppliersByCompany(supplierCompanyId);
   }

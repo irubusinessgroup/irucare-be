@@ -4,16 +4,62 @@ import { NotificationService } from "./NotificationService";
 import { EbmNotice, EbmNoticesResponse } from "../utils/interfaces/ebm";
 import { Server as SocketIOServer } from "socket.io";
 
+const NOTICE_SYNC_TYPE = "NOTICE";
+const SEED_LAST_REQ_DT = "20000101000000";
+
+/** EBM expects yyyyMMddHHmmss — Kigali (UTC+2) to match other EBM sync cursors. */
+function kigaliNow(): string {
+  const d = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    d.getUTCFullYear().toString() +
+    pad(d.getUTCMonth() + 1) +
+    pad(d.getUTCDate()) +
+    pad(d.getUTCHours()) +
+    pad(d.getUTCMinutes()) +
+    pad(d.getUTCSeconds())
+  );
+}
+
+export interface SyncNoticesOptions {
+  /** When true, request from 2000-01-01 (admin full re-pull). Cursor still advances only if EBM returns notices. */
+  fullSync?: boolean;
+}
+
+export interface SyncNoticesResult {
+  fetched: number;
+  processed: number;
+  skipped: number;
+  /** lastReqDt sent to EBM on this request */
+  lastReqDt: string;
+  /** Stored cursor after sync (unchanged when EBM returned no notices) */
+  lastSyncedAt: string;
+  ebmResultMsg?: string;
+}
+
 export class EbmNoticeService {
-  /**
-   * Sync EBM notices for a company and broadcast to users
-   */
   public static async syncNotices(
     companyId: string,
     io: SocketIOServer,
-  ): Promise<void> {
+    options: SyncNoticesOptions = {},
+  ): Promise<SyncNoticesResult> {
+    const lastReqDt = await this.resolveLastReqDt(companyId, options.fullSync);
+    const lastSyncedAtBefore = await this.getStoredLastSyncedAt(companyId);
+
+    const buildResult = (
+      partial: Omit<SyncNoticesResult, "lastReqDt" | "lastSyncedAt"> & {
+        lastSyncedAt?: string;
+      },
+    ): SyncNoticesResult => ({
+      lastReqDt,
+      lastSyncedAt: partial.lastSyncedAt ?? lastSyncedAtBefore,
+      fetched: partial.fetched,
+      processed: partial.processed,
+      skipped: partial.skipped,
+      ebmResultMsg: partial.ebmResultMsg,
+    });
+
     try {
-      // Get company details
       const company = await prisma.company.findUnique({
         where: { id: companyId },
         select: { TIN: true, name: true },
@@ -21,146 +67,126 @@ export class EbmNoticeService {
 
       if (!company?.TIN) {
         console.error(`Company ${companyId} has no TIN configured`);
-        return;
+        return buildResult({
+          fetched: 0,
+          processed: 0,
+          skipped: 0,
+          ebmResultMsg: "Company TIN not configured",
+        });
       }
 
-      // Get last sync date
-      const lastSyncDate = await this.getLastSyncDate(companyId);
-      const lastReqDt = this.formatEbmDate(lastSyncDate);
+      const bhfId = await EbmService.getInitializedBhfId(companyId);
+      if (!bhfId) {
+        return buildResult({
+          fetched: 0,
+          processed: 0,
+          skipped: 0,
+          ebmResultMsg: "No EBM-initialized branch",
+        });
+      }
 
-      // Fetch notices from EBM
-      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
-      // const response = (await EbmService.fetchNotices(
-      //   company.TIN,
-      //   "00", // Default branch
-      //   lastReqDt,
-      // )) as EbmNoticesResponse;
-      //
-      // if (response.resultCd !== "000" || !response.data?.noticeList) {
-      //   console.log(
-      //     `No new notices for ${company.name}: ${response.resultMsg}`,
-      //   );
-      //   return;
-      // }
-      //
-      // const notices = response.data.noticeList;
-      // let processedCount = 0;
-      //
-      // // Process each notice
-      // for (const notice of notices) {
-      //   const alreadyProcessed = await this.isNoticeProcessed(
-      //     companyId,
-      //     notice.noticeNo,
-      //   );
-      //
-      //   if (alreadyProcessed) {
-      //     console.log(
-      //       `Notice #${notice.noticeNo} already processed for ${company.name}`,
-      //     );
-      //     continue;
-      //   }
-      //
-      //   // Distribute to all company users
-      //   await this.distributeNoticeToUsers(companyId, notice, io);
-      //   processedCount++;
-      // }
-      //
-      // console.log(
-      //   `✓ Processed ${processedCount} new notices for ${company.name}`,
-      // );
-      
-      // Mock response - no notices for now
+      const response = (await EbmService.fetchNotices(
+        company.TIN,
+        bhfId,
+        lastReqDt,
+      )) as EbmNoticesResponse;
+
+      // 000 = success, 001 = no search result (no new notices — not an error)
+      if (response.resultCd !== "000" && response.resultCd !== "001") {
+        console.log(
+          `EBM notices fetch failed for ${company.name}: [${response.resultCd}] ${response.resultMsg}`,
+        );
+        return buildResult({
+          fetched: 0,
+          processed: 0,
+          skipped: 0,
+          ebmResultMsg: response.resultMsg,
+        });
+      }
+
+      const notices = response.data?.noticeList ?? [];
+      if (notices.length === 0) {
+        console.log(
+          `No new EBM notices for ${company.name} (lastReqDt=${lastReqDt}, cursor unchanged)`,
+        );
+        return buildResult({
+          fetched: 0,
+          processed: 0,
+          skipped: 0,
+          ebmResultMsg: response.resultMsg,
+        });
+      }
+
+      let processedCount = 0;
+      let skippedCount = 0;
+
+      for (const notice of notices) {
+        processedCount += await this.distributeNoticeToUsers(
+          companyId,
+          notice,
+          io,
+        );
+      }
+
+      const lastSyncedAt = await this.advanceCursor(companyId);
+
       console.log(
-        `EBM Notice sync BYPASSED for ${company?.name || companyId}`,
+        `✓ EBM notices for ${company.name}: fetched=${notices.length}, processed=${processedCount}, skipped=${skippedCount} | sent lastReqDt=${lastReqDt} → cursor=${lastSyncedAt}`,
       );
-      return;
+
+      return buildResult({
+        fetched: notices.length,
+        processed: processedCount,
+        skipped: skippedCount,
+        lastSyncedAt,
+        ebmResultMsg: response.resultMsg,
+      });
     } catch (error) {
       console.error(`Error syncing notices for company ${companyId}:`, error);
       throw error;
     }
   }
 
-  /**
-   * Get last sync date from most recent notification
-   */
-  private static async getLastSyncDate(companyId: string): Promise<Date> {
-    const lastNotification = await prisma.notification.findFirst({
-      where: {
-        entityType: "EBM_NOTICE",
-        metadata: {
-          path: ["companyId"],
-          equals: companyId,
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    if (lastNotification && lastNotification.metadata) {
-      const metadata = lastNotification.metadata as any;
-      if (metadata.regDt) {
-        // Parse EBM date format: yyyyMMddhhmmss
-        const regDt = metadata.regDt.toString();
-        const year = parseInt(regDt.substring(0, 4));
-        const month = parseInt(regDt.substring(4, 6)) - 1;
-        const day = parseInt(regDt.substring(6, 8));
-        const hour = parseInt(regDt.substring(8, 10));
-        const minute = parseInt(regDt.substring(10, 12));
-        const second = parseInt(regDt.substring(12, 14));
-        return new Date(year, month, day, hour, minute, second);
-      }
-    }
-
-    // Default to 30 days ago for first sync
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    return thirtyDaysAgo;
+  public static async pushUserNotificationsToSocket(
+    userId: string,
+    io: SocketIOServer,
+  ): Promise<void> {
+    const notifications = await NotificationService.getUserNotifications(userId);
+    io.to(userId).emit("notifications", notifications);
   }
 
-  /**
-   * Format date for EBM API: yyyyMMddhhmmss
-   */
-  private static formatEbmDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hour = String(date.getHours()).padStart(2, "0");
-    const minute = String(date.getMinutes()).padStart(2, "0");
-    const second = String(date.getSeconds()).padStart(2, "0");
-    return `${year}${month}${day}${hour}${minute}${second}`;
-  }
-
-  /**
-   * Check if notice already processed (duplicate prevention)
-   */
-  private static async isNoticeProcessed(
+  private static async resolveLastReqDt(
     companyId: string,
-    noticeNo: number,
-  ): Promise<boolean> {
-    const existing = await prisma.notification.findFirst({
-      where: {
-        entityType: "EBM_NOTICE",
-        entityId: noticeNo.toString(),
-        metadata: {
-          path: ["companyId"],
-          equals: companyId,
-        },
-      },
-    });
-
-    return existing !== null;
+    fullSync?: boolean,
+  ): Promise<string> {
+    if (fullSync) {
+      return SEED_LAST_REQ_DT;
+    }
+    return this.getStoredLastSyncedAt(companyId);
   }
 
-  /**
-   * Distribute notice to all company users + real-time broadcast
-   */
+  private static async getStoredLastSyncedAt(companyId: string): Promise<string> {
+    const cursor = await prisma.ebmSyncCursor.findUnique({
+      where: { companyId_type: { companyId, type: NOTICE_SYNC_TYPE } },
+    });
+    return cursor?.lastSyncedAt ?? SEED_LAST_REQ_DT;
+  }
+
+  private static async advanceCursor(companyId: string): Promise<string> {
+    const syncedAt = kigaliNow();
+    await prisma.ebmSyncCursor.upsert({
+      where: { companyId_type: { companyId, type: NOTICE_SYNC_TYPE } },
+      create: { companyId, type: NOTICE_SYNC_TYPE, lastSyncedAt: syncedAt },
+      update: { lastSyncedAt: syncedAt },
+    });
+    return syncedAt;
+  }
+
   private static async distributeNoticeToUsers(
     companyId: string,
     notice: EbmNotice,
     io: SocketIOServer,
-  ): Promise<void> {
-    // Get all active company users
+  ): Promise<number> {
     const companyUsers = await prisma.companyUser.findMany({
       where: { companyId, isActive: true },
       include: { user: true },
@@ -168,17 +194,18 @@ export class EbmNoticeService {
 
     if (companyUsers.length === 0) {
       console.log(`No active users found for company ${companyId}`);
-      return;
+      return 0;
     }
 
-    // Create notifications for all users
+    let created = 0;
+
     for (const cu of companyUsers) {
       try {
         const notification = await NotificationService.createNotification(
           cu.userId,
           notice.title,
           notice.cont,
-          "warning", // EBM notices are typically important
+          "warning",
           notice.dtlUrl,
           "EBM_NOTICE",
           notice.noticeNo.toString(),
@@ -192,8 +219,8 @@ export class EbmNoticeService {
           },
         );
 
-        // 🔥 REAL-TIME: Broadcast to user's socket
         io.to(cu.userId).emit("notification", notification);
+        created++;
       } catch (error) {
         console.error(
           `Failed to create notification for user ${cu.userId}:`,
@@ -203,7 +230,9 @@ export class EbmNoticeService {
     }
 
     console.log(
-      `📢 Distributed notice #${notice.noticeNo} to ${companyUsers.length} users`,
+      `📢 Notice #${notice.noticeNo}: created ${created} notification(s)`,
     );
+
+    return created;
   }
 }

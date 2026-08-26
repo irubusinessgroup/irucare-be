@@ -14,6 +14,7 @@ type CompanyToolsRow = {
   bankAccounts: unknown;
   businessTin: string | null;
   ebmDeviceSerialNumber: string | null;
+  ebmBhfId: string | null;
   taxReportingFrequency: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +27,48 @@ type CompanyToolsRow = {
 };
 
 export class CompanyToolsService {
+  private static ebmInitUserMessage(args: {
+    resultCd?: string | null;
+    resultMsg?: string | null;
+    tin: string;
+    bhfId: string;
+    dvcSrlNo: string;
+  }): string {
+    const code = String(args.resultCd ?? "").trim();
+    const rawMsg = String(args.resultMsg ?? "").trim();
+
+    // Common happy path / acceptable
+    if (code === "000") return "EBM device initialized successfully.";
+    if (code === "902")
+      return "This device is already installed on EBM. No further action is needed.";
+
+    // Client-side request composition issues (usually actionable by the user)
+    if (code === "881") {
+      return "Initialization failed because the Purchase Code is required by EBM for this request. Please contact support.";
+    }
+    if (code === "884") {
+      return "Initialization failed because the TIN is invalid. Please double-check the 9-digit Business TIN and try again.";
+    }
+    if (code === "901") {
+      return "Initialization failed because the device is not valid. Please confirm the EBM device serial number and try again.";
+    }
+
+    // 896 includes cases like "Request Status ... : 403" (credentials / authorization at EBM side)
+    if (code === "896") {
+      const has403 = rawMsg.includes("403");
+      return has403
+        ? `EBM rejected the initialization request (403). Please confirm the Business TIN, Branch ID (${args.bhfId}), and Device Serial Number, then try again.`
+        : "EBM rejected the initialization request. Please confirm the Business TIN, Branch ID, and Device Serial Number, then try again.";
+    }
+
+    // Generic fallback: keep it friendly but preserve the EBM code
+    if (code) {
+      return `EBM initialization failed (code ${code}). ${rawMsg || "Please verify the details and try again."}`;
+    }
+
+    return rawMsg || "EBM initialization failed. Please verify the details and try again.";
+  }
+
   private static mapCompanyTools(row: CompanyToolsRow) {
     const raw = row?.bankAccounts ?? null;
     const bankAccounts = Array.isArray(raw)
@@ -162,6 +205,7 @@ export class CompanyToolsService {
       businessTin?: string;
       taxReportingFrequency?: string;
       ebmDeviceSerialNumber?: string;
+      invoiceDeclarationDate?: string;
     },
     companyId: string,
   ) {
@@ -230,6 +274,12 @@ export class CompanyToolsService {
       updateData.bankAccounts = normalized;
     }
 
+    if (typeof data.invoiceDeclarationDate !== "undefined") {
+      updateData.invoiceDeclarationDate = data.invoiceDeclarationDate
+        ? new Date(data.invoiceDeclarationDate)
+        : null;
+    }
+
     const updated = await prisma.companyTools.update({
       where: { id },
       data: updateData,
@@ -247,43 +297,8 @@ export class CompanyToolsService {
       });
     }
 
-    // Trigger EBM Initialization if serial number is updated
-    if (
-      data.ebmDeviceSerialNumber &&
-      data.ebmDeviceSerialNumber !== existing.ebmDeviceSerialNumber
-    ) {
-      try {
-        const tin =
-          data.businessTin ||
-          existing.businessTin ||
-          updated.company?.TIN ||
-          "";
-        if (tin) {
-          // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
-          // const ebmResponse = await EbmService.initializeDevice(
-          //   tin,
-          //   "00",
-          //   data.ebmDeviceSerialNumber,
-          // );
-          // console.log(
-          //   `[EBM Device Init] Result: ${ebmResponse.resultCd} - ${ebmResponse.resultMsg}`,
-          // );
-          //
-          // if (
-          //   ebmResponse.resultCd !== "902" &&
-          //   ebmResponse.resultCd !== "000"
-          // ) {
-          //   // We don't throw here to avoid blocking the save, but we log it.
-          //   // If user requested strict initialization, we could throw AppError.
-          // }
-          console.log(
-            `[EBM Device Init] BYPASSED - Device initialization skipped for ${tin}`,
-          );
-        }
-      } catch (error) {
-        console.error("EBM Initialization failed:", error);
-      }
-    }
+    // EBM Initialization logic removed from here as per new requirements.
+    // It should now be explicitly triggered via the initializeEbmDevice endpoint.
 
     return {
       message: "Company tools updated successfully",
@@ -301,6 +316,135 @@ export class CompanyToolsService {
     await prisma.companyTools.delete({ where: { id } });
 
     return { message: "Company tools deleted successfully" };
+  }
+
+  public static async initializeEbmDevice(
+    data: { tin: string; ebmDeviceSerialNumber: string; bhfId: string },
+    companyId: string,
+  ) {
+    // Basic validation
+    if (!data.tin || !data.ebmDeviceSerialNumber || !data.bhfId) {
+      throw new AppError(
+        "TIN, Serial Number, and Branch ID are required for EBM initialization",
+        400,
+      );
+    }
+
+    try {
+      const connectionStatus = await EbmService.checkConnection();
+
+      if (!connectionStatus.connected) {
+        return {
+          message: connectionStatus.message,
+          data: connectionStatus,
+          success: false,
+        };
+      }
+
+      // 1. Initialize with EBM API
+      const ebmResponse = await EbmService.initializeDevice(
+        data.tin,
+        data.bhfId,
+        data.ebmDeviceSerialNumber,
+      );
+
+      console.log(
+        `[EBM Device Init] Result: ${ebmResponse.resultCd} - ${ebmResponse.resultMsg}`,
+      );
+
+      // Check for errors (anything other than success codes)
+      // "000" = success, "902" = already initialized (also acceptable)
+      if (ebmResponse.resultCd !== "902" && ebmResponse.resultCd !== "000") {
+        const message = CompanyToolsService.ebmInitUserMessage({
+          resultCd: ebmResponse.resultCd,
+          resultMsg: ebmResponse.resultMsg,
+          tin: data.tin,
+          bhfId: data.bhfId,
+          dvcSrlNo: data.ebmDeviceSerialNumber,
+        });
+
+        return {
+          message,
+          data: ebmResponse,
+          success: false,
+        };
+      }
+
+      // 2. Update database fields only if initialization was successful or already exists
+      // Update Company TIN
+      await prisma.company.update({
+        where: { id: companyId },
+        data: { TIN: data.tin.trim() },
+      });
+
+      // Persist TIN, serial, and the EBM branch used for registration
+      const tools = await prisma.companyTools.findFirst({
+        where: { companyId },
+      });
+
+      if (tools) {
+        await prisma.companyTools.update({
+          where: { id: tools.id },
+          data: {
+            businessTin: data.tin.trim(),
+            ebmDeviceSerialNumber: data.ebmDeviceSerialNumber.trim(),
+            ebmBhfId: data.bhfId.trim(),
+          },
+        });
+      } else {
+        await prisma.companyTools.create({
+          data: {
+            companyId,
+            businessTin: data.tin.trim(),
+            ebmDeviceSerialNumber: data.ebmDeviceSerialNumber.trim(),
+            ebmBhfId: data.bhfId.trim(),
+            markupPrice: 0,
+            taxRate: 0,
+          },
+        });
+      }
+
+      // Mark this branch as the EBM-initialized/active branch for the company
+      await EbmService.markBranchEbmInitialized({
+        companyId,
+        bhfId: data.bhfId,
+        dvcSrlNo: data.ebmDeviceSerialNumber,
+      });
+
+      // Return appropriate message based on result code
+      const message = CompanyToolsService.ebmInitUserMessage({
+        resultCd: ebmResponse.resultCd,
+        resultMsg: ebmResponse.resultMsg,
+        tin: data.tin,
+        bhfId: data.bhfId,
+        dvcSrlNo: data.ebmDeviceSerialNumber,
+      });
+
+      return {
+        message,
+        data: ebmResponse,
+        success: true,
+      };
+    } catch (error: any) {
+      console.error("EBM Initialization failed:", error);
+      if (error instanceof AppError) {
+        throw error;
+      }
+      throw new AppError(
+        error.message || "Failed to initialize EBM device",
+        500,
+      );
+    }
+  }
+
+  public static async getEbmConnectionStatus() {
+    const status = await EbmService.checkConnection();
+
+    return {
+      message: status.message,
+      data: status,
+      success: status.connected,
+    };
   }
 
   public static async getCompanyToolsList(

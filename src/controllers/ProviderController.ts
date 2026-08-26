@@ -35,14 +35,14 @@ export class ProviderController {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.RECEPTIONIST
-    )
+      ClinicRole.RECEPTIONIST,
+    ),
   )
   public getAllProviders(
     @Request() req: ExpressRequest,
     @Query() searchq?: string,
     @Query() limit?: number,
-    @Query() page?: number
+    @Query() page?: number,
   ) {
     return ProviderService.getAllProviders(req, searchq, limit, page);
   }
@@ -57,7 +57,7 @@ export class ProviderController {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.CLINIC_ADMIN))
   public createProvider(
     @Body() body: CreateProviderDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ) {
     const companyId = req.user?.company?.companyId;
     return ProviderService.createProvider(body, companyId!);
@@ -80,18 +80,18 @@ export class ProviderController {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.RECEPTIONIST
-    )
+      ClinicRole.RECEPTIONIST,
+    ),
   )
   public createSchedule(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body: { schedules: CreateScheduleDto[] }
+    @Body() body: { schedules: CreateScheduleDto[] },
   ) {
     return ProviderScheduleService.createOrUpdateSchedule(
       req,
       id,
-      body.schedules
+      body.schedules,
     );
   }
 
@@ -101,8 +101,8 @@ export class ProviderController {
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public getSchedule(@Path() id: string, @Request() req: ExpressRequest) {
     return ProviderScheduleService.getSchedule(id, req);
@@ -114,13 +114,13 @@ export class ProviderController {
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public blockTime(
     @Path() id: string,
     @Request() req: ExpressRequest,
-    @Body() body: CreateScheduleBlockDto
+    @Body() body: CreateScheduleBlockDto,
   ) {
     return ProviderScheduleService.blockTime(req, id, body);
   }
@@ -130,8 +130,8 @@ export class ProviderController {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.RECEPTIONIST
-    )
+      ClinicRole.RECEPTIONIST,
+    ),
   )
   public removeBlock(@Path() blockId: string) {
     return ProviderScheduleService.removeBlock(blockId);
@@ -143,8 +143,8 @@ export class ProviderController {
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
       ClinicRole.RECEPTIONIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public getBlocks(@Path() id: string) {
     return ProviderScheduleService.getBlocks(id);

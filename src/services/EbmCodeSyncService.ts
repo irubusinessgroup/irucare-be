@@ -1,7 +1,11 @@
 import axios from "axios";
 import { prisma } from "../utils/client";
+import { EbmService } from "./EbmService";
 
 export class EbmCodeSyncService {
+  /** Prevent concurrent syncs for the same company (e.g. parallel /api/ebm-codes/* calls). */
+  private static syncInFlight = new Map<string, Promise<void>>();
+
   /**
    * Ensure codes are synced for a company
    * Returns immediately if already synced
@@ -18,9 +22,18 @@ export class EbmCodeSyncService {
       return;
     }
 
-    // Fetch and sync
+    const existing = this.syncInFlight.get(companyId);
+    if (existing) {
+      await existing;
+      return;
+    }
+
     console.log(`↻ Fetching EBM codes for company ${companyId}...`);
-    await this.syncCodes(companyId);
+    const syncPromise = this.syncCodes(companyId).finally(() => {
+      this.syncInFlight.delete(companyId);
+    });
+    this.syncInFlight.set(companyId, syncPromise);
+    await syncPromise;
   }
 
   /**
@@ -39,30 +52,17 @@ export class EbmCodeSyncService {
       }
 
       const tin = company.TIN;
-      const bhfId = "00"; // Default branch for now
+      const bhfId = await EbmService.resolveCompanyBhfId(companyId);
 
       // Fetch from EBM using axios directly
-      // BYPASSED FOR NOW - Allow user to pass without waiting for EBM response
-      // const ebmBaseUrl = process.env.EBM_API_BASE_URL;
-      // const response = await axios.post(`${ebmBaseUrl}/code/selectCodes`, {
-      //   tin,
-      //   bhfId,
-      //   lastReqDt: "20200101000000", // Historical date for initial sync
-      // });
-      //
-      // console.log("EBM API Response:", JSON.stringify(response.data, null, 2));
-      
-      // Mock response for bypassed EBM code sync
-      const response = {
-        data: {
-          resultCd: "000",
-          resultMsg: "Mock Success (EBM Bypassed)",
-          data: {
-            clsList: [], // Empty code list for now
-          },
-        },
-      };
-      console.log("EBM Code Sync: BYPASSED (returning empty codes)");
+      const ebmBaseUrl = process.env.EBM_API_BASE_URL;
+      const response = await axios.post(`${ebmBaseUrl}/code/selectCodes`, {
+        tin,
+        bhfId,
+        lastReqDt: "20200101000000", // Historical date for initial sync
+      });
+
+      console.log("EBM API Response:", JSON.stringify(response.data, null, 2));
 
       // Validate response structure
       if (!response.data) {
@@ -130,66 +130,74 @@ export class EbmCodeSyncService {
   }
 
   /**
-   * Save codes to database with transaction
+   * Save codes to database with transaction.
+   * Uses bulk replace for details to stay under the interactive transaction timeout.
    */
   private static async saveCodesToDB(clsList: any[]) {
-    return await prisma.$transaction(async (tx) => {
-      let totalCodes = 0;
+    return await prisma.$transaction(
+      async (tx) => {
+        let totalCodes = 0;
 
-      for (const cls of clsList) {
-        // Upsert code class
-        const codeClass = await tx.ebmCodeClass.upsert({
-          where: { cdCls: cls.cdCls },
-          update: {
-            cdClsNm: cls.cdClsNm,
-            cdClsDesc: cls.cdClsDesc,
-            useYn: cls.useYn,
-          },
-          create: {
-            cdCls: cls.cdCls,
-            cdClsNm: cls.cdClsNm,
-            cdClsDesc: cls.cdClsDesc,
-            useYn: cls.useYn,
-          },
-        });
-
-        // Upsert each code detail
-        for (const detail of cls.dtlList) {
-          await tx.ebmCodeDetail.upsert({
-            where: {
-              codeClassId_cd: {
-                codeClassId: codeClass.id,
-                cd: detail.cd,
-              },
-            },
+        for (const cls of clsList) {
+          const codeClass = await tx.ebmCodeClass.upsert({
+            where: { cdCls: cls.cdCls },
             update: {
-              cdNm: detail.cdNm,
-              cdDesc: detail.cdDesc,
-              useYn: detail.useYn,
-              srtOrd: detail.srtOrd,
+              cdClsNm: cls.cdClsNm,
+              cdClsDesc: cls.cdClsDesc,
+              useYn: cls.useYn,
             },
             create: {
+              cdCls: cls.cdCls,
+              cdClsNm: cls.cdClsNm,
+              cdClsDesc: cls.cdClsDesc,
+              useYn: cls.useYn,
+            },
+          });
+
+          const details = Array.isArray(cls.dtlList) ? cls.dtlList : [];
+          if (details.length === 0) {
+            continue;
+          }
+
+          // Bulk replace is much faster than per-row upserts
+          await tx.ebmCodeDetail.deleteMany({
+            where: { codeClassId: codeClass.id },
+          });
+
+          await tx.ebmCodeDetail.createMany({
+            data: details.map((detail: any) => ({
               codeClassId: codeClass.id,
               cd: detail.cd,
               cdNm: detail.cdNm,
               cdDesc: detail.cdDesc,
               useYn: detail.useYn,
               srtOrd: detail.srtOrd,
-            },
+            })),
           });
-          totalCodes++;
-        }
-      }
 
-      return { classCount: clsList.length, totalCodes };
-    });
+          totalCodes += details.length;
+        }
+
+        return { classCount: clsList.length, totalCodes };
+      },
+      { timeout: 60_000, maxWait: 10_000 },
+    );
   }
 
   /**
    * Manual re-sync (for admin use)
    */
   static async forceSyncCodes(companyId: string): Promise<void> {
+    const existing = this.syncInFlight.get(companyId);
+    if (existing) {
+      await existing;
+    }
+
     console.log(`↻ Force syncing EBM codes for company ${companyId}...`);
-    await this.syncCodes(companyId);
+    const syncPromise = this.syncCodes(companyId).finally(() => {
+      this.syncInFlight.delete(companyId);
+    });
+    this.syncInFlight.set(companyId, syncPromise);
+    await syncPromise;
   }
 }

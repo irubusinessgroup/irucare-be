@@ -149,4 +149,35 @@ export class UserController {
     const userId = req.user!.id; // JWT middleware ensures user exists
     return UserService.generateMrcForUser(userId);
   }
+
+  @Put("/profile/mrc")
+  @Security("jwt")
+  @Middlewares(loggerMiddleware)
+  public async updateMrcNumber(
+    @Request() req: ExpressRequest,
+    @Body() body: { mrcNo: string },
+  ) {
+    const userId = req.user!.id;
+    const { mrcNo } = body;
+    return UserService.updateMrcNumber(userId, mrcNo, req);
+  }
+
+  @Get("/switchable-companies")
+  @Security("jwt")
+  public listSwitchableCompanies(@Request() req: ExpressRequest) {
+    const { searchq } = req.query;
+    return UserService.listSwitchableCompanies(
+      req,
+      searchq as string | undefined,
+    );
+  }
+
+  @Post("/switch-company")
+  @Security("jwt")
+  public switchCompany(
+    @Request() req: ExpressRequest,
+    @Body() body: { companyId: string },
+  ) {
+    return UserService.switchCompany(req, body.companyId);
+  }
 }

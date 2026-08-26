@@ -8,6 +8,7 @@ import {
   UpdateWarehouseRequest,
 } from "../utils/interfaces/common";
 import { Paginations, QueryOptions } from "../utils/DBHelpers";
+import { requireBranchId, enrichWithBranchLabels } from "../utils/branchScope";
 
 export class WarehouseService {
   static async createWarehouse(
@@ -23,15 +24,21 @@ export class WarehouseService {
       throw new AppError("Company not found", 404);
     }
 
+    const resolvedBranchId = await requireBranchId(companyId, branchId);
+
     const existingWarehouse = await prisma.warehouse.findFirst({
       where: {
         warehousename: data.warehousename,
         companyId: companyId,
+        branchId: resolvedBranchId,
       },
     });
 
     if (existingWarehouse) {
-      throw new AppError("Warehouse with this name already exists", 400);
+      throw new AppError(
+        "Warehouse with this name already exists for this branch",
+        400,
+      );
     }
 
     const warehouse = await prisma.warehouse.create({
@@ -39,7 +46,7 @@ export class WarehouseService {
         warehousename: data.warehousename,
         description: data.description,
         companyId: companyId,
-        branchId: branchId,
+        branchId: resolvedBranchId,
       },
     });
 
@@ -108,12 +115,16 @@ export class WarehouseService {
         where: {
           warehousename: data.warehousename,
           companyId: companyId,
+          branchId: existingWarehouse.branchId,
           NOT: { id: warehouseId },
         },
       });
 
       if (nameExists) {
-        throw new AppError("Warehouse with this name already exists", 400);
+        throw new AppError(
+          "Warehouse with this name already exists for this branch",
+          400,
+        );
       }
     }
 
@@ -204,7 +215,7 @@ export class WarehouseService {
       return {
         statusCode: 200,
         message: "Warehouse fetched successfully",
-        data: categories,
+        data: await enrichWithBranchLabels(categories),
         totalItems,
         currentPage: currentPage || 1,
         itemsPerPage: limit || 10,

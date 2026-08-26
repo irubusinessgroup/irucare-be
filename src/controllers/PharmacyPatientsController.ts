@@ -31,21 +31,21 @@ export class PharmacyPatientsController {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.PHARMACIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public async getMedicationHistory(
     @Path() patientId: string,
     @Query() page?: number,
     @Query() limit?: number,
-    @Request() req?: ExpressRequest
+    @Request() req?: ExpressRequest,
   ): Promise<IPaged<MedicationHistoryResponse>> {
     const companyId = req?.user?.company?.companyId as string;
     return PharmacyPatientsService.getMedicationHistory(
       patientId,
       companyId,
       limit,
-      page
+      page,
     );
   }
 
@@ -54,12 +54,12 @@ export class PharmacyPatientsController {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.PHARMACIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public async checkDrugInteractions(
     @Body() data: CheckDrugInteractionsRequest,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<DrugInteractionResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyPatientsService.checkDrugInteractions(data, companyId);
@@ -70,19 +70,19 @@ export class PharmacyPatientsController {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.PHARMACIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public async getAllergyAlerts(
     @Path() patientId: string,
     @Path() medicationId: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<IResponse<AllergyAlertResponse>> {
     const companyId = req.user?.company?.companyId as string;
     return PharmacyPatientsService.getAllergyAlerts(
       patientId,
       medicationId,
-      companyId
+      companyId,
     );
   }
 }

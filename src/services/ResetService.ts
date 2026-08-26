@@ -35,29 +35,20 @@ export class ResetService {
           await tx.deliveryTracking.deleteMany({
             where: {
               delivery: {
-                OR: [
-                  { supplierCompanyId: companyId },
-                  { buyerCompanyId: companyId },
-                ],
+                companyId: companyId,
               },
             },
           });
           await tx.deliveryItem.deleteMany({
             where: {
               delivery: {
-                OR: [
-                  { supplierCompanyId: companyId },
-                  { buyerCompanyId: companyId },
-                ],
+                companyId: companyId,
               },
             },
           });
           await tx.delivery.deleteMany({
             where: {
-              OR: [
-                { supplierCompanyId: companyId },
-                { buyerCompanyId: companyId },
-              ],
+              companyId: companyId,
             },
           });
 
@@ -107,24 +98,7 @@ export class ResetService {
             where: { companyId },
           });
 
-          // 6. Purchase order items, processing, and orders
-          await tx.purchaseOrderItem.deleteMany({
-            where: {
-              purchaseOrder: {
-                companyId,
-              },
-            },
-          });
-          await tx.purchaseOrderProcessing.deleteMany({
-            where: {
-              OR: [{ companyFromId: companyId }, { companyToId: companyId }],
-            },
-          });
-          await tx.purchaseOrder.deleteMany({
-            where: { companyId },
-          });
-
-          // 7. Insurance details, cards, and insurance
+          // 6. Insurance details, cards, and insurance
           await tx.insuranceDetail.deleteMany({
             where: {
               insuranceCard: {
@@ -378,11 +352,6 @@ export class ResetService {
             await tx.approvals.deleteMany({});
             await tx.stockReceipts.deleteMany({});
 
-            // Purchase orders
-            await tx.purchaseOrderItem.deleteMany({});
-            await tx.purchaseOrderProcessing.deleteMany({});
-            await tx.purchaseOrder.deleteMany({});
-
             // Insurance
             await tx.insuranceDetail.deleteMany({});
             await tx.insuranceCard.deleteMany({});
@@ -434,8 +403,6 @@ export class ResetService {
             await tx.trialApplication.deleteMany({});
             await tx.contactReply.deleteMany({});
             await tx.contact.deleteMany({});
-            await tx.orderItem.deleteMany({});
-            await tx.order.deleteMany({});
             await tx.plan.deleteMany({});
           },
           {
@@ -467,11 +434,6 @@ export class ResetService {
             await tx.approvals.deleteMany({});
             await tx.stockReceipts.deleteMany({});
 
-            // Purchase orders
-            await tx.purchaseOrderItem.deleteMany({});
-            await tx.purchaseOrderProcessing.deleteMany({});
-            await tx.purchaseOrder.deleteMany({});
-
             // Insurance
             await tx.insuranceDetail.deleteMany({});
             await tx.insuranceCard.deleteMany({});
@@ -523,8 +485,6 @@ export class ResetService {
             await tx.trialApplication.deleteMany({});
             await tx.contactReply.deleteMany({});
             await tx.contact.deleteMany({});
-            await tx.orderItem.deleteMany({});
-            await tx.order.deleteMany({});
             await tx.plan.deleteMany({});
           },
           {

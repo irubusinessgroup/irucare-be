@@ -34,8 +34,8 @@ export class PrescriptionController extends Controller {
       roles.COMPANY_ADMIN,
       ClinicRole.PHARMACIST,
       ClinicRole.PROVIDER,
-      ClinicRole.CLINIC_ADMIN
-    )
+      ClinicRole.CLINIC_ADMIN,
+    ),
   )
   public list(@Request() req: ExpressRequest): Promise<any> {
     const {
@@ -63,8 +63,8 @@ export class PrescriptionController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.PHARMACIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public get(@Path() id: string, @Request() req: ExpressRequest): Promise<any> {
     return PrescriptionService.getById(id, req);
@@ -74,7 +74,7 @@ export class PrescriptionController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public create(
     @Request() req: ExpressRequest,
-    @Body() body: CreatePrescriptionDto
+    @Body() body: CreatePrescriptionDto,
   ): Promise<any> {
     return PrescriptionService.create(req, body);
   }
@@ -84,7 +84,7 @@ export class PrescriptionController extends Controller {
   public update(
     @Path() id: string,
     @Body() body: UpdatePrescriptionDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.update(id, body, req);
   }
@@ -94,12 +94,12 @@ export class PrescriptionController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.CLINIC_ADMIN,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public remove(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.remove(id, req);
   }
@@ -109,7 +109,7 @@ export class PrescriptionController extends Controller {
   public dispense(
     @Path() id: string,
     @Body() body: DispensePrescriptionDto,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.dispense(id, body, req);
   }
@@ -119,7 +119,7 @@ export class PrescriptionController extends Controller {
   public pickup(
     @Path() id: string,
     @Body() body: { pickedUpBy: string },
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.pickup(id, body.pickedUpBy, req);
   }
@@ -128,7 +128,7 @@ export class PrescriptionController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PHARMACIST))
   public refill(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.refill(id, req);
   }
@@ -137,7 +137,7 @@ export class PrescriptionController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PHARMACIST))
   public complete(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.complete(id, req);
   }
@@ -146,7 +146,7 @@ export class PrescriptionController extends Controller {
   @Middlewares(checkRoleAuto(roles.COMPANY_ADMIN, ClinicRole.PROVIDER))
   public cancel(
     @Path() id: string,
-    @Request() req: ExpressRequest
+    @Request() req: ExpressRequest,
   ): Promise<any> {
     return PrescriptionService.cancel(id, req);
   }
@@ -156,14 +156,14 @@ export class PrescriptionController extends Controller {
     checkRoleAuto(
       roles.COMPANY_ADMIN,
       ClinicRole.PHARMACIST,
-      ClinicRole.PROVIDER
-    )
+      ClinicRole.PROVIDER,
+    ),
   )
   public patientHistory(
     @Path() patientId: string,
     @Request() req: ExpressRequest,
     @Query() page?: number,
-    @Query() limit?: number
+    @Query() limit?: number,
   ): Promise<any> {
     return PrescriptionService.getPatientHistory(patientId, req, page, limit);
   }
