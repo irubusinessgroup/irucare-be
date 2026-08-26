@@ -15,6 +15,10 @@ WORKDIR /app
 
 # Install dependencies
 COPY package.json pnpm-lock.yaml ./
+
+# Remove lock file to regenerate with correct architecture
+RUN rm pnpm-lock.yaml || true
+
 RUN pnpm install
 
 # Copy the rest of the app
