@@ -14,10 +14,7 @@ RUN pnpm config set supportedArchitectures.os linux
 WORKDIR /app
 
 # Install dependencies
-COPY package.json pnpm-lock.yaml ./
-
-# Remove lock file to regenerate with correct architecture
-RUN rm pnpm-lock.yaml || true
+COPY package.json ./
 
 RUN pnpm install
 
