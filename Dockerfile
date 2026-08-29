@@ -8,6 +8,9 @@ RUN apk add --no-cache openssl bash
 # ERR_PNPM_PNPM_ENGINE_IDENTITY_UNVERIFIABLE on pnpm 8 lockfiles
 RUN corepack enable && corepack prepare pnpm@8.15.4 --activate
 
+# Ensure pnpm can verify and install Linux native binaries
+RUN pnpm config set supportedArchitectures.os linux
+
 # Set the working directory
 WORKDIR /app
 
