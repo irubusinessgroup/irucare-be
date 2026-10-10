@@ -6,6 +6,7 @@
   "scripts": {
     "script": "ts-node src/scripts/importPharmacyMockData.ts",
     "backfill:paypack-registry": "ts-node src/scripts/backfillPaypackTxRegistry.ts",
+    "repair:irulove-registry": "ts-node src/scripts/markIruloveRegistrySucceeded.ts",
     "check": "npx @biomejs/biome check --apply ./src",
     "dev": "npm run spec:routes && concurrently \"nodemon\" \"nodemon --watch src --ignore build --ext ts -x tsoa spec-and-routes\"",
     "prisma:generate": "npx prisma generate",
