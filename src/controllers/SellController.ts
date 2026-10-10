@@ -21,7 +21,7 @@ import {
 } from "../utils/interfaces/common";
 import { Request as ExpressRequest } from "express";
 import { roles } from "../utils/roles";
-import { checkRole } from "../middlewares";
+import { checkRole, requireActiveActivation } from "../middlewares";
 
 @Security("jwt")
 @Route("/api/sells")
@@ -102,7 +102,10 @@ export class SellController {
   }
 
   @Post("/")
-  @Middlewares(checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF))
+  @Middlewares(
+    checkRole(roles.COMPANY_ADMIN, roles.BRANCH_ADMIN, roles.STAFF),
+    requireActiveActivation,
+  )
   public async createSell(
     @Body() body: CreateSellDto,
     @Request() req: ExpressRequest,

@@ -555,6 +555,102 @@ model Company {
   xReportSessions      XReportSession[]
   zReportSessions      ZReportSession[]
   dailyOpeningDeposits DailyOpeningDeposit[]
+
+  activation CompanyActivation?
+}
+
+enum ActivationStatus {
+  DOCUMENTS_PENDING
+  SUBMITTED
+  CHANGES_REQUESTED
+  SENT_TO_RRA
+  TRACKING_CODE_READY
+  ACTIVATION_SCHEDULED
+  ACTIVE
+  REJECTED
+}
+
+enum ActivationDocumentType {
+  RDB_CERTIFICATE
+  NATIONAL_ID
+  VSDC_FORM
+  USER_AGREEMENT
+  PREVIOUS_PROVIDER_TERMINATION
+}
+
+enum ActivationDocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// RRA EBM/VSDC device activation & KYC onboarding. Company dashboard stays locked until ACTIVE.
+model CompanyActivation {
+  id        String           @id @default(uuid())
+  companyId String           @unique
+  status    ActivationStatus @default(DOCUMENTS_PENDING)
+
+  /// MOBILE | DESKTOP | LAPTOP
+  deviceType         String?
+  /// Team member who brings the desktop/laptop to RRA HQ
+  deviceContactName  String?
+  deviceContactPhone String?
+
+  usedPreviousEbm  Boolean @default(false)
+  previousProvider String?
+
+  confirmedNoPendingTransactions Boolean @default(false)
+  confirmedTinValid              Boolean @default(false)
+  confirmedPreviousEbmInstalled  Boolean @default(false)
+  acceptedTermsAt                DateTime?
+
+  rraTrackingCode String?
+  activationDate  DateTime?
+  activationVenue String?
+  /// Shown to the client (e.g. what to fix when CHANGES_REQUESTED)
+  reviewNotes     String?
+  reviewedById    String?
+
+  submittedAt DateTime?
+  activatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents ActivationDocument[]
+  history   ActivationEvent[]
+
+  @@index([status])
+}
+
+model ActivationDocument {
+  id           String                   @id @default(uuid())
+  activationId String
+  type         ActivationDocumentType
+  fileUrl      String
+  fileName     String?
+  status       ActivationDocumentStatus @default(PENDING)
+  rejectReason String?
+  uploadedAt   DateTime                 @default(now())
+  reviewedAt   DateTime?
+
+  activation CompanyActivation @relation(fields: [activationId], references: [id], onDelete: Cascade)
+
+  @@unique([activationId, type])
+}
+
+model ActivationEvent {
+  id           String            @id @default(uuid())
+  activationId String
+  fromStatus   ActivationStatus?
+  toStatus     ActivationStatus
+  note         String?
+  actorId      String?
+  createdAt    DateTime          @default(now())
+
+  activation CompanyActivation @relation(fields: [activationId], references: [id], onDelete: Cascade)
+
+  @@index([activationId, createdAt])
 }
 
 model Branch {

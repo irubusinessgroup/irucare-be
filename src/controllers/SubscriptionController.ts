@@ -64,11 +64,16 @@ export class SubscriptionController {
       subscription: TSubscription | null;
       minUsers: number;
       minLocations: number;
+      /** First paid subscription: monthly billing is not allowed (min 3 months). */
+      requiresMinimumTerm: boolean;
     }>
   > {
     const companyId = req.user!.company!.companyId;
-    const status = await SubscriptionService.getCompanyAccessStatus(companyId);
-    const baseline = await SubscriptionService.getBaselineQuotas(companyId);
+    const [status, baseline, hasPaid] = await Promise.all([
+      SubscriptionService.getCompanyAccessStatus(companyId),
+      SubscriptionService.getBaselineQuotas(companyId),
+      SubscriptionService.hasPaidSubscription(companyId),
+    ]);
     return {
       statusCode: 200,
       message: "Subscription access status",
@@ -76,6 +81,7 @@ export class SubscriptionController {
         ...status,
         minUsers: baseline.users,
         minLocations: baseline.locations,
+        requiresMinimumTerm: !hasPaid,
       },
     };
   }

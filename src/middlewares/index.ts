@@ -4,3 +4,4 @@ export * from "./isAcompanyMember";
 export * from "./validateResetToken";
 export * from "./auditMiddleware";
 export * from "./requireActiveSubscription";
+export * from "./requireActiveActivation";

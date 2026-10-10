@@ -36,6 +36,20 @@ export class companyValidations {
         error: "Onother company registered with  this TIN number",
       });
     }
+
+    const contactEmail = data.contactPerson?.email;
+    if (contactEmail) {
+      const userTaken = await prisma.user.findFirst({
+        where: { email: { equals: contactEmail, mode: "insensitive" } },
+        select: { id: true },
+      });
+      if (userTaken) {
+        errors.push({
+          field: "contactPerson.email",
+          error: "Contact person email is already used by another account",
+        });
+      }
+    }
     return errors;
   }
 }

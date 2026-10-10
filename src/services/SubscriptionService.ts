@@ -16,7 +16,11 @@ import { PaymentMethod } from "@prisma/client";
 import { sendEmail, renderTemplate } from "../utils/email";
 import { NotificationHelper } from "../utils/notificationHelper";
 import { Server as SocketIOServer } from "socket.io";
-import { calculatePartnershipPricing } from "../utils/partnershipPricing";
+import {
+  FIRST_SUBSCRIPTION_MIN_MONTHS,
+  billingCycleMonths,
+  calculatePartnershipPricing,
+} from "../utils/partnershipPricing";
 
 export class SubscriptionService extends BaseService {
   // helper to compute end date from a start date and billing cycle
@@ -37,6 +41,8 @@ export class SubscriptionService extends BaseService {
 
     if (cycle === "month" || cycle === "monthly") {
       endDate.setMonth(endDate.getMonth() + 1);
+    } else if (cycle === "quarter" || cycle === "quarterly") {
+      endDate.setMonth(endDate.getMonth() + 3);
     } else if (cycle === "year" || cycle === "yearly") {
       endDate.setFullYear(endDate.getFullYear() + 1);
     } else {
@@ -71,6 +77,18 @@ export class SubscriptionService extends BaseService {
     };
   }
 
+  /** True once the company has completed at least one real (non-free) payment. */
+  public static async hasPaidSubscription(companyId: string): Promise<boolean> {
+    const paid = await prisma.subscription.findFirst({
+      where: {
+        companyId,
+        payment: { status: "SUCCEEDED", amount: { gt: 0 } },
+      },
+      select: { id: true },
+    });
+    return !!paid;
+  }
+
   public static async getCompanyAccessStatus(companyId: string): Promise<{
     allowed: boolean;
     reason?: string;
@@ -99,8 +117,7 @@ export class SubscriptionService extends BaseService {
     if (!latest) {
       return {
         allowed: false,
-        reason:
-          "No subscription found. Customize and pay for a partnership to continue.",
+        reason: `No subscription yet. Pay for a partnership (minimum ${FIRST_SUBSCRIPTION_MIN_MONTHS} months) to start using IRUCARE.`,
         subscription: null,
       };
     }
@@ -464,6 +481,16 @@ export class SubscriptionService extends BaseService {
       const pricing = calculatePartnershipPricing(users, locations, data.billingCycle, {
         includeSetupFee: !isRenewal,
       });
+
+      if (
+        billingCycleMonths(pricing.billingCycle) < FIRST_SUBSCRIPTION_MIN_MONTHS &&
+        !(await this.hasPaidSubscription(companyId))
+      ) {
+        throw new AppError(
+          `Your first subscription must cover at least ${FIRST_SUBSCRIPTION_MIN_MONTHS} months. Choose 3-month or yearly billing.`,
+          400,
+        );
+      }
 
       const subscription = await prisma.subscription.create({
         data: {
@@ -877,75 +904,6 @@ export class SubscriptionService extends BaseService {
     } catch (error) {
       throw new AppError(error, 500);
     }
-  }
-
-  /**
-   * Default trial for every new company: 1 calendar month, 5 users, 1 location.
-   * Starts at company creation time.
-   */
-  public static readonly WELCOME_FREE_TIER = {
-    users: 5,
-    locations: 1,
-    billingCycle: "welcome_1m",
-  } as const;
-
-  public static async provisionWelcomeFreeTier(input: {
-    companyId: string;
-    companyName: string;
-    companyEmail?: string | null;
-    companyPhone?: string | null;
-    contact: {
-      firstName: string;
-      lastName: string;
-      email: string;
-      phoneNumber?: string | null;
-    };
-    startDate: Date;
-  }): Promise<TSubscription | null> {
-    const { companyId, companyName, contact, startDate } = input;
-    const { users, locations, billingCycle } = this.WELCOME_FREE_TIER;
-
-    const existing = await prisma.subscription.findFirst({
-      where: { companyId, billingCycle },
-    });
-    if (existing) return existing as TSubscription;
-
-    const start = new Date(startDate);
-    const endDate = this.computeEndDate(start, billingCycle);
-
-    await prisma.subscription.updateMany({
-      where: { companyId, isActive: true },
-      data: { isActive: false },
-    });
-
-    const subscription = await prisma.subscription.create({
-      data: {
-        companyId,
-        firstName: contact.firstName,
-        lastName: contact.lastName,
-        email: contact.email || input.companyEmail || `admin@${companyId}.local`,
-        phone: contact.phoneNumber || input.companyPhone || "0000000000",
-        companyName,
-        paymentMethod: "FREE_TIER",
-        selectedPlan: `Welcome — 1 month free (${users} users, ${locations} location)`,
-        planId: null,
-        planPrice: 0,
-        setupFee: 0,
-        totalDueToday: 0,
-        billingCycle,
-        periodLabel: "/1 month",
-        usersCount: users,
-        locationsCount: locations,
-        isActive: true,
-        startDate: start,
-        endDate,
-      },
-      include: {
-        company: { select: { id: true, name: true } },
-      },
-    });
-
-    return subscription as TSubscription;
   }
 
   /**

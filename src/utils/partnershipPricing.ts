@@ -2,14 +2,37 @@
 
 export const PARTNERSHIP_BASE_MONTHLY = 20_000;
 export const PARTNERSHIP_SETUP_FEE = 100_000;
+/** A company's first paid subscription must cover at least this many months. */
+export const FIRST_SUBSCRIPTION_MIN_MONTHS = 3;
 
-export type PartnershipBilling = "monthly" | "yearly" | "month" | "year";
+export type PartnershipBilling =
+  | "monthly"
+  | "quarterly"
+  | "yearly"
+  | "month"
+  | "quarter"
+  | "year";
 
-export function normalizeBillingCycle(billing: string): "month" | "year" {
+export type PartnershipCycle = "month" | "quarter" | "year";
+
+export function normalizeBillingCycle(billing: string): PartnershipCycle {
   const b = (billing || "").toLowerCase();
   if (b === "yearly" || b === "year") return "year";
+  if (b === "quarterly" || b === "quarter") return "quarter";
   return "month";
 }
+
+export function billingCycleMonths(cycle: PartnershipCycle): number {
+  if (cycle === "year") return 12;
+  if (cycle === "quarter") return 3;
+  return 1;
+}
+
+const PERIOD_LABELS: Record<PartnershipCycle, string> = {
+  month: "/month",
+  quarter: "/3 months",
+  year: "/year",
+};
 
 export function partnershipUserPrice(count: number) {
   const extra = count - 1;
@@ -42,7 +65,9 @@ export function calculatePartnershipPricing(
   const monthlyTotal =
     PARTNERSHIP_BASE_MONTHLY + additionalUsersCost + additionalLocationsCost;
   const yearlyTotal = monthlyTotal * 10;
-  const subscriptionPrice = cycle === "month" ? monthlyTotal : yearlyTotal;
+  const quarterlyTotal = monthlyTotal * 3;
+  const subscriptionPrice =
+    cycle === "year" ? yearlyTotal : cycle === "quarter" ? quarterlyTotal : monthlyTotal;
   const includeSetup = options?.includeSetupFee !== false;
   const setupFee = includeSetup ? PARTNERSHIP_SETUP_FEE : 0;
 
@@ -50,10 +75,11 @@ export function calculatePartnershipPricing(
     users: safeUsers,
     locations: safeLocations,
     billingCycle: cycle,
-    periodLabel: cycle === "year" ? "/year" : "/month",
+    periodLabel: PERIOD_LABELS[cycle],
     additionalUsersCost,
     additionalLocationsCost,
     monthlyTotal,
+    quarterlyTotal,
     yearlyTotal,
     subscriptionPrice,
     setupFee,

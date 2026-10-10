@@ -354,6 +354,25 @@ export interface CreateCompanyDto {
     idNumber?: string;
     idAttachment?: Express.Multer.File | string;
   };
+  /** RRA EBM activation (KYC) collected during self-registration. Multipart → all strings. */
+  activation?: RegistrationActivationDto;
+}
+
+export interface RegistrationActivationDto {
+  deviceType?: string;
+  deviceContactName?: string;
+  deviceContactPhone?: string;
+  usedPreviousEbm?: string;
+  previousProvider?: string;
+  confirmedNoPendingTransactions?: string;
+  confirmedTinValid?: string;
+  confirmedPreviousEbmInstalled?: string;
+  acceptTerms?: string;
+  documents?: {
+    VSDC_FORM?: string;
+    USER_AGREEMENT?: string;
+    PREVIOUS_PROVIDER_TERMINATION?: string;
+  };
 }
 
 export interface CreateStandardCompanyStaffDto {
@@ -977,7 +996,7 @@ export interface CreateSubscriptionDto {
   /** Custom quotas — server recalculates price */
   users: number;
   locations: number;
-  billingCycle: string; // month | year | monthly | yearly
+  billingCycle: string; // month | quarter | year (or monthly | quarterly | yearly)
   /** @deprecated ignored — server builds label */
   selectedPlan?: string;
   /** @deprecated ignored */

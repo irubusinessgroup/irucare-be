@@ -166,6 +166,12 @@ export const appendAttachments = async (
       }
     }
 
+    const activationDocuments: Record<string, string> = {};
+    for (const file of (req.files as Express.Multer.File[] | undefined) ?? []) {
+      const match = /^activation\[documents\]\[(\w+)\]$/.exec(file.fieldname);
+      if (match) activationDocuments[match[1]] = file.path;
+    }
+
     // Restructure flat form data into nested objects
     const originalBody = { ...req.body };
 
@@ -174,6 +180,23 @@ export const appendAttachments = async (
       company: req.body.company || {},
       contactPerson: req.body.contactPerson || {},
     };
+
+    const activationFields = Object.keys(originalBody).filter(
+      (k) => k.startsWith("activation[") && k.endsWith("]") && !k.includes("]["),
+    );
+    const parsedActivation =
+      originalBody.activation && typeof originalBody.activation === "object"
+        ? { ...originalBody.activation }
+        : null;
+    if (parsedActivation || activationFields.length || Object.keys(activationDocuments).length) {
+      req.body.activation = {
+        ...(parsedActivation ?? {}),
+        documents: { ...(parsedActivation?.documents ?? {}), ...activationDocuments },
+      };
+      for (const key of activationFields) {
+        req.body.activation[key.slice(11, -1)] = originalBody[key];
+      }
+    }
 
     // Process company fields
     Object.keys(originalBody).forEach((key) => {

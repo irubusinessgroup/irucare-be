@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../utils/client";
 
 import { CreateCompanyDto, TCompany } from "../utils/interfaces/common";
@@ -6,7 +7,7 @@ import { roles } from "../utils/roles";
 import { ItemSeederService } from "../services/ItemSeederService";
 import { TEMPORARY_PASSWORD } from "../utils/generatePassword";
 import { renderTemplate, sendEmail } from "../utils/email";
-import { SubscriptionService } from "../services/SubscriptionService";
+import { ActivationService } from "../services/ActivationService";
 
 type CreatedCompany = {
   id: string;
@@ -17,71 +18,74 @@ type CreatedCompany = {
   phoneNumber?: string | null;
 };
 
+type Tx = Prisma.TransactionClient;
+
+export const createCompanyAdmin = async (
+  tx: Tx,
+  company: CreatedCompany,
+  data: CreateCompanyDto,
+) => {
+  const companyAdmin = await tx.user.create({
+    data: {
+      firstName: data.contactPerson.firstName,
+      lastName: data.contactPerson.lastName,
+      email: data.contactPerson.email,
+      phoneNumber: data.contactPerson.phoneNumber,
+      password: hashSync(TEMPORARY_PASSWORD, 10),
+    },
+  });
+  await tx.userRole.create({
+    data: {
+      userId: companyAdmin.id,
+      name: roles.COMPANY_ADMIN,
+    },
+  });
+
+  // Prefer Main Branch (bhfId 00); fall back to any branch for the company
+  const mainBranch =
+    (await tx.branch.findFirst({
+      where: { companyId: company.id, bhfId: "00" },
+      select: { id: true },
+    })) ||
+    (await tx.branch.findFirst({
+      where: { companyId: company.id },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    }));
+
+  await tx.companyUser.create({
+    data: {
+      companyId: company.id,
+      userId: companyAdmin.id,
+      branchId: mainBranch?.id ?? null,
+      title: data.contactPerson.title ?? "N/A",
+      idNumber: data.contactPerson.idNumber ?? "N/A",
+      idAttachment: (data.contactPerson.idAttachment as string) ?? "N/A",
+    },
+  });
+  return companyAdmin;
+};
+
 export const companyCreatedHandler = async (
   company: CreatedCompany,
   data: CreateCompanyDto,
+  options: { adminCreated?: boolean } = {},
 ) => {
   try {
     const plainPassword = TEMPORARY_PASSWORD;
 
-    await prisma.$transaction(async (tx) => {
-      const companyAdmin = await tx.user.create({
-        data: {
-          firstName: data.contactPerson.firstName,
-          lastName: data.contactPerson.lastName,
-          email: data.contactPerson.email,
-          phoneNumber: data.contactPerson.phoneNumber,
-          password: hashSync(plainPassword, 10),
-        },
-      });
-      if (!companyAdmin) {
-        throw new Error("Failed to create company Admin");
-      }
-      const assignRole = await tx.userRole.create({
-        data: {
-          userId: companyAdmin.id,
-          name: roles.COMPANY_ADMIN,
-        },
-      });
-      if (!assignRole) {
-        throw new Error("Failed to assign role to company Admin");
-      }
-
-      // Prefer Main Branch (bhfId 00); fall back to any branch for the company
-      const mainBranch =
-        (await tx.branch.findFirst({
-          where: { companyId: company.id!, bhfId: "00" },
-          select: { id: true },
-        })) ||
-        (await tx.branch.findFirst({
-          where: { companyId: company.id! },
-          orderBy: { createdAt: "asc" },
-          select: { id: true },
-        }));
-
-      await tx.companyUser.create({
-        data: {
-          companyId: company.id!,
-          userId: companyAdmin.id,
-          branchId: mainBranch?.id ?? null,
-          title: data.contactPerson.title ?? "N/A",
-          idNumber: data.contactPerson.idNumber ?? "N/A",
-          idAttachment: (data.contactPerson.idAttachment as string) ?? "N/A",
-        },
-      });
-    });
+    if (!options.adminCreated) {
+      await prisma.$transaction((tx) => createCompanyAdmin(tx, company, data));
+    }
 
     try {
-      await SubscriptionService.provisionWelcomeFreeTier({
-        companyId: company.id,
-        companyName: company.name,
-        companyEmail: company.email ?? data.company.email,
-        companyPhone: company.phoneNumber ?? data.company.phoneNumber,
-        contact: data.contactPerson,
-        startDate: company.createdAt ? new Date(company.createdAt) : new Date(),
+      await ActivationService.createForCompany(company.id, {
+        certificate: data.company.certificate as string | undefined,
+        idAttachment: data.contactPerson.idAttachment as string | undefined,
+        activation: data.activation,
       });
-    } catch (tierError) {
-      console.error("Failed to provision welcome free tier:", tierError);
+    } catch (activationError) {
+      console.error("Failed to create EBM activation record:", activationError);
     }
 
     try {

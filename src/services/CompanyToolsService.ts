@@ -3,6 +3,7 @@ import AppError from "../utils/error";
 import type { Request } from "express";
 import { SellThroughRateService } from "./SellThroughRateService";
 import { EbmService } from "./EbmService";
+import { ActivationService } from "./ActivationService";
 
 type CompanyToolsRow = {
   id: string;
@@ -410,6 +411,10 @@ export class CompanyToolsService {
         bhfId: data.bhfId,
         dvcSrlNo: data.ebmDeviceSerialNumber,
       });
+
+      await ActivationService.markActiveFromEbmInit(companyId).catch((e) =>
+        console.error("Failed to complete EBM activation:", e),
+      );
 
       // Return appropriate message based on result code
       const message = CompanyToolsService.ebmInitUserMessage({

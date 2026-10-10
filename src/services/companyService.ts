@@ -9,8 +9,9 @@ import AppError, { ValidationError } from "../utils/error";
 import { CreateCompanyDto, IResponse } from "../utils/interfaces/common";
 import { roles } from "../utils/roles";
 import { ItemService } from "./ItemService";
-import { companyCreatedHandler } from "../events/company";
+import { companyCreatedHandler, createCompanyAdmin } from "../events/company";
 import { TEMPORARY_PASSWORD } from "../utils/generatePassword";
+import { ActivationService } from "./ActivationService";
 
 export class companyService {
   public static async getCompanies(
@@ -206,6 +207,12 @@ export class companyService {
         throw new ValidationError(errors);
       }
 
+      ActivationService.validateRegistration({
+        certificate: data.company.certificate,
+        idAttachment: data.contactPerson.idAttachment,
+        activation: data.activation,
+      });
+
       const newCompany = await prisma.$transaction(async (tx) => {
         const company = await tx.company.create({
           data: {
@@ -238,10 +245,12 @@ export class companyService {
           },
         });
 
-        return company;
-      });
+        await createCompanyAdmin(tx, company, data);
 
-      await companyCreatedHandler(newCompany, data);
+        return company;
+      }, { timeout: 20000 });
+
+      await companyCreatedHandler(newCompany, data, { adminCreated: true });
       return {
         message: "Company Created Successfully!!",
         statusCode: 201,
@@ -256,7 +265,7 @@ export class companyService {
           400,
         );
       }
-      if (error instanceof ValidationError) {
+      if (error instanceof ValidationError || error instanceof AppError) {
         throw error;
       }
       throw new AppError(error, 500);
