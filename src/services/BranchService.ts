@@ -21,15 +21,48 @@ export class BranchService {
     throw new AppError("Maximum number of branches (99) reached", 400);
   }
 
+  /** RRA branch IDs are two digits ("00" … "99"). */
+  private static normalizeBhfId(value: string): string {
+    const bhfId = value.trim();
+    if (!/^\d{2}$/.test(bhfId)) {
+      throw new AppError(
+        "Branch ID (bhfId) must be 2 digits, e.g. 00, 01, 02 — as given by RRA.",
+        400,
+      );
+    }
+    return bhfId;
+  }
+
+  private static async assertBhfIdAvailable(
+    companyId: string,
+    bhfId: string,
+    exceptBranchId?: string,
+  ) {
+    const taken = await prisma.branch.findFirst({
+      where: { companyId, bhfId, ...(exceptBranchId ? { id: { not: exceptBranchId } } : {}) },
+      select: { name: true },
+    });
+    if (taken) {
+      throw new AppError(
+        `Branch ID ${bhfId} is already used by "${taken.name}". Choose another ID.`,
+        400,
+      );
+    }
+  }
+
   public static async createBranch(data: CreateBranchDto, companyId: string) {
     await assertCanAddBranch(companyId);
 
     // Auto-assign next sequential bhfId if not provided (01, 02, …)
-    const bhfId = data.bhfId ?? (await BranchService.getNextBhfId(companyId));
+    const bhfId = data.bhfId?.trim()
+      ? BranchService.normalizeBhfId(data.bhfId)
+      : await BranchService.getNextBhfId(companyId);
+    await BranchService.assertBhfIdAvailable(companyId, bhfId);
 
     const branch = await prisma.branch.create({
       data: {
-        ...data,
+        name: data.name,
+        location: data.location,
         bhfId,
         companyId,
       },
@@ -99,10 +132,24 @@ export class BranchService {
       throw new AppError("Branch not found", 404);
     }
 
+    let bhfId: string | undefined;
+    if (data.bhfId !== undefined && data.bhfId.trim() !== branch.bhfId) {
+      bhfId = BranchService.normalizeBhfId(data.bhfId);
+      if (branch.isEbmInitialized) {
+        throw new AppError(
+          "This branch is registered on your EBM device, so its Branch ID cannot be changed. Re-initialize the EBM device on the correct branch instead.",
+          400,
+        );
+      }
+      await BranchService.assertBhfIdAvailable(companyId, bhfId, id);
+    }
+
     const updatedBranch = await prisma.branch.update({
       where: { id },
       data: {
-        ...data,
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.location !== undefined ? { location: data.location } : {}),
+        ...(bhfId ? { bhfId } : {}),
       },
     });
 
