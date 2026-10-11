@@ -18,6 +18,8 @@ import { randomBytes } from "crypto";
 import { sendEmail, renderTemplate } from "../utils/email";
 import { hash } from "bcrypt";
 import { roles, assertAssignablePlatformRole } from "../utils/roles";
+import { SubscriptionService } from "./SubscriptionService";
+import { signPaymentToken } from "../utils/paymentToken";
 import type { Request } from "express";
 import { QueryOptions, Paginations } from "../utils/DBHelpers";
 import { RoleType } from "@prisma/client";
@@ -224,6 +226,31 @@ export class UserService extends BaseService {
         const clinicRoles = userData.clinicUserRoles.map((role) => role.role);
         const allRoles = [...systemRoles, ...clinicRoles].filter((r) => !!r);
 
+        const isPlatform = systemRoles.some(
+          (r) => r === roles.ADMIN || r === roles.DEVELOPER,
+        );
+        const companyId = userData.company?.companyId;
+        if (!isPlatform && companyId) {
+          const access = await SubscriptionService.getCompanyAccessStatus(companyId);
+          if (!access.allowed) {
+            const canPay = systemRoles.includes(roles.COMPANY_ADMIN);
+            throw new AppError(
+              canPay
+                ? "Your company has no active subscription. Pay your subscription to sign in."
+                : "Your company has no active subscription. Ask your company admin to pay the subscription.",
+              402,
+              {
+                subscriptionRequired: true,
+                canPay,
+                companyName: userData.company?.company?.name ?? null,
+                paymentToken: canPay
+                  ? signPaymentToken({ companyId, userId: userData.id })
+                  : null,
+              },
+            );
+          }
+        }
+
         const token = jwt.sign(
           {
             id: userData.id,
@@ -262,6 +289,7 @@ export class UserService extends BaseService {
       }
       throw new AppError("user account with email or password not found", 401);
     } catch (error) {
+      if (error instanceof AppError) throw error;
       throw new AppError(error, 500);
     }
   }

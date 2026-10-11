@@ -17,6 +17,7 @@ import {
 import { ItemService } from "./ItemService";
 import { companyCreatedHandler, createCompanyAdmin } from "../events/company";
 import { TEMPORARY_PASSWORD } from "../utils/generatePassword";
+import { signPaymentToken } from "../utils/paymentToken";
 import { ActivationService } from "./ActivationService";
 
 export class companyService {
@@ -251,17 +252,21 @@ export class companyService {
           },
         });
 
-        await createCompanyAdmin(tx, company, data);
+        const admin = await createCompanyAdmin(tx, company, data);
 
-        return company;
+        return { company, adminId: admin.id };
       }, { timeout: 20000 });
 
-      await companyCreatedHandler(newCompany, data, { adminCreated: true });
+      await companyCreatedHandler(newCompany.company, data, { adminCreated: true });
       return {
         message: "Company Created Successfully!!",
         statusCode: 201,
-        data: newCompany,
+        data: newCompany.company,
         temporaryPassword: TEMPORARY_PASSWORD,
+        paymentToken: signPaymentToken({
+          companyId: newCompany.company.id,
+          userId: newCompany.adminId,
+        }),
       };
     } catch (error: any) {
       if (error.code === "P2002") {

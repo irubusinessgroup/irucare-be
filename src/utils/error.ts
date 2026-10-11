@@ -1,13 +1,16 @@
 class AppError extends Error {
   public status: number;
+  /** Extra payload returned to the client alongside the message. */
+  public data?: unknown;
 
-  constructor(message: string | unknown, status: number) {
+  constructor(message: string | unknown, status: number, data?: unknown) {
     if (message instanceof Error) {
       super(message.message);
     } else {
       super(message as string);
     }
     this.status = status;
+    this.data = data;
     Object.setPrototypeOf(this, AppError.prototype);
   }
 }

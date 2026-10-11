@@ -24,6 +24,20 @@ import { roles } from "../utils/roles";
 @Route("/api/activation")
 @Tags("Activation")
 export class ActivationController {
+  /** The signed-in user's company activation progress. */
+  @Get("/me")
+  public async myStatus(@Request() req: ExpressRequest) {
+    const companyId = req.user?.company?.companyId;
+    if (!companyId) {
+      return {
+        statusCode: 200,
+        message: "No company context",
+        data: { status: null, statusLabel: null, canSetupEbm: true },
+      };
+    }
+    return ActivationService.getMyStatus(companyId);
+  }
+
   @Get("/admin")
   @Middlewares(checkRole(roles.ADMIN, roles.DEVELOPER))
   public async list(@Query() status?: string, @Query() search?: string) {

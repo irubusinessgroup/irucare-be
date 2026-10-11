@@ -42,6 +42,13 @@ const STATUS_LABELS: Record<ActivationStatus, string> = {
 
 const DEVICE_TYPES = ["MOBILE", "DESKTOP", "LAPTOP"] as const;
 
+/** Statuses where IRU has approved KYC and the client can initialize EBM. */
+const EBM_SETUP_STATUSES: ActivationStatus[] = [
+  "TRACKING_CODE_READY",
+  "ACTIVATION_SCHEDULED",
+  "ACTIVE",
+];
+
 const activationInclude = {
   company: {
     select: {
@@ -275,6 +282,43 @@ export class ActivationService {
     return {
       allowed: activation.status === "ACTIVE",
       status: activation.status,
+    };
+  }
+
+  /**
+   * Activation progress for the client's own company. EBM/MRC setup is allowed once
+   * IRU has the RRA tracking code (or the company predates activation tracking).
+   */
+  static async getMyStatus(companyId: string) {
+    const a = await prisma.companyActivation.findUnique({
+      where: { companyId },
+      include: { documents: { where: { status: "REJECTED" } } },
+    });
+    if (!a) {
+      return {
+        statusCode: 200,
+        message: "Activation",
+        data: { status: null, statusLabel: null, canSetupEbm: true },
+      };
+    }
+    return {
+      statusCode: 200,
+      message: "Activation",
+      data: {
+        status: a.status,
+        statusLabel: STATUS_LABELS[a.status],
+        canSetupEbm: EBM_SETUP_STATUSES.includes(a.status),
+        rraTrackingCode: a.rraTrackingCode,
+        activationDate: a.activationDate,
+        activationVenue: a.activationVenue,
+        reviewNotes: a.reviewNotes,
+        submittedAt: a.submittedAt,
+        rejectedDocuments: a.documents.map((d) => ({
+          type: d.type,
+          label: DOCUMENT_LABELS[d.type],
+          rejectReason: d.rejectReason,
+        })),
+      },
     };
   }
 

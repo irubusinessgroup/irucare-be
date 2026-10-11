@@ -24,6 +24,9 @@ import {
 } from "../utils/interfaces/common";
 import { checkRole } from "../middlewares";
 import { roles, isPlatformRole } from "../utils/roles";
+import { prisma } from "../utils/client";
+import AppError from "../utils/error";
+import { readPaymentToken } from "../utils/paymentToken";
 import { Server as SocketIOServer } from "socket.io";
 
 @Tags("Subscription")
@@ -84,6 +87,70 @@ export class SubscriptionController {
         requiresMinimumTerm: !hasPaid,
       },
     };
+  }
+
+  /** Registration / blocked-login payment: authenticated by `x-payment-token` only. */
+  @Get("/onboarding/status")
+  public async onboardingStatus(@Request() req: ExpressRequest): Promise<
+    IResponse<{
+      allowed: boolean;
+      requiresMinimumTerm: boolean;
+      minUsers: number;
+      minLocations: number;
+      companyName: string;
+      contact: { firstName: string; lastName: string; email: string; phoneNumber: string } | null;
+    }>
+  > {
+    const { companyId, userId } = readPaymentToken(req);
+    const [company, user, status, baseline, hasPaid] = await Promise.all([
+      prisma.company.findUnique({ where: { id: companyId }, select: { name: true } }),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, email: true, phoneNumber: true },
+      }),
+      SubscriptionService.getCompanyAccessStatus(companyId),
+      SubscriptionService.getBaselineQuotas(companyId),
+      SubscriptionService.hasPaidSubscription(companyId),
+    ]);
+    if (!company) throw new AppError("Company not found", 404);
+    return {
+      statusCode: 200,
+      message: "Onboarding subscription status",
+      data: {
+        allowed: status.allowed,
+        requiresMinimumTerm: !hasPaid,
+        minUsers: baseline.users,
+        minLocations: baseline.locations,
+        companyName: company.name,
+        contact: user,
+      },
+    };
+  }
+
+  @Post("/onboarding/subscribe")
+  public async onboardingSubscribe(
+    @Body() data: CreateSubscriptionDto,
+    @Request() req: ExpressRequest,
+  ): Promise<IResponse<TSubscription>> {
+    const { companyId } = readPaymentToken(req);
+    const io = req.app.get("io") as SocketIOServer;
+    const isRenewal = await SubscriptionService.hasPaidSubscription(companyId);
+    return SubscriptionService.createSubscription(data, companyId, io, { isRenewal });
+  }
+
+  @Get("/onboarding/{id}/payment-status")
+  public async onboardingPaymentStatus(
+    @Path() id: string,
+    @Request() req: ExpressRequest,
+  ): Promise<
+    IResponse<{
+      paymentStatus: string;
+      subscriptionActive: boolean;
+      subscription: TSubscription | null;
+    }>
+  > {
+    const { companyId } = readPaymentToken(req);
+    return SubscriptionService.syncSubscriptionPaymentStatus(id, companyId);
   }
 
   @Security("jwt")

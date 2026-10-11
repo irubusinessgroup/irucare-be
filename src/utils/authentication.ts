@@ -106,7 +106,15 @@ export const expressAuthentication = (
 
         const decoded = (await verifyToken(token)) as
           | string
-          | { email: string; id?: string };
+          | { email?: string; id?: string; scope?: string };
+
+        if (
+          typeof decoded !== "string" &&
+          (decoded.scope || (!decoded.email && !decoded.id))
+        ) {
+          reject(new AppError("Not Authorized", 403));
+          return;
+        }
 
         let user = null as any;
 
@@ -138,7 +146,7 @@ export const expressAuthentication = (
           });
         } else {
           user = await prisma.user.findFirst({
-            where: { email: decoded.email },
+            where: decoded.email ? { email: decoded.email } : { id: decoded.id },
             include: {
               userRoles: true,
               clinicUserRoles: true,
