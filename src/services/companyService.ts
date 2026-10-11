@@ -7,7 +7,13 @@ import { QueryOptions, Paginations } from "../utils/DBHelpers";
 import { prisma } from "../utils/client";
 import AppError, { ValidationError } from "../utils/error";
 import { CreateCompanyDto, IResponse } from "../utils/interfaces/common";
-import { roles } from "../utils/roles";
+import { isPlatformRole, roles } from "../utils/roles";
+import {
+  buildCascadePlan,
+  delegateName,
+  executeCascadePlan,
+  relationEdges,
+} from "../utils/cascadeDelete";
 import { ItemService } from "./ItemService";
 import { companyCreatedHandler, createCompanyAdmin } from "../events/company";
 import { TEMPORARY_PASSWORD } from "../utils/generatePassword";
@@ -336,27 +342,81 @@ export class companyService {
   }
 
   public static async deleteCompanyWithRelations(id: string) {
+    const company = await prisma.company.findUnique({ where: { id } });
+    if (!company) throw new AppError("Company not found", 404);
+
+    const members = await prisma.companyUser.findMany({
+      where: { companyId: id },
+      select: { userId: true },
+    });
+
     try {
-      // Delete related data first (e.g., CompanyUser, etc.)
-      await prisma.companyUser.deleteMany({
-        where: { companyId: id },
+      const plan = buildCascadePlan("Company", id, { followOptional: ["Approvals"] });
+      await prisma.$transaction((tx) => executeCascadePlan(tx, plan), {
+        maxWait: 10_000,
+        timeout: 120_000,
       });
-
-      // Delete the company itself
-      const deletedCompany = await prisma.company.delete({
-        where: { id },
-      });
-
-      Emitter.emit(EventType.COMPANY_DELETED, deletedCompany);
-
-      return {
-        message: "Company and related data deleted successfully",
-        statusCode: 200,
-        data: deletedCompany,
-      };
-    } catch (error) {
-      throw new AppError(error, 500);
+    } catch (error: any) {
+      console.error(`Failed to delete company ${id}:`, error);
+      throw new AppError(
+        `Could not delete company: ${error?.meta?.field_name || error?.message || "unknown error"}`,
+        500,
+      );
     }
+
+    const keptUsers = await this.deleteOrphanedCompanyUsers(
+      members.map((m) => m.userId),
+    );
+
+    Emitter.emit(EventType.COMPANY_DELETED, company);
+
+    return {
+      message:
+        keptUsers > 0
+          ? `Company deleted. ${keptUsers} user account(s) were kept because they are still referenced elsewhere.`
+          : "Company and related data deleted successfully",
+      statusCode: 200,
+      data: company,
+    };
+  }
+
+  /**
+   * Removes accounts that belonged only to the deleted company. Platform users and
+   * users still linked to another company are kept. Returns how many could not be removed.
+   */
+  private static async deleteOrphanedCompanyUsers(userIds: string[]) {
+    const optionalUserRefs = relationEdges().filter(
+      (e) => e.parent === "User" && !e.required,
+    );
+    let kept = 0;
+
+    for (const userId of [...new Set(userIds)]) {
+      const [userRoles, otherMemberships] = await Promise.all([
+        prisma.userRole.findMany({ where: { userId }, select: { name: true } }),
+        prisma.companyUser.count({ where: { userId } }),
+      ]);
+      const roleNames = userRoles.map((r) => r.name as string);
+      if (otherMemberships > 0 || isPlatformRole(roleNames)) continue;
+
+      try {
+        await prisma.$transaction(async (tx) => {
+          const client = tx as any;
+          for (const e of optionalUserRefs) {
+            await client[delegateName(e.child)].updateMany({
+              where: { [e.fkFields[0]]: userId },
+              data: Object.fromEntries(e.fkFields.map((fk) => [fk, null])),
+            });
+          }
+          await tx.userRole.deleteMany({ where: { userId } });
+          await tx.clinicUserRole.deleteMany({ where: { userId } });
+          await tx.user.deleteMany({ where: { id: userId } });
+        });
+      } catch (error) {
+        kept += 1;
+        console.warn(`Kept user ${userId} after company delete:`, error);
+      }
+    }
+    return kept;
   }
 
   /**
